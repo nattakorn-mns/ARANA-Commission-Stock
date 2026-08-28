@@ -90,48 +90,31 @@ function scRenderStockCard(body) {
   setTimeout(() => scRenderTable(), 100);
 }
 
-function scRenderTable() {
+async function scRenderTable() {
   const search = document.getElementById('sc-search')?.value.toLowerCase() || '';
   const dateFrom = document.getElementById('sc-from')?.value || '';
   const dateTo = document.getElementById('sc-to')?.value || '';
   const type = document.getElementById('sc-type')?.value || '';
   const canSeeBalance = currentUser.role !== 'Frontdesk';
 
-  let logs = DB.getStockLogs({ branch: currentBranch });
+  const wrap = document.getElementById('sc-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = `<div class="loading-placeholder"><div class="spinner"></div></div>`;
+
+  let allLogs = await DB.getStockMovementSupabase(currentBranch);
+  let logs = allLogs;
   if (dateFrom) logs = logs.filter(l => l.date >= dateFrom);
   if (dateTo) logs = logs.filter(l => l.date <= dateTo);
   if (type) logs = logs.filter(l => l.type === type);
   if (search) logs = logs.filter(l => l.productCode?.toLowerCase().includes(search) || l.productName?.toLowerCase().includes(search));
 
-  // Calculate running balance
-  const allLogs = DB.getStockLogs({ branch: currentBranch });
+  // Calculate running balance (ยอดสะสมจากประวัติทั้งหมด ไม่กรองวันที่)
   const balMap = {};
   [...allLogs].reverse().forEach(l => {
     if (!balMap[l.productCode]) balMap[l.productCode] = 0;
     if (l.direction === 'IN') balMap[l.productCode] += (l.qty || 0);
     else if (l.direction === 'OUT') balMap[l.productCode] -= (l.qty || 0);
   });
-
-  // Inject zero-movement products if searching
-  const allProducts = DB.getProducts();
-  allProducts.forEach(p => {
-    if (search && !(p.code.toLowerCase().includes(search) || p.name.toLowerCase().includes(search))) return;
-    if (!dateFrom && !dateTo && !type) { // Only inject if no date/type filters
-      const hasLogs = logs.some(l => l.productCode === p.code);
-      if (!hasLogs) {
-        logs.push({
-          date: '', type: 'INFO', productCode: p.code, productName: p.name,
-          qty: 0, direction: 'NONE', auditStatus: 'ไม่มีการเคลื่อนไหว', createdBy: 'system'
-        });
-      }
-    }
-  });
-
-  // Sort logs back by date descending
-  logs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-
-  const wrap = document.getElementById('sc-table-wrap');
-  if (!wrap) return;
 
   if (!logs.length) {
     wrap.innerHTML = `<div class="empty-state"><i data-lucide="database"></i><h4>ไม่มีรายการ</h4><p>ลองเปลี่ยนตัวกรอง</p></div>`;
@@ -155,19 +138,6 @@ function scRenderTable() {
     </thead>
     <tbody>
       ${logs.map(l => {
-        if (l.direction === 'NONE') {
-          return `<tr>
-            <td class="nowrap">-</td>
-            <td><span class="badge badge-pending">เริ่มต้น</span></td>
-            <td><code style="font-size:0.75rem;background:var(--gray-100);padding:2px 5px;border-radius:4px;">${l.productCode||'-'}</code></td>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.productName||''}">${l.productName||'-'}</td>
-            <td class="num stock-in">-</td>
-            <td class="num stock-out">-</td>
-            ${canSeeBalance ? `<td class="num stock-bal zero">0</td>` : ''}
-            <td><span class="badge" style="background:var(--gray-100);color:var(--gray-500);">${l.auditStatus}</span></td>
-            <td style="font-size:0.78rem;">-</td>
-          </tr>`;
-        }
         const isIn = l.direction === 'IN';
         const bal = balMap[l.productCode] || 0;
         return `<tr>
@@ -179,7 +149,7 @@ function scRenderTable() {
           <td class="num stock-out">${!isIn ? l.qty : '-'}</td>
           ${canSeeBalance ? `<td class="num stock-bal ${bal<=0?'zero':bal<=5?'low':''}">${bal}</td>` : ''}
           <td>${statusBadge(l.auditStatus||'รอตรวจสอบ')}</td>
-          <td style="font-size:0.78rem;">${getUserName(l.createdBy)}</td>
+          <td style="font-size:0.78rem;">${l.createdByName||'-'}</td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -187,10 +157,10 @@ function scRenderTable() {
   lucide.createIcons();
 }
 
-function scExportCSV() {
-  const logs = DB.getStockLogs({ branch: currentBranch });
+async function scExportCSV() {
+  const logs = await DB.getStockMovementSupabase(currentBranch);
   const rows = [['วันที่','ประเภท','รหัส','รายการ','รับเข้า','เบิกออก','สถานะ','ผู้บันทึก']];
-  logs.forEach(l => rows.push([l.date,l.type,l.productCode,l.productName,l.direction==='IN'?l.qty:'',l.direction!=='IN'?l.qty:'',l.auditStatus,getUserName(l.createdBy)]));
+  logs.forEach(l => rows.push([l.date,l.type,l.productCode,l.productName,l.direction==='IN'?l.qty:'',l.direction!=='IN'?l.qty:'',l.auditStatus,l.createdByName]));
   const csv = rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
@@ -365,6 +335,7 @@ function scRenderBalance(body) {
         <option value="พิษณุโลก">พิษณุโลก</option>
         <option value="กำแพงเพชร">กำแพงเพชร</option>
         <option value="แม่สอด">แม่สอด</option>
+        <option value="นครสวรรค์">นครสวรรค์</option>
       </select>
     </div>
   </div>
@@ -380,22 +351,31 @@ function scRenderBalance(body) {
   setTimeout(() => balRender(), 100);
 }
 
-function balRender() {
+async function balRender() {
   const search = document.getElementById('bal-search')?.value.toLowerCase() || '';
   const cat = document.getElementById('bal-cat')?.value || '';
   const branch = document.getElementById('bal-branch')?.value || 'ALL';
   const wrap = document.getElementById('bal-table-wrap');
   if (!wrap) return;
+  wrap.innerHTML = `<div class="loading-placeholder"><div class="spinner"></div></div>`;
 
   const isAll = branch === 'ALL';
-  const balMap = !isAll ? DB.getStockBalance(branch) : null;
-  const balPL = isAll ? DB.getStockBalance('พิษณุโลก') : null;
-  const balKP = isAll ? DB.getStockBalance('กำแพงเพชร') : null;
-  const balMS = isAll ? DB.getStockBalance('แม่สอด') : null;
+  const allBalances = await DB.getAllBranchBalancesSupabase();
 
-  let products = DB.getProducts();
+  // จัดกลุ่มข้อมูลตามสินค้า
+  const productMap = {};
+  allBalances.forEach(r => {
+    if (!productMap[r.product_code]) {
+      productMap[r.product_code] = { code: r.product_code, name: r.product_name, category: r.category, unit: r.unit, byBranch: {} };
+    }
+    productMap[r.product_code].byBranch[r.branch_name] = r.qty_on_hand;
+  });
+  let products = Object.values(productMap);
+
   if (cat) products = products.filter(p => p.category === cat);
   if (search) products = products.filter(p => p.code?.toLowerCase().includes(search) || p.name?.toLowerCase().includes(search));
+
+  const branchList = ['พิษณุโลก','กำแพงเพชร','แม่สอด','นครสวรรค์'];
 
   wrap.innerHTML = `
   <table>
@@ -405,12 +385,7 @@ function balRender() {
         <th>รายการ</th>
         <th>หมวดหมู่</th>
         <th>หน่วย</th>
-        ${isAll ? `
-        <th class="num" style="background:var(--burgundy-50);color:var(--burgundy-800);">พิษณุโลก</th>
-        <th class="num" style="background:var(--blue-50);color:var(--blue-800);">กำแพงเพชร</th>
-        <th class="num" style="background:var(--green-50);color:var(--green-800);">แม่สอด</th>
-        <th class="num">รวมทั้งหมด</th>
-        ` : `
+        ${isAll ? branchList.map(b => `<th class="num">${b}</th>`).join('') + '<th class="num">รวมทั้งหมด</th>' : `
         <th class="num">คงเหลือ</th>
         <th>สถานะ</th>
         `}
@@ -419,22 +394,18 @@ function balRender() {
     <tbody>
       ${products.map(p => {
         if (isAll) {
-          const pl = balPL[p.code] || 0;
-          const kp = balKP[p.code] || 0;
-          const ms = balMS[p.code] || 0;
-          const total = pl + kp + ms;
+          const vals = branchList.map(b => p.byBranch[b] || 0);
+          const total = vals.reduce((a,b) => a+b, 0);
           return `<tr>
             <td><code style="font-size:0.75rem;background:rgba(0,0,0,0.06);padding:2px 6px;border-radius:4px;">${p.code}</code></td>
             <td style="font-weight:600;">${p.name}</td>
             <td>${p.category||'-'}</td>
             <td>${p.unit||'-'}</td>
-            <td class="num ${pl<=0?'text-red-500':''}">${pl}</td>
-            <td class="num ${kp<=0?'text-red-500':''}">${kp}</td>
-            <td class="num ${ms<=0?'text-red-500':''}">${ms}</td>
+            ${vals.map(v => `<td class="num ${v<=0?'text-red-500':''}">${v}</td>`).join('')}
             <td class="num" style="font-weight:700;">${total}</td>
           </tr>`;
         } else {
-          const bal = balMap[p.code] || 0;
+          const bal = p.byBranch[branch] || 0;
           const isLow = bal > 0 && bal <= 10;
           const isZero = bal <= 0;
           return `<tr style="${isZero?'background:var(--red-50);':isLow?'background:var(--amber-50);':''}">
@@ -449,34 +420,30 @@ function balRender() {
       }).join('')}
     </tbody>
   </table>`;
+  window._balProductsCache = products;
   lucide.createIcons();
 }
 
 function balExport() {
   const branch = document.getElementById('bal-branch')?.value || 'ALL';
   const isAll = branch === 'ALL';
-  const balMap = !isAll ? DB.getStockBalance(branch) : null;
-  const balPL = isAll ? DB.getStockBalance('พิษณุโลก') : null;
-  const balKP = isAll ? DB.getStockBalance('กำแพงเพชร') : null;
-  const balMS = isAll ? DB.getStockBalance('แม่สอด') : null;
-
-  const products = DB.getProducts();
+  const branchList = ['พิษณุโลก','กำแพงเพชร','แม่สอด','นครสวรรค์'];
+  const products = window._balProductsCache || [];
   let rows = [];
 
   if (isAll) {
-    rows = [['รหัส','รายการ','หมวดหมู่','หน่วย','พิษณุโลก','กำแพงเพชร','แม่สอด','รวมทั้งหมด']];
+    rows.push(['รหัส','รายการ','หมวดหมู่','หน่วย', ...branchList, 'รวมทั้งหมด']);
     products.forEach(p => {
-      const pl = balPL[p.code]||0;
-      const kp = balKP[p.code]||0;
-      const ms = balMS[p.code]||0;
-      rows.push([p.code, p.name, p.category||'', p.unit||'', pl, kp, ms, pl+kp+ms]);
+      const vals = branchList.map(b => p.byBranch[b] || 0);
+      const total = vals.reduce((a,b) => a+b, 0);
+      rows.push([p.code, p.name, p.category, p.unit, ...vals, total]);
     });
   } else {
-    rows = [['รหัส','รายการ','หมวดหมู่','หน่วย','คงเหลือ']];
-    products.forEach(p => rows.push([p.code, p.name, p.category||'', p.unit||'', balMap[p.code]||0]));
+    rows.push(['รหัส','รายการ','หมวดหมู่','หน่วย','คงเหลือ']);
+    products.forEach(p => rows.push([p.code, p.name, p.category, p.unit, p.byBranch[branch] || 0]));
   }
 
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv = rows.map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
   a.download = `stock_balance_${branch}_${todayISO()}.csv`;
