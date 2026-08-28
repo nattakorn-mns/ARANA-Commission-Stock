@@ -213,6 +213,23 @@ const DB = {
     const { error } = await sb.rpc('audit_stock_log', { p_log_id: logId, p_status: status, p_audit_by: auditBy, p_note: note || null });
     if (error) throw error;
   },
+
+  // ── Stock Card ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────
+  async getStockMovementSupabase(branchName) {
+    const { data, error } = await sb.rpc('get_stock_movement', { p_branch_name: branchName });
+    if (error) { console.error('getStockMovementSupabase error:', error); return []; }
+    return (data || []).map(r => ({
+      date: r.log_date, type: r.move_type, direction: r.direction,
+      productCode: r.product_code, productName: r.product_name, unit: r.unit,
+      qty: r.qty, auditStatus: r.audit_status, createdByName: r.created_by_name
+    }));
+  },
+
+  async getAllBranchBalancesSupabase() {
+    const { data, error } = await sb.rpc('get_all_branch_balances');
+    if (error) { console.error('getAllBranchBalancesSupabase error:', error); return []; }
+    return data || [];
+  },
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
