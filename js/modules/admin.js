@@ -179,7 +179,9 @@ async function admRenderUsers(body) {
         <label class="form-label">สิทธิ์</label>
         <select id="nu-role" class="form-select">
           <option value="Frontdesk">Frontdesk</option>
-          <option value="Audit">Audit</option>
+          <option value="Audit">Audit (เห็นทั้งสองคิว)</option>
+          <option value="CommissionAudit">ผู้ตรวจค่ามือ/คอมมิชชั่น</option>
+          <option value="StockAudit">ผู้ตรวจตัดสต๊อก</option>
           <option value="Admin">Admin</option>
         </select>
       </div>
@@ -360,7 +362,7 @@ function admRenderImport(body) {
       <div style="background:var(--gray-50);padding:12px;border-radius:var(--radius-md);font-size:0.75rem;color:var(--gray-600);margin-bottom:16px;line-height:1.4;">
         <strong>รูปแบบคอลัมน์ใน CSV (พนักงาน):</strong><br>
         <code>username, password, name, nickname, role, branch, position</code><br>
-        role ต้องเป็น Frontdesk / Audit / Admin เท่านั้น<br>
+        role ต้องเป็น Frontdesk / Audit / CommissionAudit / StockAudit / Admin<br>
         branch ต้องเป็นชื่อสาขาที่มีอยู่แล้วในระบบ
       </div>
 
