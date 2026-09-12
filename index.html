@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARANA CLINIC — ระบบจัดการหลังบ้าน</title>
+  <meta name="description" content="ระบบจัดการค่ามือ ค่าคอมมิชชั่น และคลังสินค้า สำหรับ ARANA CLINIC" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css?v=4" />
+  <link rel="stylesheet" href="css/mobile-enhancements.css?v=1" />
+</head>
+<body>
+
+  <!-- ============================================================
+       LOGIN SCREEN
+  ============================================================ -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-bg">
+      <div class="login-orb orb-1"></div>
+      <div class="login-orb orb-2"></div>
+      <div class="login-orb orb-3"></div>
+    </div>
+    <div class="login-card glass-card">
+      <div class="login-logo">
+        <div class="logo-text-wrap">
+          <span class="logo-arana">ARANA</span>
+          <div class="logo-line"></div>
+          <span class="logo-clinic">CLINIC</span>
+        </div>
+        <p class="login-subtitle">ระบบจัดการหลังบ้าน</p>
+      </div>
+
+      <form id="login-form" class="login-form" onsubmit="return false;">
+        <div class="form-group">
+          <label class="form-label">ชื่อผู้ใช้</label>
+          <div class="input-wrap">
+            <i data-lucide="user" class="input-icon"></i>
+            <input id="login-username" type="text" class="form-input" placeholder="กรอกชื่อผู้ใช้" autocomplete="username" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">รหัสผ่าน</label>
+          <div class="input-wrap">
+            <i data-lucide="lock" class="input-icon"></i>
+            <input id="login-password" type="password" class="form-input" placeholder="กรอกรหัสผ่าน" autocomplete="current-password" />
+            <button type="button" class="input-toggle" onclick="togglePassword()" tabindex="-1">
+              <i data-lucide="eye" id="eye-icon"></i>
+            </button>
+          </div>
+        </div>
+        <div id="login-error" class="login-error hidden">
+          <i data-lucide="alert-circle"></i>
+          <span id="login-error-msg">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+        </div>
+        <button id="login-btn" type="submit" class="btn btn-primary btn-full" onclick="login()">
+          <span>เข้าสู่ระบบ</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MAIN APP SHELL
+  ============================================================ -->
+  <div id="app-shell" class="app-shell hidden">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-arana">ARANA</span>
+          <span class="sidebar-logo-clinic">CLINIC</span>
+        </div>
+        <button id="sidebar-toggle" class="sidebar-toggle" onclick="toggleSidebar()">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">ก</div>
+        <div class="user-info">
+          <p class="user-name" id="user-name">ชื่อผู้ใช้</p>
+          <p class="user-role" id="user-role-badge">Frontdesk</p>
+        </div>
+      </div>
+
+      <div class="sidebar-branch">
+        <i data-lucide="map-pin"></i>
+        <select id="branch-select" class="branch-select" onchange="changeBranch(this.value)">
+          <option value="พิษณุโลก">สาขา พิษณุโลก</option>
+          <option value="กำแพงเพชร">สาขา กำแพงเพชร</option>
+          <option value="แม่สอด">สาขา แม่สอด</option>
+        </select>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebar-nav">
+        <!-- Injected by app.js -->
+      </nav>
+
+      <div class="sidebar-footer" style="display:flex; flex-direction:column; gap:4px;">
+        <button class="sidebar-item" onclick="openChangePasswordModal()" style="justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
+          <i data-lucide="key-round"></i>
+          <span>เปลี่ยนรหัสผ่าน</span>
+        </button>
+        <button class="sidebar-item" onclick="if(confirm('ระบบจะรีเซ็ตข้อมูลทั้งหมดและใส่ข้อมูลตัวอย่าง ยืนยันหรือไม่?')){DB.reset(); location.reload();}" style="color:var(--amber-600); font-weight:600; justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
+          <i data-lucide="database"></i>
+          <span>สร้างข้อมูลตัวอย่าง</span>
+        </button>
+        <button class="sidebar-logout" onclick="logout()">
+          <i data-lucide="log-out"></i>
+          <span>ออกจากระบบ</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <button class="topbar-menu-btn" onclick="toggleSidebar()">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-title" id="page-title">หน้าหลัก</div>
+        <div class="topbar-right">
+          <div class="topbar-branch-pill" id="topbar-branch">
+            <i data-lucide="map-pin"></i>
+            <span id="topbar-branch-name">พิษณุโลก</span>
+          </div>
+          <div class="topbar-datetime" id="topbar-datetime"></div>
+        </div>
+      </header>
+
+      <!-- PAGE CONTENT -->
+      <div class="page-content">
+        <div id="apsx-page-header"></div>
+        <div id="page-content"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- MODAL CONTAINER -->
+  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModal(event)">
+    <div class="modal-wrap" id="modal-wrap">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/db.js?v=3"></script>
+  <script src="js/modules/opd.js?v=3"></script>
+  <script src="js/modules/deposits.js?v=1"></script>
+  <script src="js/modules/history.js?v=2"></script>
+  <script src="js/modules/inventory.js?v=2"></script>
+  <script src="js/modules/stockcard.js?v=2"></script>
+  <script src="js/modules/audit.js?v=3"></script>
+  <script src="js/modules/reports.js?v=2"></script>
+  <script src="js/modules/admin.js?v=3"></script>
+  <script src="js/modules/admin_dashboard.js"></script>
+  <script src="js/app.js?v=3"></script>
+</body>
+</html>
+
