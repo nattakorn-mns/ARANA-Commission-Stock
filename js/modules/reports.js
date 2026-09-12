@@ -4,12 +4,16 @@
  */
 
 let reportChart = null;
+let reportRows = [];
+let reportRequest = 0;
+let reportLoading = false;
+const rptEscape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function renderReports(container) {
-  const users = DB.getUsers().filter(u => u.role === 'Frontdesk');
-  const isAdmin = currentUser.role !== 'Frontdesk';
-  const from = new Date(); from.setDate(1);
-  const fromStr = from.toISOString().slice(0, 10);
+  const users = [];
+  reportRows = [];
+  const isAdmin = ['Admin','Audit','CommissionAudit'].includes(currentUser.role);
+  const fromStr = todayISO().slice(0, 7) + '-01';
 
   container.innerHTML = `
   <div>
@@ -28,11 +32,11 @@ function renderReports(container) {
       </div>` : ''}
       <div class="filter-group">
         <label class="filter-label">จากวันที่</label>
-        <input type="date" class="filter-input" id="rpt-from" value="${fromStr}" onchange="rptRender()" style="min-width:130px;" />
+        <input type="date" class="filter-input" id="rpt-from" value="${fromStr}" onchange="rptLoad()" style="min-width:130px;" />
       </div>
       <div class="filter-group">
         <label class="filter-label">ถึงวันที่</label>
-        <input type="date" class="filter-input" id="rpt-to" value="${todayISO()}" onchange="rptRender()" style="min-width:130px;" />
+        <input type="date" class="filter-input" id="rpt-to" value="${todayISO()}" onchange="rptLoad()" style="min-width:130px;" />
       </div>
       <div class="filter-group">
         <label class="filter-label">ประเภท</label>
@@ -93,7 +97,41 @@ function renderReports(container) {
   </div>`;
 
   lucide.createIcons();
-  setTimeout(() => rptRender(), 100);
+  rptLoad();
+}
+
+async function rptLoad() {
+  const request = ++reportRequest;
+  reportRows = [];
+  reportLoading = false;
+  rptRender();
+  reportLoading = true;
+  const wrap = document.getElementById('rpt-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading-placeholder">กำลังโหลดรายงานที่อนุมัติแล้ว...</div>';
+  try {
+    const rows = await DB._appRpc('get_approved_reports', {
+      from: document.getElementById('rpt-from').value,
+      to: document.getElementById('rpt-to').value
+    });
+    if (request !== reportRequest || !wrap.isConnected) return;
+    reportRows = rows || [];
+    const select = document.getElementById('rpt-user');
+    if (select) {
+      const selected = select.value;
+      const users = new Map(reportRows.map(r => [r.employeeId, r.employeeName]));
+      select.innerHTML = '<option value="">ทุกคน</option>' + [...users].map(([id,name]) =>
+        '<option value="' + rptEscape(id) + '">' + rptEscape(name) + '</option>').join('');
+      if (users.has(selected)) select.value = selected;
+    }
+    reportLoading = false;
+    rptRender();
+  } catch (error) {
+    if (request !== reportRequest || !wrap.isConnected) return;
+    reportLoading = false;
+    wrap.innerHTML = '<div class="empty-state">โหลดรายงานไม่สำเร็จ กรุณาลองใหม่หรือล็อกอินใหม่ <button class="btn btn-primary" onclick="rptLoad()">ลองอีกครั้ง</button></div>';
+    console.error('Report load failed:', error);
+  }
 }
 
 function rptGetRows() {
@@ -107,13 +145,13 @@ function rptGetRows() {
 
   const role = currentUser.role;
   const uid = userId || (role === 'Frontdesk' ? currentUser.id : '');
-  let rows = DB.getReports(uid || currentUser.id, role, from, to);
+  let rows = reportRows.filter(r => (!from || r.date >= from) && (!to || r.date <= to));
   if (branch) rows = rows.filter(r => r.branch === branch);
   if (userId) rows = rows.filter(r => r.employeeId === userId);
   if (cat) rows = rows.filter(r => r.category === cat);
   if (pct) rows = rows.filter(r => r.commissionPct == pct);
   if (search) {
-    rows = rows.filter(r => 
+    rows = rows.filter(r =>
       (r.customerName || '').toLowerCase().includes(search) ||
       (r.oldProgram || '').toLowerCase().includes(search) ||
       (r.newProgram || '').toLowerCase().includes(search)
@@ -123,6 +161,7 @@ function rptGetRows() {
 }
 
 function rptRender() {
+  if (reportLoading) return;
   const rows = rptGetRows();
   const active = rows.filter(r => !r.is_superseded);
 
@@ -200,12 +239,12 @@ function rptRender() {
       ${rows.map(r => `
       <tr class="${r.is_superseded?'superseded':''}">
         <td class="nowrap">${formatDate(r.date)}</td>
-        <td>${r.branch||'-'}</td>
-        <td style="font-size:0.8rem;">${getUserName(r.employeeId)}</td>
-        <td style="font-weight:600;">${r.customerName||'-'}</td>
+        <td>${rptEscape(r.branch||'-')}</td>
+        <td style="font-size:0.8rem;">${rptEscape(r.employeeName || '-')}</td>
+        <td style="font-weight:600;">${rptEscape(r.customerName||'-')}</td>
         <td>${r.category==='service'?'<span class="badge badge-service">ค่ามือ</span>':typeBadge(r.saleType)}</td>
-        <td style="font-size:0.78rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.oldProgram||''}">${r.oldProgram?`<span title="${r.oldProgram}">${r.oldProgram.slice(0,20)}${r.oldProgram.length>20?'...':''}</span>`:'-'}</td>
-        <td style="font-weight:600;min-width:150px;white-space:normal;" title="${r.newProgram||''}">${r.newProgram||'-'}</td>
+        <td style="font-size:0.78rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${rptEscape(r.oldProgram||'')}">${r.oldProgram?`<span title="${rptEscape(r.oldProgram)}">${rptEscape(r.oldProgram.slice(0,20))}${r.oldProgram.length>20?'...':''}</span>`:'-'}</td>
+        <td style="font-weight:600;min-width:150px;white-space:normal;" title="${rptEscape(r.newProgram||'')}">${rptEscape(r.newProgram||'-')}</td>
         <td class="num">${r.amountPaid?'฿'+formatCurrency(r.amountPaid):'-'}</td>
         <td class="num">${r.commissionBase?'฿'+formatCurrency(r.commissionBase):'-'}</td>
         <td class="num">${r.commissionPct?r.commissionPct+'%':'-'}</td>
@@ -255,12 +294,13 @@ function rptDrawChart(rows) {
 }
 
 function rptExport() {
+  if (reportLoading) return;
   const rows = rptGetRows();
   const headers = ['วันที่','สาขา','พนักงาน','ลูกค้า','ประเภท','รายการ','ยอดจ่าย','ฐานคิด','%','ค่ามือ','ค่าคอมมิชชั่น'];
   const data = rows.map(r => [
-    r.date, r.branch, getUserName(r.employeeId), r.customerName, r.category, r.newProgram||'', 
-    r.amountPaid||0, r.commissionBase||0, r.commissionPct||0, 
-    r.category==='service'?(r.commissionAmt||0):0, 
+    r.date, r.branch, r.employeeName, r.customerName, r.category, r.newProgram||'',
+    r.amountPaid||0, r.commissionBase||0, r.commissionPct||0,
+    r.category==='service'?(r.commissionAmt||0):0,
     r.category==='commission'?(r.commissionAmt||0):0
   ]);
   const csv = [headers, ...data].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
