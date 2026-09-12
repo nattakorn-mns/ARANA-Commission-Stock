@@ -7,13 +7,14 @@ function renderAudit(container) {
   auditTab = canCommission ? 'commission' : 'stock'; auditPage = 1;
   container.innerHTML = `<div><div class="tab-bar">
     ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
+    ${canCommission ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
     ${canStock ? `<button class="tab-btn ${auditTab==='stock'?'active':''}" id="aud-tab-stock" onclick="audSwitch('stock')"><i data-lucide="package-check"></i>อนุมัติตัดสต๊อก</button>` : ''}
     ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิก APSX</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
   </div><div id="aud-body"></div></div>`;
   audRender(); lucide.createIcons();
 }
 function audSwitch(tab) {
-  if (tab === 'commission' && !audCanAccessCommission()) return;
+  if ((tab === 'commission' || tab === 'deposits') && !audCanAccessCommission()) return;
   if (tab === 'stock' && !audCanAccessStock()) return;
   auditTab = tab; auditPage = 1;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -22,6 +23,7 @@ function audSwitch(tab) {
 function audRender() {
   const body = document.getElementById('aud-body'); if (!body) return;
   if (auditTab === 'commission') audRenderOPD(body);
+  else if (auditTab === 'deposits') audRenderDeposits(body);
   else if (auditTab === 'stock') audRenderStock(body);
   else if (auditTab === 'compare') audRenderCompare(body); else audRenderLog(body);
 }
@@ -204,6 +206,7 @@ async function audOpenBill(billId) {
               <span>ราคา ฿${formatCurrency(s.price)}</span>
               <span style="font-weight:700;color:var(--burgundy-700);">ค่ามือ ฿${formatCurrency(s.commission)}</span>
             </div>
+            <div style="font-size:0.75rem;color:var(--gray-500);margin-top:4px;">ผู้บันทึก/ผู้รับสิทธิ์: ${s.created_by_name||bill.created_by_name||'-'}</div>
           </div>`).join('')}` : ''}
 
           ${sales.length ? `
@@ -221,6 +224,7 @@ async function audOpenBill(billId) {
               <span>ยอดชำระ: ฿${formatCurrency(s.amount_paid)}</span>
               <span style="font-weight:700;color:var(--burgundy-700);">คอม: ฿${formatCurrency(s.commission_amt)}</span>
             </div>
+            <div style="font-size:0.75rem;color:var(--gray-500);">ผู้บันทึก/ผู้รับสิทธิ์: ${s.created_by_name||bill.created_by_name||'-'}</div>
           </div>`).join('')}` : ''}
 
 
@@ -481,6 +485,67 @@ function audDoRejectEdit(reqId, billId) {
   closeModalDirect();
   Toast.show('ปฏิเสธคำขอแก้ไขแล้ว', 'warning');
   audRender();
+}
+
+// ── TAB: Deposit payment verification ─────────────────────
+async function audRenderDeposits(body) {
+  body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดยอดมัดจำ...</div>`;
+  const rows = await DB.getPendingDepositsSupabase();
+  body.innerHTML = `
+  <div class="glass-card" style="margin-bottom:12px;padding:14px 16px;">
+    <span style="font-size:0.84rem;color:var(--gray-600);">รอตรวจว่าเงินเข้าจริง</span>
+    <span class="badge badge-pending" style="margin-left:8px;">${rows.length} รายการ</span>
+  </div>
+  <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+    <thead><tr><th>วันที่</th><th>สาขา</th><th>ลูกค้า</th><th>โปรแกรม</th><th class="num">ยอดมัดจำ</th><th class="num">ค่าคอม</th><th>ผู้ปิดยอด</th><th>หลักฐาน</th><th>จัดการ</th></tr></thead>
+    <tbody>${rows.length ? rows.map(r => `<tr id="dep-audit-row-${r.id}">
+      <td>${formatDate(r.deposit_date)}</td><td>${r.branch_name||'-'}</td><td><strong>${r.customer_name||'-'}</strong><br><small>${r.customer_phone||''}</small></td>
+      <td>${r.program_name||'-'}</td><td class="num">฿${formatCurrency(r.deposit_amount||0)}</td><td class="num">฿${formatCurrency(r.commission_amt||0)}</td>
+      <td>${r.created_by_name||'-'}</td><td><button class="btn btn-ghost btn-sm" onclick="audOpenDeposit('${r.id}')">ดูหลักฐาน</button></td>
+      <td><button class="btn btn-success btn-sm" onclick="audDepositAction('${r.id}','ยืนยันแล้ว')">ยืนยันเงินเข้า</button> <button class="btn btn-danger btn-sm" onclick="audRejectDeposit('${r.id}')">ตีกลับ</button></td>
+    </tr>`).join('') : `<tr><td colspan="9"><div class="empty-state" style="padding:24px;"><i data-lucide="check-circle"></i><h4>ไม่มียอดมัดจำรอตรวจ</h4></div></td></tr>`}</tbody>
+  </table></div></div>`;
+  lucide.createIcons();
+}
+
+async function audOpenDeposit(depositId) {
+  try {
+    const detail = await DB.getDepositDetailSupabase(depositId);
+    const d = detail?.deposit, images = detail?.images || [];
+    if (!d) { Toast.show('ไม่พบข้อมูลยอดมัดจำ', 'error'); return; }
+    openModal(`<div class="modal" style="width:1100px;max-width:96vw;">
+      <div class="modal-header"><h3 class="modal-title"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ — ${d.customer_name}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div>
+      <div class="modal-body" style="display:flex;flex-wrap:wrap;gap:16px;">
+        <div style="background:#111;padding:8px;max-height:62vh;overflow:auto;flex:1 1 300px;">${images.length ? images.map(im=>`<img src="${im.file_url}" alt="หลักฐาน" style="width:100%;margin-bottom:10px;" />`).join('') : '<p style="color:white;padding:20px;">ไม่มีหลักฐาน</p>'}</div>
+        <div style="flex:1 1 320px;"><p><strong>วันที่:</strong> ${formatDate(d.deposit_date)} &nbsp; <strong>สาขา:</strong> ${d.branch_name||'-'}</p>
+          <p><strong>ลูกค้า:</strong> ${d.customer_name} ${d.customer_phone ? `(${d.customer_phone})` : ''}</p>
+          <p><strong>โปรแกรม:</strong> ${d.program_name||'-'}</p><p><strong>ช่องทาง:</strong> ${d.channel||'-'}</p>
+          <p><strong>วิธีชำระ:</strong> ${d.payment_method||'-'}</p><p><strong>เลขอ้างอิง:</strong> ${d.payment_reference||'-'}</p>
+          <div class="alert-box alert-info"><span>ยอดมัดจำ <strong>฿${formatCurrency(d.deposit_amount||0)}</strong><br>ค่าคอมเมื่อยืนยัน <strong>฿${formatCurrency(d.commission_amt||0)}</strong> (${d.commission_pct||0}%)</span></div>
+          <p><strong>ผู้ปิดยอด:</strong> ${d.created_by_name||'-'}</p><p><strong>หมายเหตุ:</strong> ${d.note||'-'}</p>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-danger" onclick="closeModalDirect();audRejectDeposit('${depositId}')">ตีกลับ</button><button class="btn btn-success" onclick="audDepositAction('${depositId}','ยืนยันแล้ว')">ยืนยันเงินเข้าและรับรองค่าคอม</button></div>
+    </div>`);
+    lucide.createIcons();
+  } catch (e) { Toast.show('โหลดข้อมูลไม่สำเร็จ: ' + e.message, 'error'); }
+}
+
+async function audDepositAction(depositId, status, note) {
+  try {
+    await DB.auditDepositSupabase(depositId, status, currentUser.id, note || '');
+    closeModalDirect(); Toast.show(status === 'ยืนยันแล้ว' ? 'ยืนยันเงินเข้าและรับรองค่าคอมแล้ว' : 'ตีกลับยอดมัดจำแล้ว', status === 'ยืนยันแล้ว' ? 'success' : 'warning'); audRender();
+  } catch (e) { Toast.show('ดำเนินการไม่สำเร็จ: ' + e.message, 'error'); }
+}
+
+function audRejectDeposit(depositId) {
+  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับยอดมัดจำ</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ <span class="required">*</span></label><textarea id="dep-reject-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoRejectDeposit('${depositId}')">ยืนยันตีกลับ</button></div></div>`);
+}
+
+function audDoRejectDeposit(depositId) {
+  const note = document.getElementById('dep-reject-note')?.value.trim();
+  if (!note) { Toast.show('กรุณาระบุเหตุผล', 'error'); return; }
+  audDepositAction(depositId, 'ตีกลับ', note);
 }
 
 // ── TAB 2: Stock Audit ────────────────────────────────────
@@ -820,3 +885,4 @@ function audRevertLog(targetType, targetId) {
     </div>
   </div>`);
 }
+
