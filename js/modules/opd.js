@@ -128,6 +128,7 @@ let opdState = {
   isShared: false,
   sharedBillId: null,
   sharedBillServices: [],
+  linkedDepositId: null,
   photos: [],
   services: [],
   sales: [],
@@ -151,7 +152,7 @@ async function renderOPD(container) {
     opdState = window._editingOpdState;
     window._editingOpdState = null;
   } else {
-    opdState = { billId: null, isShared: false, sharedBillId: null, sharedBillServices: [], photos: [], services: [], sales: [], supplies: [] };
+    opdState = { billId: null, isShared: false, sharedBillId: null, sharedBillServices: [], linkedDepositId: null, photos: [], services: [], sales: [], supplies: [] };
   }
 
   container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>`;
@@ -169,9 +170,9 @@ async function renderOPD(container) {
           <input type="radio" name="bill-mode" value="new" checked onchange="opdSetMode('new')" style="accent-color:var(--burgundy-600);width:16px;height:16px;" />
           <span>สร้างบิลใหม่</span>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:not-allowed;font-size:0.9rem;font-weight:600;color:var(--gray-400);" title="ฟีเจอร์นี้กำลังปรับปรุงให้ใช้กับฐานข้อมูลใหม่ เร็วๆ นี้">
-          <input type="radio" name="bill-mode" value="shared" disabled style="width:16px;height:16px;" />
-          <span>ลงบิลร่วม (บิลของเพื่อน) — เร็วๆ นี้</span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">
+          <input type="radio" name="bill-mode" value="shared" onchange="opdSetMode('shared')" style="accent-color:var(--burgundy-600);width:16px;height:16px;" />
+          <span>พ่วง OPD ลูกค้าคนเดิม</span>
         </label>
       </div>
 
@@ -223,6 +224,12 @@ async function renderOPD(container) {
             <label class="form-label">ชื่อลูกค้า <span class="required">*</span></label>
             <input id="opd-customer" class="form-input" placeholder="ชื่อ-นามสกุล" />
           </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">เชื่อมยอดมัดจำเดิม (ถ้ามี)</label>
+          <input id="opd-deposit-search" class="form-input" placeholder="ค้นหาด้วยชื่อลูกค้า เบอร์โทร HN หรือเลขมัดจำ" oninput="opdSearchDeposits(this.value)" />
+          <div id="opd-deposit-results" style="margin-top:8px;"></div>
+          <div id="opd-deposit-info" class="alert-box alert-success" style="display:none;margin-top:8px;"></div>
         </div>
       </div>
     </div>
@@ -336,13 +343,18 @@ function opdSetMode(mode) {
   }
 }
 
+let opdSharedSearchTimer = null;
 function opdSearchSharedBills(q) {
   const res = document.getElementById('shared-results');
   if (!q.trim()) { res.innerHTML = ''; return; }
-  const bills = DB.getBills().filter(b =>
-    b.status === 'รอตรวจสอบ' && b.branch === currentBranch &&
-    (b.hn?.toLowerCase().includes(q.toLowerCase()) || b.customerName?.toLowerCase().includes(q.toLowerCase()))
-  );
+  clearTimeout(opdSharedSearchTimer);
+  res.innerHTML = '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">กำลังค้นหา...</p>';
+  opdSharedSearchTimer = setTimeout(() => opdRunSharedSearch(q), 250);
+}
+
+async function opdRunSharedSearch(q) {
+  const res = document.getElementById('shared-results');
+  const bills = await DB.searchOpenOpdBillsSupabase(q, currentBranch);
   if (!bills.length) {
     res.innerHTML = '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">ไม่พบบิลที่เปิดอยู่</p>';
     return;
@@ -357,14 +369,15 @@ function opdSearchSharedBills(q) {
     </div>`).join('');
 }
 
-function opdSelectSharedBill(billId) {
-  const bill = DB.getBillById(billId);
+async function opdSelectSharedBill(billId) {
+  const detail = await DB.getBillDetailSupabase(billId);
+  const raw = detail?.bill;
+  const bill = raw ? { id: raw.id, hn: raw.hn, customerName: raw.customer_name, date: raw.bill_date, branch: raw.branch_name } : null;
   if (!bill) return;
   opdState.sharedBillId = billId;
   
   // Load services from shared bill
-  const svcs = DB.getBillServices ? DB.getBillServices(billId) : [];
-  opdState.sharedBillServices = svcs.filter(sv => !sv.is_superseded);
+  opdState.sharedBillServices = (detail.services || []).map(sv => ({ programCode: sv.program_code, programName: sv.program_name, price: sv.price }));
 
   document.getElementById('shared-results').innerHTML = '';
   document.getElementById('shared-search').value = `${bill.hn} — ${bill.customerName}`;
@@ -382,6 +395,42 @@ function opdCancelSharedBill() {
   document.getElementById('shared-results').innerHTML = '';
   document.getElementById('shared-info').style.display = 'none';
   opdRenderSales();
+}
+
+let opdDepositSearchTimer = null;
+function opdSearchDeposits(q) {
+  const res = document.getElementById('opd-deposit-results');
+  if (!res) return;
+  if (!q.trim()) { res.innerHTML = ''; return; }
+  clearTimeout(opdDepositSearchTimer);
+  res.innerHTML = '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">กำลังค้นหา...</p>';
+  opdDepositSearchTimer = setTimeout(async () => {
+    const rows = await DB.searchConfirmedDepositsSupabase(q, currentBranch);
+    res.innerHTML = rows.length ? rows.map(d => `<div class="count-row" style="cursor:pointer;" onclick="opdSelectDeposit('${d.id}')"><div class="count-row-info"><div class="count-row-code">${d.deposit_no} | ${formatDate(d.deposit_date)} | ฿${formatCurrency(d.deposit_amount)}</div><div class="count-row-name">${d.customer_name} — ${d.program_name}</div></div><span class="badge badge-approved">เงินเข้าแล้ว</span></div>`).join('') : '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">ไม่พบยอดมัดจำที่ยืนยันแล้ว</p>';
+    window._opdDepositResults = rows;
+    lucide.createIcons();
+  }, 250);
+}
+
+function opdSelectDeposit(depositId) {
+  const d = (window._opdDepositResults || []).find(x => x.id === depositId);
+  if (!d) return;
+  opdState.linkedDepositId = d.id;
+  document.getElementById('opd-hn').value = d.hn || document.getElementById('opd-hn').value;
+  document.getElementById('opd-customer').value = d.customer_name;
+  document.getElementById('opd-deposit-search').value = `${d.deposit_no} — ${d.customer_name}`;
+  document.getElementById('opd-deposit-results').innerHTML = '';
+  const info = document.getElementById('opd-deposit-info');
+  info.style.display = 'flex';
+  info.innerHTML = `<i data-lucide="check-circle"></i><span>เชื่อมยอดมัดจำ ฿${formatCurrency(d.deposit_amount)} แล้ว — ค่าคอมยอดนี้ได้รับสิทธิ์ไปแล้ว กรุณาอย่ากรอกค่าคอมก้อนเดิมซ้ำใน OPD</span><button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="opdClearDeposit()">ยกเลิก</button>`;
+  lucide.createIcons();
+}
+
+function opdClearDeposit() {
+  opdState.linkedDepositId = null;
+  if (document.getElementById('opd-deposit-search')) document.getElementById('opd-deposit-search').value = '';
+  if (document.getElementById('opd-deposit-results')) document.getElementById('opd-deposit-results').innerHTML = '';
+  if (document.getElementById('opd-deposit-info')) document.getElementById('opd-deposit-info').style.display = 'none';
 }
 
 function opdToggleSection(id) {
@@ -902,15 +951,12 @@ function opdRemovePhoto(id) {
 async function opdSubmit() {
   const btn = document.getElementById('opd-submit-btn');
 
-  if (opdState.isShared) {
-    Toast.show('โหมด "ลงบิลร่วม" ยังไม่พร้อมใช้งานตอนนี้ กรุณาใช้ "สร้างบิลใหม่" ไปก่อนนะคะ', 'error', 5000);
-    return;
-  }
-
-  const hn           = document.getElementById('opd-hn').value.trim();
-  const customerName = document.getElementById('opd-customer').value.trim();
-  const date         = document.getElementById('opd-date').value;
-  const branch       = currentBranch;
+  if (opdState.isShared && !opdState.sharedBillId) { Toast.show('กรุณาเลือก OPD ที่ต้องการพ่วง', 'error'); return; }
+  const sharedDetail = opdState.isShared ? await DB.getBillDetailSupabase(opdState.sharedBillId) : null;
+  const hn           = opdState.isShared ? sharedDetail?.bill?.hn : document.getElementById('opd-hn').value.trim();
+  const customerName = opdState.isShared ? sharedDetail?.bill?.customer_name : document.getElementById('opd-customer').value.trim();
+  const date         = opdState.isShared ? sharedDetail?.bill?.bill_date : document.getElementById('opd-date').value;
+  const branch       = opdState.isShared ? sharedDetail?.bill?.branch_name : currentBranch;
   if (!hn)           { Toast.show('กรุณากรอก HN', 'error'); return; }
   if (!customerName) { Toast.show('กรุณากรอกชื่อลูกค้า', 'error'); return; }
   if (!date)         { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
@@ -919,7 +965,7 @@ async function opdSubmit() {
     Toast.show('กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', 'error'); return;
   }
 
-  if (opdState.photos.length === 0) {
+  if (!opdState.isShared && opdState.photos.length === 0) {
     Toast.show('⚠️ กรุณาแนบรูป OPD อย่างน้อย 1 รูปก่อนบันทึก', 'error', 5000);
     const photosBody = document.getElementById('photos-body');
     if (photosBody) photosBody.classList.remove('collapsed');
@@ -938,6 +984,7 @@ async function opdSubmit() {
 
   const payload = {
     hn, customer_name: customerName, date, branch_name: branch, created_by: currentUser.id,
+    linked_deposit_id: opdState.isShared ? null : opdState.linkedDepositId,
     services: opdState.services
       .filter(s => s.programCode || s.price)
       .map(s => ({ program_code: s.programCode, price: s.price, commission: s.commission })),
@@ -954,8 +1001,9 @@ async function opdSubmit() {
   };
 
   try {
-    await DB.createOpdBillSupabase(payload);
-    Toast.show('บันทึก OPD เรียบร้อย ✓ — รออนุมัติ', 'success', 4000);
+    if (opdState.isShared) await DB.appendOpdBillSupabase(opdState.sharedBillId, payload);
+    else await DB.createOpdBillSupabase(payload);
+    Toast.show(opdState.isShared ? 'พ่วงรายการกับ OPD เดิมเรียบร้อย ✓' : 'บันทึก OPD เรียบร้อย ✓ — รออนุมัติ', 'success', 4000);
     opdReset();
   } catch (e) {
     console.error(e);
@@ -1062,7 +1110,7 @@ function opdSaveDraft() {
 }
 
 function opdReset() {
-  opdState = { billId: null, isShared: false, sharedBillId: null, sharedBillServices: [], photos: [], services: [], sales: [], supplies: [] };
+  opdState = { billId: null, isShared: false, sharedBillId: null, sharedBillServices: [], linkedDepositId: null, photos: [], services: [], sales: [], supplies: [] };
   renderOPD(document.getElementById('page-content'));
 }
 
@@ -1086,6 +1134,7 @@ function opdEditBill(billId) {
     isShared: false,
     sharedBillId: null,
     sharedBillServices: [],
+    linkedDepositId: null,
     photos: oldPhotos,
     services: oldSvcs.length ? oldSvcs : [{ id: 's_'+Date.now(), programCode: '', programName: '', price: 0, commission: 0 }],
     sales: oldSales,
@@ -1124,3 +1173,4 @@ function opdEditBill(billId) {
     lucide.createIcons();
   }, 100);
 }
+
