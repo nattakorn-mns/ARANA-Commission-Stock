@@ -414,8 +414,8 @@ async function submitChangePassword() {
     errorEl.classList.remove('hidden');
     return;
   }
-  if (newPass.length < 4) {
-    errorEl.textContent = 'รหัสผ่านใหม่ควรมีอย่างน้อย 4 ตัวอักษร';
+  if (newPass.length < 8) {
+    errorEl.textContent = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร';
     errorEl.classList.remove('hidden');
     return;
   }
