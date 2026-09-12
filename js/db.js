@@ -145,7 +145,7 @@ const DB = {
     return data || [];
   },
 
-  async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy }) {
+  async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy, source }) {
     const { data, error } = await sb.rpc('save_stock_log', {
       p_branch_name: branch,
       p_to_branch_name: toBranch || null,
@@ -154,7 +154,8 @@ const DB = {
       p_move_type: type,
       p_qty: qty,
       p_note: note,
-      p_created_by: createdBy
+      p_created_by: createdBy,
+      p_source: source || null
     });
     if (error) throw error;
     return data; // log id
@@ -205,7 +206,7 @@ const DB = {
     return (data || []).map(r => ({
       id: r.id, date: r.log_date, branch: r.branch_name, type: r.move_type,
       productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
-      createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note
+      createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note, source: r.source
     }));
   },
 
@@ -221,7 +222,7 @@ const DB = {
     return (data || []).map(r => ({
       date: r.log_date, type: r.move_type, direction: r.direction,
       productCode: r.product_code, productName: r.product_name, unit: r.unit,
-      qty: r.qty, auditStatus: r.audit_status, createdByName: r.created_by_name
+      qty: r.qty, auditStatus: r.audit_status, createdByName: r.created_by_name, source: r.source
     }));
   },
 
