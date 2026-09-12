@@ -131,10 +131,10 @@ async function scRenderTable() {
         <th>รายการ</th>
         <th class="num">รับเข้า</th>
         <th class="num">เบิกออก</th>
-        <th>แหล่งที่มา</th>
         ${canSeeBalance ? '<th class="num">คงเหลือ</th>' : ''}
         <th>สถานะ</th>
         <th>ผู้บันทึก</th>
+        <th>แหล่งที่มา</th>
       </tr>
     </thead>
     <tbody>
@@ -149,10 +149,10 @@ async function scRenderTable() {
           <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.productName||''}">${l.productName||'-'}</td>
           <td class="num stock-in">${isIn ? l.qty : '-'}</td>
           <td class="num stock-out">${!isIn ? l.qty : '-'}</td>
-          <td>${l.source ? `<span class="badge" style="background:var(--${sourceColor}-50);color:var(--${sourceColor}-700);font-size:0.72rem;">${l.source}</span>` : '-'}</td>
           ${canSeeBalance ? `<td class="num stock-bal ${bal<=0?'zero':bal<=5?'low':''}">${bal}</td>` : ''}
           <td>${statusBadge(l.auditStatus||'รอตรวจสอบ')}</td>
           <td style="font-size:0.78rem;">${l.createdByName||'-'}</td>
+          <td>${l.source ? `<span class="badge" style="background:var(--${sourceColor}-50);color:var(--${sourceColor}-700);font-size:0.72rem;">${l.source}</span>` : '-'}</td>
         </tr>`;
       }).join('')}
     </tbody>
