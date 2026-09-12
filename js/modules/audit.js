@@ -1,53 +1,31 @@
-/**
- * ARANA CLINIC — Audit Module
- * js/modules/audit.js
- */
-
-let auditTab = 'opd';
+let auditTab = 'commission';
 let auditPage = 1;
-
+function audCanAccessCommission() { return ['Admin', 'Audit', 'CommissionAudit'].includes(currentUser.role); }
+function audCanAccessStock() { return ['Admin', 'Audit', 'StockAudit'].includes(currentUser.role); }
 function renderAudit(container) {
-  auditTab = 'opd'; auditPage = 1;
-  container.innerHTML = `
-  <div>
-    <div class="tab-bar">
-      <button class="tab-btn ${auditTab==='opd'?'active':''}" id="aud-tab-opd" onclick="audSwitch('opd')">
-        <i data-lucide="shield-check"></i>ตรวจ OPD
-      </button>
-      <button class="tab-btn" id="aud-tab-stock" onclick="audSwitch('stock')">
-        <i data-lucide="package"></i>ตรวจสต๊อก
-      </button>
-      <button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')">
-        <i data-lucide="git-compare"></i>เทียบเบิก APSX
-      </button>
-      <button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')">
-        <i data-lucide="clock"></i>ประวัติการอนุมัติ
-      </button>
-    </div>
-    <div id="aud-body"></div>
-  </div>`;
-  audRender();
-  lucide.createIcons();
+  const canCommission = audCanAccessCommission(), canStock = audCanAccessStock();
+  auditTab = canCommission ? 'commission' : 'stock'; auditPage = 1;
+  container.innerHTML = `<div><div class="tab-bar">
+    ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
+    ${canStock ? `<button class="tab-btn ${auditTab==='stock'?'active':''}" id="aud-tab-stock" onclick="audSwitch('stock')"><i data-lucide="package-check"></i>อนุมัติตัดสต๊อก</button>` : ''}
+    ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิก APSX</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
+  </div><div id="aud-body"></div></div>`;
+  audRender(); lucide.createIcons();
 }
-
 function audSwitch(tab) {
+  if (tab === 'commission' && !audCanAccessCommission()) return;
+  if (tab === 'stock' && !audCanAccessStock()) return;
   auditTab = tab; auditPage = 1;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const el = document.getElementById(`aud-tab-${tab}`);
-  if (el) el.classList.add('active');
-  audRender();
+  const el = document.getElementById(`aud-tab-${tab}`); if (el) el.classList.add('active'); audRender();
 }
-
 function audRender() {
-  const body = document.getElementById('aud-body');
-  if (!body) return;
-  if (auditTab === 'opd') audRenderOPD(body);
+  const body = document.getElementById('aud-body'); if (!body) return;
+  if (auditTab === 'commission') audRenderOPD(body);
   else if (auditTab === 'stock') audRenderStock(body);
-  else if (auditTab === 'compare') audRenderCompare(body);
-  else audRenderLog(body);
+  else if (auditTab === 'compare') audRenderCompare(body); else audRenderLog(body);
 }
-
-// ── TAB 1: OPD Audit ─────────────────────────────────────
+// ── TAB 1: Commission Audit ─────────────────────────────────────
 async function audRenderOPD(body) {
   body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
   const bills = await DB.getPendingBillsSupabase();
@@ -245,13 +223,7 @@ async function audOpenBill(billId) {
             </div>
           </div>`).join('')}` : ''}
 
-          ${supplies.length ? `
-          <div class="section-header" style="margin:16px 0 10px;"><span class="section-title">วัสดุที่เบิกใช้</span></div>
-          ${supplies.map(s => `
-          <div class="audit-item" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--white);display:flex;justify-content:space-between;">
-            <span>${s.product_name||'-'}</span>
-            <span style="font-weight:700;">${s.qty} ${s.unit||''}</span>
-          </div>`).join('')}` : ''}
+
         </div>
         <div class="split-right-footer" style="padding:16px;border-top:1px solid var(--gray-200);display:flex;gap:12px;background:var(--white);">
           <button class="btn btn-danger" style="flex:1;padding:12px;" onclick="audQuickReject('${billId}')">
@@ -514,85 +486,27 @@ function audDoRejectEdit(reqId, billId) {
 // ── TAB 2: Stock Audit ────────────────────────────────────
 async function audRenderStock(body) {
   body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
-  const pending = await DB.getPendingStockLogsSupabase();
-  body.innerHTML = `
-  <div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
-    <span style="font-size:0.84rem;color:var(--gray-600);">รายการสต๊อกรอตรวจสอบ (ทุกสาขา)</span>
-    <span class="badge badge-pending" style="font-size:1rem;padding:4px 14px;">${pending.length} รายการ</span>
-  </div>
-  <div class="glass-card" style="padding:0;overflow:hidden;">
-    <div class="table-wrap" style="border:none;border-radius:0;">
-      <table>
-        <thead>
-          <tr><th>วันที่</th><th>สาขา</th><th>ประเภท</th><th>รหัส</th><th>รายการ</th><th class="num">จำนวน</th><th>ผู้บันทึก</th><th>สถานะ</th><th style="text-align:center;">จัดการ</th></tr>
-        </thead>
-        <tbody id="aud-stock-tbody">
-          ${pending.length ? pending.map(l => `
-          <tr id="slog-row-${l.id}">
-            <td class="nowrap">${formatDate(l.date)}</td>
-            <td>${l.branch||'-'}</td>
-            <td>${typeBadge(l.type)}</td>
-            <td><code style="font-size:0.75rem;background:var(--gray-100);padding:2px 5px;border-radius:4px;">${l.productCode||'-'}</code></td>
-            <td style="font-weight:600;">${l.productName||'-'}</td>
-            <td class="num" style="font-weight:700;color:var(--blue-700);">${l.qty} ${l.unit||''}</td>
-            <td style="font-size:0.8rem;">${l.createdByName||'-'}</td>
-            <td id="slog-status-${l.id}">${statusBadge(l.auditStatus)}</td>
-            <td style="text-align:center;">
-              <div style="display:flex;gap:4px;justify-content:center;">
-                <button class="btn btn-success btn-sm" onclick="audStockAction('${l.id}','อนุมัติแล้ว')"><i data-lucide="check"></i> อนุมัติ</button>
-                <button class="btn btn-danger btn-sm" onclick="audStockReject('${l.id}')"><i data-lucide="x"></i> ตีกลับ</button>
-              </div>
-            </td>
-          </tr>`).join('') : `<tr><td colspan="9"><div class="empty-state" style="padding:24px;"><i data-lucide="check-circle"></i><h4>ไม่มีรายการรอตรวจ</h4></div></td></tr>`}
-        </tbody>
-      </table>
-    </div>
-  </div>`;
+  const requests = await DB.getPendingOpdStockRequestsSupabase();
+  body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:14px 16px;"><span style="font-size:0.84rem;color:var(--gray-600);">รายการ OPD รอตรวจตัดสต๊อก</span> <span class="badge badge-pending">${requests.length} ใบ</span><p style="font-size:0.78rem;color:var(--gray-500);margin:6px 0 0;">1 แถวต่อ 1 ใบ OPD</p></div>
+  <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ชื่อลูกค้า</th><th>โปรแกรมบริการ</th><th>รายการเบิก</th><th>ผู้บันทึก</th><th>สถานะ</th><th>OPD</th><th>จัดการ</th></tr></thead><tbody>
+  ${requests.length ? requests.map(r => `<tr id="opd-stock-row-${r.billId}"><td>${formatDate(r.date)}</td><td>${r.branch||'-'}</td><td>${r.customerName||'-'}</td><td>${r.programSummary||'-'}</td><td>${r.supplyCount} รายการ</td><td>${r.createdByName||'-'}</td><td>${statusBadge(r.auditStatus)}</td><td><button class="btn btn-ghost btn-sm" onclick="audOpenStockRequest('${r.billId}')">ดู OPD</button></td><td><button class="btn btn-success btn-sm" onclick="audStockAction('${r.billId}','อนุมัติแล้ว')">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="audStockReject('${r.billId}')">ตีกลับ</button></td></tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">ไม่มี OPD รอตรวจตัดสต๊อก</div></td></tr>`}
+  </tbody></table></div></div>`;
   lucide.createIcons();
 }
-
-async function audStockAction(logId, status, note) {
-  try {
-    await DB.auditStockLogSupabase(logId, status, currentUser.id, note || '');
-    const row = document.getElementById(`slog-row-${logId}`);
-    const statusEl = document.getElementById(`slog-status-${logId}`);
-    if (statusEl) statusEl.innerHTML = statusBadge(status);
-    if (row) { row.style.opacity = '0.5'; setTimeout(() => row.remove(), 400); }
-    Toast.show(`${status === 'อนุมัติแล้ว' ? '✅ อนุมัติ' : '❌ ตีกลับ'}รายการสต๊อกแล้ว`, status === 'อนุมัติแล้ว' ? 'success' : 'error');
-    audRender();
-  } catch (e) {
-    console.error(e);
-    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
-  }
+async function audStockAction(billId,status,note) {
+  try { await DB.auditOpdStockRequestSupabase(billId,status,currentUser.id,note||''); Toast.show(status === 'อนุมัติแล้ว' ? 'อนุมัติตัดสต๊อกเรียบร้อย' : 'ตีกลับรายการตัดสต๊อกแล้ว',status === 'อนุมัติแล้ว' ? 'success' : 'error'); closeModalDirect(); audRender(); }
+  catch(e) { console.error(e); Toast.show('เกิดข้อผิดพลาด: '+e.message,'error'); }
 }
-
-function audStockReject(logId) {
-  openModal(`
-  <div class="modal">
-    <div class="modal-header">
-      <h3 class="modal-title"><i data-lucide="x-circle"></i>ตีกลับรายการสต๊อก</h3>
-      <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">เหตุผลที่ตีกลับ <span class="required">*</span></label>
-        <textarea id="aud-stock-reject-note" class="form-textarea" rows="4" placeholder="ระบุสิ่งที่ต้องแก้ไข..."></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button>
-      <button class="btn btn-danger" onclick="audDoStockReject('${logId}')"><i data-lucide="x-circle"></i> ตีกลับ</button>
-    </div>
-  </div>`);
+function audStockReject(billId) {
+  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับรายการตัดสต๊อก</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ</label><textarea id="aud-stock-reject-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockReject('${billId}')">ตีกลับทั้งชุด</button></div></div>`);
 }
-
-function audDoStockReject(logId) {
-  const note = document.getElementById('aud-stock-reject-note')?.value.trim();
-  if (!note) { Toast.show('กรุณาระบุเหตุผล', 'error'); return; }
-  closeModalDirect();
-  audStockAction(logId, 'ตีกลับ', note);
+function audDoStockReject(billId) { const note=document.getElementById('aud-stock-reject-note')?.value.trim(); if(!note){Toast.show('กรุณาระบุเหตุผล','error');return;} closeModalDirect(); audStockAction(billId,'ตีกลับ',note); }
+async function audOpenStockRequest(billId) {
+  const detail=await DB.getBillDetailSupabase(billId); if(!detail?.bill){Toast.show('ไม่พบข้อมูล OPD นี้','error');return;}
+  const bill=detail.bill, supplies=detail.supplies||[], images=detail.images||[];
+  openModal(`<div class="modal" style="width:1280px;max-width:98vw;height:86vh;display:flex;flex-direction:column;"><div class="modal-header"><h3 class="modal-title">ตรวจตัดสต๊อก — ${bill.customer_name||'-'}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div style="flex:1;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;"><div style="background:#111;padding:8px;">${images.length ? images.map(im=>`<img src="${im.file_url}" alt="รูป OPD" style="width:100%;margin-bottom:10px;" />`).join('') : `<p style="color:white;">ไม่มีรูป OPD</p>`}</div><div><p><strong>วันที่:</strong> ${formatDate(bill.bill_date)} &nbsp; <strong>สาขา:</strong> ${bill.branch_name||'-'}</p><p><strong>ลูกค้า:</strong> ${bill.customer_name||'-'} &nbsp; <strong>HN:</strong> ${bill.hn||'-'}</p><h4>รายการเบิกทั้งหมด (${supplies.length} รายการ)</h4><div class="table-wrap"><table><thead><tr><th>ประเภท</th><th>รหัสสินค้า</th><th>รายการเบิก</th><th>จำนวน</th><th>หน่วย</th></tr></thead><tbody>${supplies.map(s=>`<tr><td>${s.category||'ทั่วไป'}</td><td>${s.product_code||'-'}</td><td>${s.product_name||'-'}</td><td>${s.qty}</td><td>${s.unit||'-'}</td></tr>`).join('')}</tbody></table></div></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockReject('${billId}')">ตีกลับทั้งชุด</button><button class="btn btn-success" onclick="audStockAction('${billId}','อนุมัติแล้ว')">อนุมัติตัดสต๊อก</button></div></div>`);
+  lucide.createIcons();
 }
-
 function audOpenStockLog(logId) {
   Toast.show('หน้าต่างรายละเอียดนี้กำลังปรับปรุง กรุณาใช้ปุ่มอนุมัติ/ตีกลับจากตารางแทนไปก่อนนะคะ', 'error', 5000);
   return;
