@@ -71,6 +71,18 @@ function invRender() {
       </select>
     </div>` : ''}
 
+    ${invTab === 'out' ? `
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">เบิกใช้ในส่วนไหน <span class="required">*</span></label>
+      <select id="inv-source" class="form-select">
+        <option value="">-- เลือกแหล่งที่มา --</option>
+        <option value="ห้องตรวจ">ห้องตรวจ (ผู้ช่วยแพทย์)</option>
+        <option value="ห้องทรีทเมนท์">ห้องทรีทเมนท์</option>
+        <option value="ทั่วไป">ของใช้ทั่วไป/สำนักงาน</option>
+      </select>
+      <p style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">เลือกให้ตรงนะคะ ข้อมูลนี้จะช่วยให้บัญชีเทียบยอดกับ OPD ได้ง่ายขึ้น</p>
+    </div>` : ''}
+
     <div class="section-header" style="margin-bottom:10px;">
       <span class="section-title ${info.color}">รายการ${invTab==='out'?'เบิก':invTab==='in'?'รับ':'โอน'}</span>
     </div>
@@ -194,6 +206,12 @@ async function invSubmit() {
     if (!toBranch) { Toast.show('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
   }
 
+  let source = null;
+  if (invTab === 'out') {
+    source = document.getElementById('inv-source')?.value;
+    if (!source) { Toast.show('กรุณาเลือกว่าเบิกใช้ในส่วนไหน (ห้องตรวจ/ทรีทเมนท์/ทั่วไป)', 'error'); return; }
+  }
+
   const directionByTab = { out: 'OUT', in: 'IN', transfer: 'OUT' };
   const typeByTab = { out: 'OUT', in: 'IN', transfer: 'TRANSFER' };
   const defaultNoteByTab = { out: 'เบิกใช้', in: 'รับเข้าสต๊อก', transfer: `โอนไปสาขา ${toBranch}` };
@@ -212,7 +230,8 @@ async function invSubmit() {
         type: typeByTab[invTab],
         qty: r.qty,
         note: r.note || defaultNoteByTab[invTab],
-        createdBy: currentUser.id
+        createdBy: currentUser.id,
+        source
       });
       if (!firstLogId) firstLogId = logId;
     }
