@@ -1,0 +1,128 @@
+/* ============================================================
+   ARANA CLINIC — ชั้นปรับปรุง UX เพิ่มเติม (ไม่แก้ style.css เดิม)
+   เป้าหมาย: มือถือกดง่าย / เดสก์ท็อปดูข้อมูลกว้างสบายตา / popup เหมาะกับทุกอุปกรณ์
+   ============================================================ */
+
+/* ── 1) ปุ่ม/ช่องกรอก ให้กดง่ายบนมือถือ (มาตรฐานสากล 44x44px) ── */
+@media (max-width: 768px) {
+  .btn, button, .form-input, .form-select, input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* ป้องกัน iOS ซูมอัตโนมัติเมื่อโฟกัสช่องกรอก */
+  }
+  .btn-sm { min-height: 40px; }
+  .sidebar-item, .nav-item {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+  /* ปุ่มกดที่ระยะห่างกันไม่พอ เสี่ยงกดผิด */
+  .form-row, .form-row-3, .inv-row, .service-row, .supply-row {
+    row-gap: 12px !important;
+  }
+}
+
+/* ── 2) Popup / Modal: เลื่อนขึ้นจากล่างเต็มจอบนมือถือ, กล่องกลางจอบนเดสก์ท็อป ── */
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end !important;
+  }
+  .modal-wrap {
+    max-width: 100% !important;
+    max-height: 92vh !important;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 92vh !important;
+  }
+  .modal-in {
+    animation: slideUpSheet 0.25s ease both !important;
+  }
+  .modal-out {
+    animation: slideUpSheet 0.2s ease reverse both !important;
+  }
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  /* หูจับเล็กๆ ด้านบน popup ให้รู้ว่าเลื่อนปิดได้ (ความรู้สึกแบบแอปมือถือ) */
+  .modal-header::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--gray-200);
+  }
+  .modal-header { position: relative; padding-top: 20px; }
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+/* บนเดสก์ท็อป: popup เป็นกล่องกลางจอ ขนาดพอดีเนื้อหา ไม่ล้นจอ */
+@media (min-width: 769px) {
+  .modal-overlay { align-items: center !important; }
+  .modal { border-radius: var(--radius-lg, 16px) !important; }
+  .modal-wrap { max-height: calc(100vh - 80px) !important; }
+}
+
+/* ── 3) ตารางข้อมูล: เดสก์ท็อปดูกว้างสบายตา หัวตารางลอยติดเวลาสกอลล์ ── */
+@media (min-width: 1025px) {
+  .table-wrap {
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+  .table-wrap table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  table { font-size: 0.88rem; }
+  thead th, tbody td { padding: 12px 16px; }
+  /* แถวสลับสี อ่านง่ายขึ้นเมื่อมีข้อมูลจำนวนมาก (Admin/Audit) */
+  tbody tr:nth-child(even) { background: var(--gray-50, #fafafa); }
+  tbody tr:nth-child(even):hover { background: var(--burgundy-50) !important; }
+}
+
+/* บนมือถือ: ตารางเลื่อนแนวนอนได้ลื่น พร้อมเงาบอกใบ้ว่ามีเนื้อหาซ่อนอยู่ */
+@media (max-width: 768px) {
+  .table-wrap {
+    position: relative;
+    background:
+      linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+      linear-gradient(to left, white 30%, rgba(255,255,255,0)) 100% 0,
+      linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0)) ,
+      linear-gradient(to left, rgba(0,0,0,0.06), rgba(0,0,0,0)) 100% 0;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%, 8px 100%, 8px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+}
+
+/* ── 4) เดสก์ท็อปจอกว้าง (Admin/Audit): ใช้พื้นที่ให้เต็มประโยชน์ ── */
+@media (min-width: 1440px) {
+  .page-content { padding: 24px 32px; }
+  .glass-card { padding: 22px 26px; }
+}
+
+/* ── 5) โฟกัสด้วยคีย์บอร์ดต้องเห็นชัด (Accessibility) ── */
+.btn:focus-visible, .form-input:focus-visible, .form-select:focus-visible,
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid var(--burgundy-500, #8b1a3a);
+  outline-offset: 2px;
+}
+
+/* ── 6) ลดอาการเมารถ/เวียนหัวจากอนิเมชันสำหรับผู้ที่ตั้งค่าไว้ ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
