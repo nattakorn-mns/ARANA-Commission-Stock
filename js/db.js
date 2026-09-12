@@ -179,6 +179,48 @@ const DB = {
     return data; // bill id
   },
 
+  async searchOpenOpdBillsSupabase(query, branchName) {
+    const { data, error } = await sb.rpc('search_open_opd_bills', { p_query: query, p_branch_name: branchName });
+    if (error) { console.error('searchOpenOpdBillsSupabase error:', error); return []; }
+    return (data || []).map(r => ({ id: r.id, hn: r.hn, customerName: r.customer_name, date: r.bill_date, branch: r.branch_name }));
+  },
+
+  async appendOpdBillSupabase(billId, payload) {
+    const { data, error } = await sb.rpc('append_opd_bill', { p_bill_id: billId, p_payload: payload });
+    if (error) throw error;
+    return data;
+  },
+
+  // ── มัดจำ/ปิดการขายออนไลน์ ──────────────────────────────
+  async createDepositSupabase(payload) {
+    const { data, error } = await sb.rpc('create_deposit', { p_payload: payload });
+    if (error) throw error;
+    return data;
+  },
+
+  async getPendingDepositsSupabase() {
+    const { data, error } = await sb.rpc('get_pending_deposits');
+    if (error) { console.error('getPendingDepositsSupabase error:', error); return []; }
+    return data || [];
+  },
+
+  async getDepositDetailSupabase(depositId) {
+    const { data, error } = await sb.rpc('get_deposit_detail', { p_deposit_id: depositId });
+    if (error) throw error;
+    return data;
+  },
+
+  async auditDepositSupabase(depositId, status, auditBy, note) {
+    const { error } = await sb.rpc('audit_deposit', { p_deposit_id: depositId, p_status: status, p_audit_by: auditBy, p_note: note || null });
+    if (error) throw error;
+  },
+
+  async searchConfirmedDepositsSupabase(query, branchName) {
+    const { data, error } = await sb.rpc('search_confirmed_deposits', { p_query: query, p_branch_name: branchName });
+    if (error) { console.error('searchConfirmedDepositsSupabase error:', error); return []; }
+    return data || [];
+  },
+
   // ── Audit ผ่านฐานข้อมูลกลาง (Supabase) ──────────────────────
   async getPendingBillsSupabase() {
     const { data, error } = await sb.rpc('get_pending_bills');
@@ -894,3 +936,4 @@ const SEED_EDIT_REQUESTS = [
   { id: 'req001', billId: 'b004', requestedBy: 'u009', requestDate: '2026-07-18T10:30:00Z', reason: 'ลงยอดเงินผิด ขอแก้ไขค่ะ', status: 'อนุมัติแล้ว', approvedBy: 'u002' },
   { id: 'req002', billId: 'b002', requestedBy: 'u006', requestDate: '2026-07-18T11:00:00Z', reason: 'ลืมลงรายการยา', status: 'รอการอนุมัติ' }
 ];
+
