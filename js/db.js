@@ -10,6 +10,28 @@ const DB = {
   _set(key, val) { localStorage.setItem('arana_' + key, JSON.stringify(val)); },
   _genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
 
+  _sessionToken() {
+    try { return JSON.parse(sessionStorage.getItem('arana_session') || '{}').token || null; }
+    catch { return null; }
+  },
+
+  async _appRpc(action, payload = {}) {
+    const token = this._sessionToken();
+    if (!token) throw new Error('SESSION_REQUIRED');
+    const { data, error } = await sb.rpc('arana_app_rpc', {
+      p_session_token: token,
+      p_action: action,
+      p_payload: payload
+    });
+    if (error) {
+      if (/SESSION_(INVALID|EXPIRED|REQUIRED)/.test(error.message || '')) {
+        sessionStorage.removeItem('arana_session');
+      }
+      throw error;
+    }
+    return data;
+  },
+
   // ── Init ─────────────────────────────────────────────────
   init() {
     if (!this._get('initialized')) {
@@ -61,31 +83,36 @@ const DB = {
   // ── LOGIN ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────────
   // ใช้แทน authenticate() แบบเดิม — ตรวจรหัสผ่านฝั่งเซิร์ฟเวอร์ ปลอดภัยกว่า
   async authenticateSupabase(username, password) {
-    const { data, error } = await sb.rpc('verify_login', {
-      input_username: username,
-      input_password: password
+    const { data, error } = await sb.rpc('create_app_session', {
+      p_username: username,
+      p_password: password
     });
     if (error) {
       console.error('Login error:', error);
       return null;
     }
-    if (!data || data.length === 0) return null;
-    const row = data[0];
+    if (!data || !data.session_token) return null;
     return {
-      id: row.id,
-      username: row.username,
-      name: row.name,
-      nickname: row.nickname,
-      role: row.role,
-      branch: row.branch_name,
-      position: row.position
+      id: data.id,
+      username: data.username,
+      name: data.name,
+      nickname: data.nickname,
+      role: data.role,
+      branch: data.branch_name,
+      position: data.position,
+      sessionToken: data.session_token
     };
+  },
+
+  async logoutSupabase() {
+    try { await this._appRpc('logout'); }
+    catch (error) { console.warn('Logout session error:', error); }
   },
 
   // ── จัดการพนักงานผ่านฐานข้อมูลกลาง (Supabase) ───────────────
   async getUsersSupabase() {
-    const { data, error } = await sb.rpc('admin_list_users');
-    if (error) { console.error('getUsersSupabase error:', error); return []; }
+    try { var data = await this._appRpc('admin_list_users'); }
+    catch (error) { console.error('getUsersSupabase error:', error); return []; }
     return (data || []).map(row => ({
       id: row.id,
       username: row.username,
@@ -99,7 +126,7 @@ const DB = {
   },
 
   async createUserSupabase({ username, password, name, nickname, role, branch, position }) {
-    const { data, error } = await sb.rpc('admin_create_user', {
+    try { return await this._appRpc('admin_create_user', {
       p_username: username,
       p_password: password,
       p_name: name,
@@ -107,8 +134,7 @@ const DB = {
       p_role: role,
       p_branch_name: branch,
       p_position: position || null
-    });
-    if (error) {
+    }); } catch (error) {
       if (error.message && error.message.includes('USERNAME_EXISTS')) {
         throw new Error('USERNAME_EXISTS');
       }
@@ -118,35 +144,32 @@ const DB = {
   },
 
   async setUserActiveSupabase(userId, isActive) {
-    const { error } = await sb.rpc('admin_set_user_active', { p_user_id: userId, p_active: isActive });
-    if (error) throw error;
+    await this._appRpc('admin_set_user_active', { p_user_id: userId, p_active: isActive });
   },
 
   async changeOwnPasswordSupabase(username, oldPassword, newPassword) {
-    const { data, error } = await sb.rpc('change_own_password', {
-      p_username: username,
+    const data = await this._appRpc('change_own_password', {
       p_old_password: oldPassword,
       p_new_password: newPassword
     });
-    if (error) throw error;
     return data === true;
   },
 
   // ── สต็อก ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────────
   async getProductsSupabase() {
-    const { data, error } = await sb.rpc('get_active_products');
-    if (error) { console.error('getProductsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_active_products'); }
+    catch (error) { console.error('getProductsSupabase error:', error); return []; }
     return data || [];
   },
 
   async getBranchStockSupabase(branchName) {
-    const { data, error } = await sb.rpc('get_branch_stock', { p_branch_name: branchName });
-    if (error) { console.error('getBranchStockSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_branch_stock', { p_branch_name: branchName }); }
+    catch (error) { console.error('getBranchStockSupabase error:', error); return []; }
     return data || [];
   },
 
   async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy, source }) {
-    const { data, error } = await sb.rpc('save_stock_log', {
+    const data = await this._appRpc('save_stock_log', {
       p_branch_name: branch,
       p_to_branch_name: toBranch || null,
       p_product_code: productCode,
@@ -154,77 +177,70 @@ const DB = {
       p_move_type: type,
       p_qty: qty,
       p_note: note,
-      p_created_by: createdBy,
       p_source: source || null
     });
-    if (error) throw error;
     return data; // log id
   },
 
   async saveStockLogImageSupabase(logId, base64Data) {
-    const { error } = await sb.rpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data });
-    if (error) console.error('saveStockLogImageSupabase error:', error);
+    try { await this._appRpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data }); }
+    catch (error) { console.error('saveStockLogImageSupabase error:', error); }
   },
 
   // ── OPD ผ่านฐานข้อมูลกลาง (Supabase) ────────────────────────
   async getProgramsSupabase() {
-    const { data, error } = await sb.rpc('get_active_programs');
-    if (error) { console.error('getProgramsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_active_programs'); }
+    catch (error) { console.error('getProgramsSupabase error:', error); return []; }
     return data || [];
   },
 
   async createOpdBillSupabase(payload) {
-    const { data, error } = await sb.rpc('create_opd_bill', { p_payload: payload });
-    if (error) throw error;
+    const data = await this._appRpc('create_opd_bill', { p_payload: payload });
     return data; // bill id
   },
 
   async searchOpenOpdBillsSupabase(query, branchName) {
-    const { data, error } = await sb.rpc('search_open_opd_bills', { p_query: query, p_branch_name: branchName });
-    if (error) { console.error('searchOpenOpdBillsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('search_open_opd_bills', { p_query: query, p_branch_name: branchName }); }
+    catch (error) { console.error('searchOpenOpdBillsSupabase error:', error); return []; }
     return (data || []).map(r => ({ id: r.id, hn: r.hn, customerName: r.customer_name, date: r.bill_date, branch: r.branch_name }));
   },
 
   async appendOpdBillSupabase(billId, payload) {
-    const { data, error } = await sb.rpc('append_opd_bill', { p_bill_id: billId, p_payload: payload });
-    if (error) throw error;
+    const data = await this._appRpc('append_opd_bill', { p_bill_id: billId, p_payload: payload });
     return data;
   },
 
   // ── มัดจำ/ปิดการขายออนไลน์ ──────────────────────────────
   async createDepositSupabase(payload) {
-    const { data, error } = await sb.rpc('create_deposit', { p_payload: payload });
-    if (error) throw error;
+    const data = await this._appRpc('create_deposit', { p_payload: payload });
     return data;
   },
 
   async getPendingDepositsSupabase() {
-    const { data, error } = await sb.rpc('get_pending_deposits');
-    if (error) { console.error('getPendingDepositsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_pending_deposits'); }
+    catch (error) { console.error('getPendingDepositsSupabase error:', error); return []; }
     return data || [];
   },
 
   async getDepositDetailSupabase(depositId) {
-    const { data, error } = await sb.rpc('get_deposit_detail', { p_deposit_id: depositId });
-    if (error) throw error;
+    const data = await this._appRpc('get_deposit_detail', { p_deposit_id: depositId });
     return data;
   },
 
   async auditDepositSupabase(depositId, status, auditBy, note) {
-    const { error } = await sb.rpc('audit_deposit', { p_deposit_id: depositId, p_status: status, p_audit_by: auditBy, p_note: note || null });
-    if (error) throw error;
+    await this._appRpc('audit_deposit', { p_deposit_id: depositId, p_status: status, p_note: note || null });
   },
 
   async searchConfirmedDepositsSupabase(query, branchName) {
-    const { data, error } = await sb.rpc('search_confirmed_deposits', { p_query: query, p_branch_name: branchName });
-    if (error) { console.error('searchConfirmedDepositsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('search_confirmed_deposits', { p_query: query, p_branch_name: branchName }); }
+    catch (error) { console.error('searchConfirmedDepositsSupabase error:', error); return []; }
     return data || [];
   },
 
   // ── Audit ผ่านฐานข้อมูลกลาง (Supabase) ──────────────────────
   async getPendingBillsSupabase() {
-    const { data, error } = await sb.rpc('get_pending_bills');
-    if (error) { console.error('getPendingBillsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_pending_bills'); }
+    catch (error) { console.error('getPendingBillsSupabase error:', error); return []; }
     return (data || []).map(r => ({
       id: r.id, hn: r.hn, customerName: r.customer_name, date: r.bill_date,
       branch: r.branch_name, createdByName: r.created_by_name, status: r.status
@@ -232,19 +248,18 @@ const DB = {
   },
 
   async getBillDetailSupabase(billId) {
-    const { data, error } = await sb.rpc('get_bill_detail', { p_bill_id: billId });
-    if (error) { console.error('getBillDetailSupabase error:', error); return null; }
+    try { var data = await this._appRpc('get_bill_detail', { p_bill_id: billId }); }
+    catch (error) { console.error('getBillDetailSupabase error:', error); return null; }
     return data;
   },
 
   async auditBillSupabase(billId, status, auditBy, note) {
-    const { error } = await sb.rpc('audit_bill', { p_bill_id: billId, p_status: status, p_audit_by: auditBy, p_note: note || null });
-    if (error) throw error;
+    await this._appRpc('audit_bill', { p_bill_id: billId, p_status: status, p_note: note || null });
   },
 
   async getPendingOpdStockRequestsSupabase() {
-    const { data, error } = await sb.rpc('get_pending_opd_stock_requests');
-    if (error) { console.error('getPendingOpdStockRequestsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_pending_opd_stock_requests'); }
+    catch (error) { console.error('getPendingOpdStockRequestsSupabase error:', error); return []; }
     return (data || []).map(r => ({
       billId: r.bill_id, date: r.bill_date, branch: r.branch_name, hn: r.hn,
       customerName: r.customer_name, programSummary: r.program_summary,
@@ -254,15 +269,14 @@ const DB = {
   },
 
   async auditOpdStockRequestSupabase(billId, status, auditBy, note) {
-    const { error } = await sb.rpc('audit_opd_stock_request', {
-      p_bill_id: billId, p_status: status, p_audit_by: auditBy, p_note: note || null
+    await this._appRpc('audit_opd_stock_request', {
+      p_bill_id: billId, p_status: status, p_note: note || null
     });
-    if (error) throw error;
   },
 
   async getPendingStockLogsSupabase() {
-    const { data, error } = await sb.rpc('get_pending_stock_logs');
-    if (error) { console.error('getPendingStockLogsSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_pending_stock_logs'); }
+    catch (error) { console.error('getPendingStockLogsSupabase error:', error); return []; }
     return (data || []).map(r => ({
       id: r.id, date: r.log_date, branch: r.branch_name, type: r.move_type,
       productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
@@ -271,14 +285,13 @@ const DB = {
   },
 
   async auditStockLogSupabase(logId, status, auditBy, note) {
-    const { error } = await sb.rpc('audit_stock_log', { p_log_id: logId, p_status: status, p_audit_by: auditBy, p_note: note || null });
-    if (error) throw error;
+    await this._appRpc('audit_stock_log', { p_log_id: logId, p_status: status, p_note: note || null });
   },
 
   // ── Stock Card ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────
   async getStockMovementSupabase(branchName) {
-    const { data, error } = await sb.rpc('get_stock_movement', { p_branch_name: branchName });
-    if (error) { console.error('getStockMovementSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_stock_movement', { p_branch_name: branchName }); }
+    catch (error) { console.error('getStockMovementSupabase error:', error); return []; }
     return (data || []).map(r => ({
       date: r.log_date, type: r.move_type, direction: r.direction,
       productCode: r.product_code, productName: r.product_name, unit: r.unit,
@@ -287,8 +300,8 @@ const DB = {
   },
 
   async getAllBranchBalancesSupabase() {
-    const { data, error } = await sb.rpc('get_all_branch_balances');
-    if (error) { console.error('getAllBranchBalancesSupabase error:', error); return []; }
+    try { var data = await this._appRpc('get_all_branch_balances'); }
+    catch (error) { console.error('getAllBranchBalancesSupabase error:', error); return []; }
     return data || [];
   },
   addUser(user) {
