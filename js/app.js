@@ -133,7 +133,8 @@ function showApp() {
 
 // ── NAVIGATION ────────────────────────────────────────────────
 const ROUTES = {
-  opd: { label: 'บันทึก OPD', icon: 'clipboard-plus', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderOPD(getPage()) },
+  opd: { label: 'บันทึก OPD', icon: 'clipboard-plus', roles: ['Frontdesk', 'Audit', 'OnlineSales', 'Admin'], render: () => renderOPD(getPage()) },
+  deposit: { label: 'บันทึกยอดมัดจำ', icon: 'wallet-cards', roles: ['Frontdesk', 'OnlineSales', 'Admin'], render: () => renderDeposits(getPage()) },
   history: { label: 'ประวัติบิลของฉัน', icon: 'history', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderHistory(getPage()) },
   'inventory-out': { label: 'เบิกใช้วัสดุ/อุปกรณ์', icon: 'package-minus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'orange', render: () => renderInventory(getPage(), 'out') },
   'inventory-in': { label: 'รับเข้าสต๊อก', icon: 'package-plus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'blue', render: () => renderInventory(getPage(), 'in') },
@@ -157,7 +158,7 @@ function canAccess(route) {
 function buildNav() {
   const nav = document.getElementById('sidebar-nav');
   const sections = [
-    { label: null, routes: ['opd', 'history'] },
+    { label: null, routes: ['opd', 'deposit', 'history'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit', 'balance', 'reports'] },
     { label: 'Admin', routes: ['admin', 'admin_dashboard', 'systemlogs'] },
@@ -204,7 +205,7 @@ function navigate(route) {
   const headerCard = document.getElementById('apsx-page-header');
   if (headerCard) {
     let parentCategory = 'ระบบหลัก';
-    if (route === 'opd' || route === 'history') parentCategory = 'OPD & ประวัติ';
+    if (route === 'opd' || route === 'deposit' || route === 'history') parentCategory = 'OPD & การขาย';
     else if (route.startsWith('inventory-') || route === 'stockcard' || route === 'weeklycount' || route === 'balance') parentCategory = 'คลังสินค้า';
     else if (route === 'reports') parentCategory = 'รายงาน';
     else if (route === 'audit') parentCategory = 'ห้องตรวจสอบ';
@@ -592,3 +593,4 @@ function confirmDialog(msg, onConfirm) {
 
 // ── Module render functions are defined in js/modules/*.js ────
 // DO NOT redefine them here — they are loaded before app.js
+
