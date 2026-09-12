@@ -200,6 +200,24 @@ const DB = {
     if (error) throw error;
   },
 
+  async getPendingOpdStockRequestsSupabase() {
+    const { data, error } = await sb.rpc('get_pending_opd_stock_requests');
+    if (error) { console.error('getPendingOpdStockRequestsSupabase error:', error); return []; }
+    return (data || []).map(r => ({
+      billId: r.bill_id, date: r.bill_date, branch: r.branch_name, hn: r.hn,
+      customerName: r.customer_name, programSummary: r.program_summary,
+      supplyCount: Number(r.supply_count || 0), createdByName: r.created_by_name,
+      auditStatus: r.audit_status
+    }));
+  },
+
+  async auditOpdStockRequestSupabase(billId, status, auditBy, note) {
+    const { error } = await sb.rpc('audit_opd_stock_request', {
+      p_bill_id: billId, p_status: status, p_audit_by: auditBy, p_note: note || null
+    });
+    if (error) throw error;
+  },
+
   async getPendingStockLogsSupabase() {
     const { data, error } = await sb.rpc('get_pending_stock_logs');
     if (error) { console.error('getPendingStockLogsSupabase error:', error); return []; }
