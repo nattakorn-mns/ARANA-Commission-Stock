@@ -1,6 +1,6 @@
 let auditTab = 'commission';
 let auditPage = 1;
-function audCanAccessCommission() { return ['Admin', 'Audit', 'CommissionAudit'].includes(currentUser.role); }
+function audCanAccessCommission() { return ['Admin', 'CommissionAudit'].includes(currentUser.role); }
 function audCanAccessStock() { return ['Admin', 'Audit', 'StockAudit'].includes(currentUser.role); }
 function renderAudit(container) {
   const canCommission = audCanAccessCommission(), canStock = audCanAccessStock();

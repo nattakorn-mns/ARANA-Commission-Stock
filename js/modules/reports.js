@@ -12,7 +12,7 @@ const rptEscape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&
 function renderReports(container) {
   const users = [];
   reportRows = [];
-  const isAdmin = ['Admin','Audit','CommissionAudit'].includes(currentUser.role);
+  const isAdmin = ['Admin','CommissionAudit'].includes(currentUser.role);
   const fromStr = todayISO().slice(0, 7) + '-01';
 
   container.innerHTML = `
