@@ -1,20 +1,22 @@
 let auditTab = 'commission';
 let auditPage = 1;
 function audCanAccessCommission() { return ['Admin', 'CommissionAudit'].includes(currentUser.role); }
+function audCanAccessDeposits() { return ['Admin', 'Audit', 'CommissionAudit'].includes(currentUser.role); }
 function audCanAccessStock() { return ['Admin', 'Audit', 'StockAudit'].includes(currentUser.role); }
 function renderAudit(container) {
-  const canCommission = audCanAccessCommission(), canStock = audCanAccessStock();
+  const canCommission = audCanAccessCommission(), canDeposits = audCanAccessDeposits(), canStock = audCanAccessStock();
   auditTab = canCommission ? 'commission' : 'stock'; auditPage = 1;
   container.innerHTML = `<div><div class="tab-bar">
     ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
-    ${canCommission ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
+    ${canDeposits ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
     ${canStock ? `<button class="tab-btn ${auditTab==='stock'?'active':''}" id="aud-tab-stock" onclick="audSwitch('stock')"><i data-lucide="package-check"></i>อนุมัติตัดสต๊อก</button>` : ''}
     ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิก APSX</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
   </div><div id="aud-body"></div></div>`;
   audRender(); lucide.createIcons();
 }
 function audSwitch(tab) {
-  if ((tab === 'commission' || tab === 'deposits') && !audCanAccessCommission()) return;
+  if (tab === 'commission' && !audCanAccessCommission()) return;
+  if (tab === 'deposits' && !audCanAccessDeposits()) return;
   if (tab === 'stock' && !audCanAccessStock()) return;
   auditTab = tab; auditPage = 1;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
