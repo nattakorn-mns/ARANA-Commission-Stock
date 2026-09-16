@@ -46,6 +46,7 @@ async function login() {
   btn.disabled = true;
 
   let user = null;
+  let loginErrorShown = false;
   try {
     user = await Promise.race([
       DB.authenticateSupabase(username, password),
@@ -56,6 +57,7 @@ async function login() {
     showLoginError(e.message === 'LOGIN_TIMEOUT'
       ? 'เชื่อมต่อระบบนานเกินไป กรุณาลองใหม่อีกครั้ง'
       : 'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่');
+    loginErrorShown = true;
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;
@@ -69,7 +71,7 @@ async function login() {
     sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch, token }));
     errorEl.classList.add('hidden');
     showApp();
-  } else {
+  } else if (!loginErrorShown) {
     showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     document.getElementById('login-password').value = '';
   }
