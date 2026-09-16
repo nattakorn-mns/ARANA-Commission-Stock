@@ -553,8 +553,17 @@ function audDoRejectDeposit(depositId) {
 // ── TAB 2: Stock Audit ────────────────────────────────────
 async function audRenderStock(body) {
   body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
-  const [opdRequests, stockLogs] = await Promise.all([DB.getPendingOpdStockRequestsSupabase(), DB.getPendingStockLogsSupabase()]);
-  window._auditPendingStockLogs = stockLogs || [];
+  const [opdRequests, pendingStockLogs, stockImages] = await Promise.all([
+    DB.getPendingOpdStockRequestsSupabase(),
+    DB.getPendingStockLogsSupabase(),
+    DB.getPendingStockLogImagesSupabase()
+  ]);
+  const imageMap = (stockImages || []).reduce((map, image) => {
+    (map[image.logId] ||= []).push(image.fileUrl);
+    return map;
+  }, {});
+  const stockLogs = (pendingStockLogs || []).map(log => ({ ...log, images: imageMap[log.id] || [] }));
+  window._auditPendingStockLogs = stockLogs;
   const grouped = Object.values((stockLogs || []).reduce((a, x) => { const k=x.requestId||x.id; (a[k] ||= {...x,requestId:k,items:[]}).items.push(x); return a; }, {}));
   const rows = [...(opdRequests||[]).map(r=>({...r,rowType:'opd',itemCount:r.supplyCount||0})), ...grouped.map(r=>({...r,rowType:'stock',itemCount:r.items.length,customerName:'คำขอเบิก/รับ'}))];
   body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:.9rem;color:var(--gray-700);font-weight:700;">รายการสต๊อกรอตรวจทั้งหมด</span><span class="badge badge-pending" style="font-size:1rem;padding:4px 12px;">${rows.length} คำขอ</span><span style="font-size:.8rem;color:var(--gray-500);">OPD ${opdRequests?.length||0} ใบ · เบิก/รับทั่วไป ${grouped.length} คำขอ</span></div>
@@ -581,7 +590,15 @@ async function audOpenStockRequest(billId) {
   lucide.createIcons();
 }
 function audConfirmStockApprove(billId) { const checks=[...document.querySelectorAll('.aud-stock-check')]; if(checks.some(c=>!c.checked)){Toast.show('กรุณาตรวจและติ๊กให้ครบทุกรายการก่อนอนุมัติ','warning');return;} audStockAction(billId,'อนุมัติแล้ว'); }
-function audOpenStockRequestGroup(requestId){const items=(window._auditPendingStockLogs||[]).filter(x=>(x.requestId||x.id)===requestId);if(!items.length){Toast.show('ไม่พบคำขอ','error');return;}const f=items[0];const rows=items.map(x=>`<tr><td>${x.productCode||'-'}</td><td>${x.productName||'-'}</td><td>${x.qty} ${x.unit||''}</td><td>${x.source||'-'}</td><td>${x.note||'-'}</td></tr>`).join('');openModal(`<div class="modal" style="width:1100px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">รายละเอียดคำขอเบิก/รับ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body"><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(f.date)}</strong></div><div><small>สาขา</small><strong>${f.branch||'-'}</strong></div><div><small>ผู้บันทึก</small><strong>${f.createdByName||'-'}</strong></div></div><h4 style="margin-top:18px;">รายการทั้งหมด (${items.length})</h4><div class="table-wrap"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>จำนวน</th><th>แหล่งที่มา</th><th>หมายเหตุ</th></tr></thead><tbody>${rows}</tbody></table></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockRequestReject('${requestId}')">ตีกลับทั้งคำขอ</button><button class="btn btn-success" onclick="audStockRequestAction('${requestId}','อนุมัติแล้ว')">อนุมัติทั้งคำขอ</button></div></div>`);}
+function audOpenStockRequestGroup(requestId){
+  const items=(window._auditPendingStockLogs||[]).filter(x=>(x.requestId||x.id)===requestId);
+  if(!items.length){Toast.show('ไม่พบคำขอ','error');return;}
+  const first=items[0];
+  const list=items.map(i=>`<tr><td>${i.productCode||'-'}</td><td>${i.productName||'-'}</td><td>${i.qty} ${i.unit||''}</td><td>${i.source||'-'}</td><td>${i.note||'-'}</td></tr>`).join('');
+  const evidence=[...new Set(items.flatMap(i=>i.images||[]))].filter(url=>/^data:image\/|^https:\/\//.test(String(url)));
+  const photos=evidence.length ? evidence.map((url,index)=>`<img src="${String(url).replace(/"/g,'&quot;')}" alt="หลักฐานรายการ ${index+1}" style="width:100%;max-height:280px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:10px;">`).join('') : '<div style="min-height:220px;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--gray-500);background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:10px;">ยังไม่มีรูปหลักฐาน</div>';
+  openModal(`<div class="modal" style="width:1100px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">รายละเอียดคำขอเบิก/รับ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body"><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(first.date)}</strong></div><div><small>สาขา</small><strong>${first.branch||'-'}</strong></div><div><small>ผู้บันทึก</small><strong>${first.createdByName||'-'}</strong></div><div><small>ประเภท</small><strong>${first.type==='IN'?'รับของเข้า':first.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</strong></div></div><div style="display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1.4fr);gap:18px;margin-top:18px;align-items:start;"><section><h4 style="margin:0 0 10px;">รูปหลักฐาน (${evidence.length})</h4>${photos}</section><section><h4 style="margin:0 0 10px;">รายการทั้งหมด (${items.length})</h4><div class="table-wrap"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>จำนวน</th><th>แหล่งที่มา</th><th>หมายเหตุ</th></tr></thead><tbody>${list}</tbody></table></div></section></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockRequestReject('${requestId}')">ตีกลับทั้งคำขอ</button><button class="btn btn-success" onclick="audStockRequestAction('${requestId}','อนุมัติแล้ว')">อนุมัติทั้งคำขอ</button></div></div>`);
+}
 function audStockRequestAction(id,status,note){DB.auditStockRequestSupabase(id,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติคำขอแล้ว':'ตีกลับคำขอแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+e.message,'error'));}
 function audStockRequestReject(id){openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับคำขอเบิก/รับ</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ</label><textarea id="aud-stock-request-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRequestReject('${id}')">ยืนยันตีกลับทั้งคำขอ</button></div></div>`);}
 function audDoStockRequestReject(id){const n=document.getElementById('aud-stock-request-note')?.value.trim();if(!n){Toast.show('กรุณาระบุเหตุผล','error');return;}audStockRequestAction(id,'ตีกลับ',n);}
