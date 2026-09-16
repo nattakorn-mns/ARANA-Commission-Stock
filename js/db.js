@@ -284,7 +284,9 @@ const DB = {
     }));
   },
 
-  async auditStockRequestSupabase(requestId, status, auditBy, note) { await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }); },\n\n  async auditStockLogSupabase(logId, status, auditBy, note) {
+  async auditStockRequestSupabase(requestId, status, auditBy, note) { await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }); },
+
+  async auditStockLogSupabase(logId, status, auditBy, note) {
     await this._appRpc('audit_stock_log', { p_log_id: logId, p_status: status, p_note: note || null });
   },
 
