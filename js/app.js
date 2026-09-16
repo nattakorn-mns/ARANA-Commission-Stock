@@ -45,9 +45,21 @@ async function login() {
   btn.classList.add('loading');
   btn.disabled = true;
 
-  const user = await DB.authenticateSupabase(username, password);
-  btn.classList.remove('loading');
-  btn.disabled = false;
+  let user = null;
+  try {
+    user = await Promise.race([
+      DB.authenticateSupabase(username, password),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), 15000))
+    ]);
+  } catch (e) {
+    console.error('Login request failed:', e);
+    showLoginError(e.message === 'LOGIN_TIMEOUT'
+      ? 'เชื่อมต่อระบบนานเกินไป กรุณาลองใหม่อีกครั้ง'
+      : 'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
 
   if (user) {
     const token = user.sessionToken;
