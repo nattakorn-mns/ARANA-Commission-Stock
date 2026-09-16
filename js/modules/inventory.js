@@ -220,6 +220,7 @@ async function invSubmit() {
   if (submitBtn) submitBtn.disabled = true;
 
   try {
+    const requestId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `REQ-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     let firstLogId = null;
     for (const r of validRows) {
       const logId = await DB.saveStockLogSupabase({
@@ -231,7 +232,8 @@ async function invSubmit() {
         qty: r.qty,
         note: r.note || defaultNoteByTab[invTab],
         createdBy: currentUser.id,
-        source
+        source,
+        requestId
       });
       if (!firstLogId) firstLogId = logId;
     }
@@ -257,3 +259,4 @@ function invReset() {
   invPhotos = [];
   invRender();
 }
+
