@@ -284,6 +284,12 @@ const DB = {
     }));
   },
 
+  async getPendingStockLogImagesSupabase() {
+    try { var data = await this._appRpc('get_pending_stock_log_images'); }
+    catch (error) { console.error('getPendingStockLogImagesSupabase error:', error); return []; }
+    return (data || []).map(r => ({ logId: r.stock_log_id, fileUrl: r.file_url, uploadedAt: r.uploaded_at }));
+  },
+
   async auditStockRequestSupabase(requestId, status, auditBy, note) { await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }); },
 
   async auditStockLogSupabase(logId, status, auditBy, note) {
