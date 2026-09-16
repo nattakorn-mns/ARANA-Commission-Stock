@@ -209,7 +209,7 @@ begin
       v_payload->>'p_branch_name', nullif(v_payload->>'p_to_branch_name',''),
       v_payload->>'p_product_code', v_payload->>'p_direction', v_payload->>'p_move_type',
       (v_payload->>'p_qty')::numeric, v_payload->>'p_note', v_actor.user_id,
-      nullif(v_payload->>'p_source',''));
+      nullif(v_payload->>'p_source',''), nullif(v_payload->>'p_request_id','')::uuid);
     v_result := to_jsonb(v_id);
 
   elsif p_action = 'save_stock_log_image' then
@@ -317,7 +317,7 @@ begin
       v_payload->>'p_status', v_actor.user_id, nullif(v_payload->>'p_note',''));
     v_result := 'true'::jsonb;
 
-  elsif p_action = 'get_stock_movement' then
+  elsif p_action = 'audit_stock_request' then\n    perform private.require_role(v_actor.role, array['Audit','StockAudit','Admin']);\n    perform public.audit_stock_request((v_payload->>'p_request_id')::uuid, v_payload->>'p_status', v_actor.user_id, nullif(v_payload->>'p_note',''));\n    v_result := 'true'::jsonb;\n\n  elsif p_action = 'get_stock_movement' then
     perform private.require_role(v_actor.role, array['Frontdesk','Audit','StockAudit','Admin']);
     perform private.require_branch(v_actor.role, v_actor.branch_name, v_payload->>'p_branch_name');
     select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) into v_result

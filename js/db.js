@@ -168,7 +168,7 @@ const DB = {
     return data || [];
   },
 
-  async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy, source }) {
+  async saveStockLogSupabase({ branch, toBranch, productCode, direction, type, qty, note, createdBy, source, requestId }) {
     const data = await this._appRpc('save_stock_log', {
       p_branch_name: branch,
       p_to_branch_name: toBranch || null,
@@ -177,7 +177,7 @@ const DB = {
       p_move_type: type,
       p_qty: qty,
       p_note: note,
-      p_source: source || null
+      p_source: source || null, p_request_id: requestId || null
     });
     return data; // log id
   },
@@ -278,13 +278,13 @@ const DB = {
     try { var data = await this._appRpc('get_pending_stock_logs'); }
     catch (error) { console.error('getPendingStockLogsSupabase error:', error); return []; }
     return (data || []).map(r => ({
-      id: r.id, date: r.log_date, branch: r.branch_name, type: r.move_type,
+      id: r.id, requestId: r.request_id || r.id, createdAt: r.created_at, date: r.log_date, branch: r.branch_name, toBranch: r.to_branch_name, type: r.move_type,
       productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
       createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note, source: r.source
     }));
   },
 
-  async auditStockLogSupabase(logId, status, auditBy, note) {
+  async auditStockRequestSupabase(requestId, status, auditBy, note) { await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }); },\n\n  async auditStockLogSupabase(logId, status, auditBy, note) {
     await this._appRpc('audit_stock_log', { p_log_id: logId, p_status: status, p_note: note || null });
   },
 
