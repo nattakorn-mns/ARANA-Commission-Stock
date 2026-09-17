@@ -10,6 +10,7 @@ function renderHistory(container) {
   container.innerHTML = `
   <div style="max-width:1200px; margin:0 auto;">
     <!-- Dashboard Summary (Frontdesk KPI) -->
+    <div style="margin-bottom:14px;"><h2 style="margin:0 0 4px;">สรุปยอดของฉัน</h2><p style="margin:0;color:var(--gray-500);font-size:.9rem;">ดูค่ามือ ค่าคอมมิชชั่น และสถานะรายการของตัวเอง</p></div>
     <div id="hist-kpi-dashboard" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:10px;margin-bottom:16px;"></div>
 
     <!-- Filter Bar -->
@@ -127,23 +128,23 @@ function histRender() {
     kpiEl.style.gridTemplateColumns = 'repeat(6, 1fr)';
     kpiEl.innerHTML = `
       <div class="stat-card bg-pastel-pink" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
-        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">รวมค่ามือ</div>
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ค่ามือ</div>
         <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumService)}</div>
       </div>
       <div class="stat-card bg-pastel-purple" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
-        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">อัพเซลส์</div>
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ค่าคอม อัพเซลส์</div>
         <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumUpsell)}</div>
       </div>
       <div class="stat-card bg-pastel-green" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 2;">
-        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ขายเพิ่ม</div>
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ค่าคอม ขายเพิ่ม</div>
         <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumCrosssell)}</div>
       </div>
       <div class="stat-card bg-pastel-yellow" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 3;">
-        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ขายสินค้า</div>
+        <div style="font-size:0.75rem;color:var(--burgundy-800);font-weight:600;margin-bottom:2px;">ค่าคอม ขายสินค้า</div>
         <div style="font-size:1.05rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(sumProduct)}</div>
       </div>
       <div class="stat-card bg-pastel-blue" style="padding:12px;border-radius:8px;border:none;box-shadow:var(--shadow-sm);grid-column:span 3;">
-        <div style="font-size:0.8rem;color:var(--burgundy-800);font-weight:700;margin-bottom:2px;">รวมทั้งหมด (ที่ได้จริง)</div>
+        <div style="font-size:0.8rem;color:var(--burgundy-800);font-weight:700;margin-bottom:2px;">รวมทั้งหมด</div>
         <div style="font-size:1.15rem;font-weight:800;color:var(--burgundy-900);">฿${formatCurrency(grandTotal)}</div>
       </div>
     `;
