@@ -1,0 +1,242 @@
+/* ============================================================
+   ARANA CLINIC — ธีมหน้าตาใหม่ (ชมพูอ่อน–ขาว)
+   โหลดท้ายสุดเพื่อ "ทับ" เฉพาะหน้าตา ไม่แก้การทำงานใดๆ
+   ฟอนต์: Prompt (หัวข้อ) + IBM Plex Sans Thai (เนื้อหา)
+   ============================================================ */
+
+/* ── 1) ชุดสีและรูปทรงใหม่ ── */
+:root {
+  /* โทนชมพูอ่อน–กุหลาบ */
+  --burgundy-900: #7d2247;
+  --burgundy-800: #9d2f57;
+  --burgundy-700: #b83e6b;
+  --burgundy-600: #cf5680;
+  --burgundy-500: #dc6b91;
+  --burgundy-400: #e78dab;
+  --burgundy-300: #f0aec5;
+  --burgundy-200: #f7cbdd;
+  --burgundy-100: #fce4ee;
+  --burgundy-50:  #fdf0f6;
+
+  --charcoal: #3a2a33;
+  --gray-800: #4a3a44;
+  --gray-700: #6b5561;
+  --gray-600: #8a7381;
+  --gray-500: #b3a2ac;
+  --gray-400: #d5c8d0;
+  --gray-300: #e9dfe6;
+  --gray-200: #f3ecf1;
+  --gray-100: #f9f5f8;
+  --gray-50:  #fbf8fa;
+
+  --glass-bg: #ffffff;
+  --glass-bg2: #ffffff;
+  --glass-border: #f3ecf1;
+  --glass-shadow: 0 4px 16px rgba(125, 34, 71, 0.08);
+
+  --sidebar-width: 256px;
+  --topbar-height: 68px;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+}
+
+/* ── 2) พื้นหลังและตัวอักษร ── */
+body {
+  background:
+    radial-gradient(circle at 12% 0%, #fdeef4 0%, rgba(253,238,244,0) 45%),
+    radial-gradient(circle at 88% 8%, #fdf5f0 0%, rgba(253,245,240,0) 45%),
+    #fdf9fb;
+  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
+  color: var(--charcoal);
+  line-height: 1.6;
+}
+
+h1, h2, h3,
+.topbar-title, .section-title, .stat-value, .modal-title,
+.logo-arana, .sidebar-logo-arana {
+  font-family: 'Prompt', 'IBM Plex Sans Thai', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--burgundy-200); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--burgundy-300); background-clip: content-box; }
+
+/* ── 3) หน้าล็อกอิน ── */
+.login-screen {
+  background: linear-gradient(160deg, #fdeef4 0%, #fffaf7 52%, #fbe7ef 100%);
+}
+.login-card {
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--burgundy-100);
+  box-shadow: 0 18px 48px rgba(125, 34, 71, 0.12);
+}
+
+/* ── 4) เมนูซ้าย: พื้นขาวสะอาด อ่านง่าย ── */
+.sidebar {
+  background: #ffffff;
+  border-right: 1px solid var(--gray-200);
+  box-shadow: none;
+}
+.sidebar-toggle { color: var(--burgundy-700); }
+.sidebar-toggle:hover { color: var(--burgundy-800); background: var(--burgundy-50); }
+.sidebar-logo-arana { color: var(--burgundy-800); }
+.user-name { color: #3a2a33; }
+
+.role-frontdesk { background: #e4eeff; color: #2f5db3; }
+.role-audit     { background: #d9f5ee; color: #12776a; }
+.role-admin     { background: var(--burgundy-100); color: var(--burgundy-700); }
+
+.branch-select {
+  background: var(--burgundy-50);
+  border: 1px solid var(--burgundy-100);
+  color: var(--burgundy-700);
+  border-radius: var(--radius-lg);
+}
+.branch-select:focus { border-color: var(--burgundy-400); }
+.branch-select option { background: #ffffff; color: var(--charcoal); }
+
+.nav-item {
+  color: #75606b;
+  border-radius: var(--radius-lg);
+  margin: 2px 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-item:hover { background: var(--burgundy-50); color: var(--burgundy-800); }
+.nav-item.active {
+  background: var(--burgundy-100);
+  color: var(--burgundy-800);
+}
+.nav-item.active::before { background: var(--burgundy-500); }
+
+.sidebar-logout { color: #991b1b; }
+.sidebar-logout:hover { background: #fdeaea; color: #991b1b; }
+
+/* ── 5) แถบบน ── */
+.topbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.topbar-branch-pill {
+  background: var(--burgundy-50);
+  border: 1px solid var(--burgundy-100);
+  color: var(--burgundy-700);
+  border-radius: 999px;
+}
+
+/* ── 6) เนื้อหาหน้าและการ์ด ── */
+.page-content { padding: 24px 28px 48px; }
+
+.section-title {
+  border-left: 4px solid var(--burgundy-500);
+  padding-left: 12px;
+}
+
+.card, .glass-card {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+}
+
+.stat-card { position: relative; overflow: hidden; }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--burgundy-500), var(--burgundy-300));
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(125, 34, 71, 0.12); }
+
+/* ── 7) ปุ่ม ── */
+.btn {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary {
+  background: linear-gradient(135deg, var(--burgundy-600), var(--burgundy-500));
+  box-shadow: none;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--burgundy-500), var(--burgundy-400));
+  box-shadow: 0 6px 18px rgba(125, 34, 71, 0.25);
+  transform: translateY(-1px);
+}
+.btn-secondary {
+  background: #ffffff;
+  border: 1px solid var(--gray-300);
+  color: var(--gray-700);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--burgundy-50); border-color: var(--burgundy-200); color: var(--burgundy-700); }
+
+/* ── 8) ช่องกรอก ── */
+.form-input, .form-select, .form-textarea,
+.filter-input, .filter-select {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-300);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus,
+.filter-input:focus, .filter-select:focus {
+  border-color: var(--burgundy-400);
+  box-shadow: 0 0 0 3px var(--burgundy-100);
+}
+.filter-input, .filter-select { background: var(--gray-50); }
+
+/* ── 9) แท็บ: ทรงแคปซูล ── */
+.tab-bar { border-bottom: 1px solid var(--gray-200); gap: 6px; }
+.tab-btn {
+  border-bottom: 2px solid transparent;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tab-btn:hover { color: var(--burgundy-700); background: var(--burgundy-50); }
+.tab-btn.active {
+  color: var(--burgundy-800);
+  border-bottom-color: var(--burgundy-100);
+  background: var(--burgundy-100);
+}
+.tab-btn.tab-orange.active { color: var(--orange-600); border-bottom-color: var(--orange-100); background: var(--orange-100); }
+.tab-btn.tab-blue.active   { color: var(--blue-600);   border-bottom-color: var(--blue-100);   background: var(--blue-100); }
+.tab-btn.tab-purple.active { color: var(--purple-600); border-bottom-color: var(--purple-100); background: var(--purple-100); }
+
+/* ── 10) ตาราง ── */
+.table-wrap {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--glass-shadow);
+}
+thead th {
+  background: var(--burgundy-50) !important;
+  color: var(--burgundy-800) !important;
+  font-weight: 600;
+}
+tbody tr:hover { background: var(--burgundy-50) !important; }
+tbody td { vertical-align: middle; }
+
+/* ── 11) ป้ายสถานะ / ปุ่มแบ่งหน้า / ป๊อปอัป / แจ้งเตือน ── */
+.badge { border-radius: 999px; font-weight: 600; }
+.page-btn { border-radius: var(--radius-md); }
+.modal { border-radius: var(--radius-2xl); box-shadow: 0 24px 64px rgba(125, 34, 71, 0.18); }
+.toast { border-radius: var(--radius-lg); }
+
+/* ── 12) มือถือ ── */
+@media (max-width: 768px) {
+  .page-content { padding: 16px 14px 40px; }
+  .topbar { padding: 0 14px; }
+  .stats-grid { gap: 12px; }
+  .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card, .glass-card { border-radius: var(--radius-lg); }
+  .modal { border-radius: 20px 20px 0 0; }
+}
