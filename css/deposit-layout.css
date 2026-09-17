@@ -1,0 +1,28 @@
+/* Deposit-page presentation only. Existing fields, order and handlers are retained. */
+#deposit-preview-form {gap:12px;}
+#deposit-preview-form .deposit-guidance {margin-bottom:0!important;padding:10px 14px;background:#edf4f8;border-color:#dbe9f0;color:#496575;font-size:13px;}
+#deposit-preview-form .deposit-data-section {--deposit-head:#f2e3e9;--deposit-ink:#784858;}
+#deposit-preview-form .deposit-evidence-section {--deposit-head:#f6eddf;--deposit-ink:#7b6441;}
+#deposit-preview-form .opd-section-head {background:var(--deposit-head);min-height:54px;cursor:default;}
+#deposit-preview-form .opd-section-head h3 {color:var(--deposit-ink);font-size:15px;}
+#deposit-preview-form .opd-section-count {background:#ffffffb3;color:var(--deposit-ink);}
+#deposit-preview-form .opd-section-body {padding:16px;gap:12px;}
+#deposit-preview-form .form-group {min-width:0;margin-bottom:0!important;}
+#deposit-preview-form .form-label {min-height:24px;display:flex;align-items:center;font-size:13px;}
+#deposit-preview-form .form-input,#deposit-preview-form .form-select {width:100%;min-width:0;height:44px;min-height:44px;font-size:16px;}
+#deposit-preview-form textarea.form-input {height:auto;min-height:68px;resize:vertical;}
+#deposit-preview-form #dep-commission-amount {background:#fcf3f6;color:#935069;font-weight:700;}
+#deposit-preview-form .deposit-auto-reference {background:#f5f7f9;color:#52606c;font-weight:700;letter-spacing:.04em;}
+#deposit-preview-form .deposit-actions {justify-content:center!important;flex-wrap:wrap;padding-bottom:20px!important;}
+#deposit-preview-form .deposit-actions .btn {width:auto!important;min-width:130px;min-height:46px;}
+#deposit-preview-form .photo-upload-area {padding:22px 12px;}
+@media(max-width:600px){
+ #deposit-preview-form .deposit-guidance {padding:8px 10px;font-size:12px;line-height:1.45;}
+ #deposit-preview-form .opd-section-body {padding:12px;gap:10px;}
+ #deposit-preview-form .form-row {display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px!important;align-items:end;}
+ #deposit-preview-form .form-row:first-child {grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)!important;}
+ #deposit-preview-form .form-label {font-size:12px;}
+ #deposit-preview-form .deposit-actions {gap:8px!important;}
+ #deposit-preview-form .deposit-actions .btn {min-width:0;flex:1;}
+}
+
