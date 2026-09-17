@@ -147,7 +147,7 @@ function showApp() {
 const ROUTES = {
   opd: { label: 'บันทึก OPD', icon: 'clipboard-plus', roles: ['Frontdesk', 'Audit', 'OnlineSales', 'Admin'], render: () => renderOPD(getPage()) },
   deposit: { label: 'บันทึกยอดมัดจำ', icon: 'wallet-cards', roles: ['Frontdesk', 'OnlineSales', 'Admin'], render: () => renderDeposits(getPage()) },
-  history: { label: 'ประวัติบิลของฉัน', icon: 'history', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderHistory(getPage()) },
+  history: { label: 'สรุปยอดของฉัน', icon: 'history', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderHistory(getPage()) },
   'inventory-out': { label: 'เบิกใช้วัสดุ/อุปกรณ์', icon: 'package-minus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'orange', render: () => renderInventory(getPage(), 'out') },
   'inventory-in': { label: 'รับเข้าสต๊อก', icon: 'package-plus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'blue', render: () => renderInventory(getPage(), 'in') },
   'inventory-transfer': { label: 'เบิกโอนข้ามสาขา', icon: 'truck', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'purple', render: () => renderInventory(getPage(), 'transfer') },
