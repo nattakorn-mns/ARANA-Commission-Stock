@@ -289,10 +289,8 @@ async function renderOPD(container) {
         <i data-lucide="chevron-down"></i>
       </div>
       <div class="opd-section-body" id="supplies-body">
+        <p style="font-size:0.78rem;color:var(--gray-500);margin:0 0 10px;">เลือกโปรแกรมที่ให้บริการ แล้วกด “เพิ่มของที่เบิก” ใต้โปรแกรมนั้น เพื่อให้ผู้ตรวจเทียบของกับโปรแกรมได้</p>
         <div id="supplies-list"></div>
-        <button class="btn btn-primary btn-sm" onclick="opdAddSupply()">
-          <i data-lucide="plus"></i> เพิ่มรายการเบิก
-        </button>
       </div>
     </div>
 
@@ -464,6 +462,7 @@ function opdRenderServices() {
   if (!container) return;
   const programs = opdProgramsCache.map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
   
+  opdScheduleSupplyRefresh();
   container.innerHTML = opdState.services.map((s) => {
     const uid = 'svcprog-' + s.id;
     window['ssSvcProg_' + s.id] = function(code) { opdSvcProgram(s.id, code); };
@@ -546,6 +545,7 @@ function opdAddSale(type) {
 function opdRenderSales() {
   const container = document.getElementById('sales-list');
   if (!container) return;
+  opdScheduleSupplyRefresh();
   container.innerHTML = opdState.sales.map(s => opdBuildSaleCard(s)).join('');
   document.getElementById('sales-count').textContent = opdState.sales.length;
   lucide.createIcons();
@@ -825,10 +825,41 @@ function opdRemoveSale(id) {
   opdRenderSales();
 }
 
-// ── Supplies ───────────────────────────────────────────────
-function opdAddSupply() {
-  const id = 'sup_' + Date.now();
-  opdState.supplies.push({ id, productCode: '', productName: '', qty: 1, unit: '' });
+// ── Supplies (ผูกกับโปรแกรมที่ให้บริการ) ────────────────────
+let _opdSupplyRefreshTimer = null;
+function opdScheduleSupplyRefresh() {
+  clearTimeout(_opdSupplyRefreshTimer);
+  _opdSupplyRefreshTimer = setTimeout(() => {
+    if (document.getElementById('supplies-list')) opdRenderSupplies();
+  }, 0);
+}
+// รวมรายชื่อโปรแกรมจากค่ามือ + รายการขาย/คอมมิชชั่น + บิลที่พ่วง
+function opdSupplyPrograms() {
+  const list = [];
+  const push = (key, name, tag) => {
+    if (!key) return;
+    if (list.some(p => p.key === key)) return;
+    list.push({ key, name: name || key, tag });
+  };
+  (opdState.services || []).forEach(sv => push(sv.programCode, sv.programName || sv.programCode, 'ค่ามือ'));
+  (opdState.sharedBillServices || []).forEach(sv => push(sv.programCode, sv.programName || sv.programCode, 'บิลพ่วง'));
+  (opdState.sales || []).forEach(s => {
+    if (!s.newProgram) return;
+    const p = opdProgramsCache.find(x => x.code === s.newProgram);
+    push(s.newProgram, p ? p.name : s.newProgram, 'รายการขาย');
+  });
+  return list;
+}
+
+function opdAddSupply(programKey) {
+  const id = 'sup_' + Date.now() + Math.floor(Math.random() * 1000);
+  const prog = opdSupplyPrograms().find(p => p.key === programKey);
+  opdState.supplies.push({
+    id,
+    programCode: programKey || '',
+    programName: prog ? prog.name : '',
+    productCode: '', productName: '', qty: 1, unit: ''
+  });
   opdRenderSupplies();
 }
 
@@ -836,10 +867,11 @@ function opdRenderSupplies() {
   const container = document.getElementById('supplies-list');
   if (!container) return;
   const products = opdProductsCache.map(p => ({ code: p.code, name: p.name, extra: p.unit }));
-  
-  container.innerHTML = opdState.supplies.map(s => {
+  const programs = opdSupplyPrograms();
+
+  const rowHtml = (s) => {
     const uid = 'supprod-' + s.id;
-    window['ssSupprod_' + s.id] = function(code) { opdSupplyProduct(s.id, code); };
+    window['ssSupprod_' + s.id] = function (code) { opdSupplyProduct(s.id, code); };
     return `
     <div class="supply-row" id="suprow-${s.id}" style="display:grid;grid-template-columns:2fr 80px 60px auto;align-items:end;gap:8px;margin-bottom:8px;">
       <div>
@@ -859,8 +891,39 @@ function opdRenderSupplies() {
         <i data-lucide="trash-2"></i>
       </button>
     </div>`;
-  }).join('');
-  
+  };
+
+  const groupHtml = (key, name, tag, rows) => `
+    <div class="supply-group" style="border:1px solid var(--gray-200);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--gray-50);">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${rows.length ? '10px' : '0'};">
+        <i data-lucide="clipboard-list" style="width:16px;"></i>
+        <strong style="font-size:0.9rem;">${name}</strong>
+        ${tag ? `<span style="font-size:0.7rem;background:var(--gray-200);color:var(--gray-600);padding:2px 7px;border-radius:999px;">${tag}</span>` : ''}
+        <span style="font-size:0.75rem;color:var(--gray-500);">${rows.length} รายการเบิก</span>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="opdAddSupply('${key}')">
+          <i data-lucide="plus"></i> เพิ่มของที่เบิก
+        </button>
+      </div>
+      ${rows.map(rowHtml).join('')}
+    </div>`;
+
+  let html = '';
+  if (!programs.length) {
+    html += `<div class="empty-state" style="padding:14px;margin-bottom:10px;">
+      <i data-lucide="info"></i>
+      <h4 style="font-size:0.85rem;">ยังไม่มีโปรแกรมให้ผูก — กรุณาเพิ่มรายการค่ามือหรือรายการขายก่อน</h4>
+    </div>`;
+  }
+  programs.forEach(p => {
+    html += groupHtml(p.key, p.name, p.tag, opdState.supplies.filter(s => s.programCode === p.key));
+  });
+
+  const orphans = opdState.supplies.filter(s => !s.programCode || !programs.some(p => p.key === s.programCode));
+  if (orphans.length) {
+    html += groupHtml('', 'ไม่ระบุโปรแกรม / ใช้ร่วม', 'ควรระบุโปรแกรม', orphans);
+  }
+
+  container.innerHTML = html;
   document.getElementById('supplies-count').textContent = opdState.supplies.length;
   lucide.createIcons();
 }
@@ -885,6 +948,7 @@ function opdRemoveSupply(id) {
   opdState.supplies = opdState.supplies.filter(s => s.id !== id);
   opdRenderSupplies();
 }
+
 
 // ── Photos ─────────────────────────────────────────────────
 async function opdHandlePhotos(e) {
@@ -980,6 +1044,14 @@ async function opdSubmit() {
     return;
   }
 
+  const unlinked = opdState.supplies.filter(s => s.productCode && !s.programCode);
+  if (unlinked.length) {
+    Toast.show('⚠️ มีรายการเบิกที่ยังไม่ได้ผูกกับโปรแกรม — กรุณาย้ายไปอยู่ใต้โปรแกรมที่ให้บริการ', 'error', 5000);
+    const suppliesBody = document.getElementById('supplies-body');
+    if (suppliesBody) suppliesBody.classList.remove('collapsed');
+    return;
+  }
+
   btn.classList.add('loading'); btn.disabled = true;
 
   const payload = {
@@ -996,7 +1068,7 @@ async function opdSubmit() {
       })),
     supplies: opdState.supplies
       .filter(s => s.productCode)
-      .map(s => ({ product_code: s.productCode, qty: s.qty })),
+      .map(s => ({ product_code: s.productCode, qty: s.qty, program_code: s.programCode || null })),
     images: opdState.photos.map(p => ({ data: p.data, name: p.name }))
   };
 
