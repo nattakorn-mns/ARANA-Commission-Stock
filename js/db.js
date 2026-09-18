@@ -319,11 +319,23 @@ const DB = {
     if (!token) throw new Error('SESSION_REQUIRED');
     const { data, error } = await sb.rpc('arana_my_bills', { p_session_token: token });
     if (error) throw error;
-    return {
-      bills: (data && data.bills) || [],
-      services: (data && data.services) || [],
-      sales: (data && data.sales) || []
+    const camel = (k) => k.replace(/_([a-z])/g, (m, c) => c.toUpperCase());
+    const norm = (row) => {
+      const out = {};
+      Object.keys(row || {}).forEach(k => { out[camel(k)] = row[k]; });
+      if (out.saleType && !out.type) out.type = String(out.saleType).toLowerCase();
+      if (out.type) out.type = String(out.type).toLowerCase();
+      if (out.billId == null && out.bill_id != null) out.billId = out.bill_id;
+      return out;
     };
+    const arr = (v) => Array.isArray(v) ? v.map(norm) : [];
+    const res = {
+      bills: arr(data && data.bills),
+      services: arr(data && data.services),
+      sales: arr(data && data.sales)
+    };
+    console.log('[arana_my_bills] raw:', data, 'normalized:', res);
+    return res;
   },
 
   addUser(user) {
