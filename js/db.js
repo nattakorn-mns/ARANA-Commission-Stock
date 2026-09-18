@@ -312,6 +312,20 @@ const DB = {
     catch (error) { console.error('getAllBranchBalancesSupabase error:', error); return []; }
     return data || [];
   },
+
+  // ── สรุปยอดของฉัน ผ่านฐานข้อมูลกลาง (Supabase) ──────────────
+  async getMyBillsSupabase() {
+    const token = this._sessionToken();
+    if (!token) throw new Error('SESSION_REQUIRED');
+    const { data, error } = await sb.rpc('arana_my_bills', { p_session_token: token });
+    if (error) throw error;
+    return {
+      bills: (data && data.bills) || [],
+      services: (data && data.services) || [],
+      sales: (data && data.sales) || []
+    };
+  },
+
   addUser(user) {
     const users = this.getUsers();
     user.id = this._genId();
