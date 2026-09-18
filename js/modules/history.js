@@ -17,7 +17,7 @@ function histSetStatus(html, color) {
 async function histLoadRemote() {
   histSetStatus('<span style="display:inline-flex;align-items:center;gap:6px;"><i data-lucide="loader" style="width:14px;height:14px;"></i> กำลังโหลดข้อมูลจากฐานข้อมูล...</span>');
   lucide.createIcons();
-  const content = document.getElementById('history-content');
+  const content = document.getElementById('history-content') || document.getElementById('sum-layout-table');
   if (content) content.innerHTML = `<div style="padding:28px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูลจากฐานข้อมูล...</div>`;
   try {
     historyRemote = await DB.getMyBillsSupabase();
@@ -35,7 +35,8 @@ async function histLoadRemote() {
   const ns = (historyRemote.services || []).length;
   const nl = (historyRemote.sales || []).length;
   histSetStatus(`เชื่อมต่อฐานข้อมูลสำเร็จ · บิล ${nb} · ค่ามือ ${ns} · รายการขาย ${nl}`, nb === 0 ? 'var(--gray-500)' : 'var(--burgundy-700)');
-  histRender();
+  if (document.getElementById('sum-layout-table') && typeof sumRender === 'function') sumRender();
+  else histRender();
 }
 
 
