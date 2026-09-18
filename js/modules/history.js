@@ -6,7 +6,17 @@
 let historyState = { page: 1, perPage: 10, filters: { dateFrom: '', dateTo: '', status: '', branch: '' } };
 let historyRemote = null;
 
+function histSetStatus(html, color) {
+  const el = document.getElementById('hist-db-status');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = color || 'var(--gray-600)';
+  el.innerHTML = html;
+}
+
 async function histLoadRemote() {
+  histSetStatus('<span style="display:inline-flex;align-items:center;gap:6px;"><i data-lucide="loader" style="width:14px;height:14px;"></i> กำลังโหลดข้อมูลจากฐานข้อมูล...</span>');
+  lucide.createIcons();
   const content = document.getElementById('history-content');
   if (content) content.innerHTML = `<div style="padding:28px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูลจากฐานข้อมูล...</div>`;
   try {
@@ -16,17 +26,16 @@ async function histLoadRemote() {
     historyRemote = null;
     const msg = (e && (e.message || e.hint || e.details)) || 'กรุณาลองใหม่อีกครั้ง';
     const code = (e && e.code) ? ` (รหัส ${e.code})` : '';
+    histSetStatus(`<strong>โหลดข้อมูลไม่สำเร็จ:</strong> ${msg}${code}`, 'var(--red-600)');
     if (content) content.innerHTML = `<div class="empty-state"><i data-lucide="wifi-off"></i><h4>โหลดข้อมูลไม่สำเร็จ</h4><p style="color:var(--gray-600);">${msg}${code}</p></div>`;
     lucide.createIcons();
     return;
   }
+  const nb = (historyRemote.bills || []).length;
+  const ns = (historyRemote.services || []).length;
+  const nl = (historyRemote.sales || []).length;
+  histSetStatus(`เชื่อมต่อฐานข้อมูลสำเร็จ · บิล ${nb} · ค่ามือ ${ns} · รายการขาย ${nl}`, nb === 0 ? 'var(--gray-500)' : 'var(--burgundy-700)');
   histRender();
-  if (historyRemote) {
-    const box = document.getElementById('history-content');
-    const nb = (historyRemote.bills || []).length;
-    const tone = nb === 0 ? 'var(--gray-500)' : 'var(--burgundy-700)';
-    if (box) box.insertAdjacentHTML('afterbegin', `<div style="padding:10px 14px;font-size:.8rem;color:${tone};border-bottom:1px solid var(--gray-200);">เชื่อมต่อฐานข้อมูลสำเร็จ · บิล ${nb} · ค่ามือ ${(historyRemote.services||[]).length} · รายการขาย ${(historyRemote.sales||[]).length}</div>`);
-  }
 }
 
 
@@ -36,6 +45,7 @@ function renderHistory(container) {
   <div style="max-width:1200px; margin:0 auto;">
     <!-- Dashboard Summary (Frontdesk KPI) -->
     <div style="margin-bottom:14px;"><h2 style="margin:0 0 4px;">สรุปยอดของฉัน</h2><p style="margin:0;color:var(--gray-500);font-size:.9rem;">ดูค่ามือ ค่าคอมมิชชั่น และสถานะรายการของตัวเอง</p></div>
+    <div id="hist-db-status" style="display:none;margin:-4px 0 12px;padding:8px 14px;font-size:.8rem;border-radius:8px;background:var(--gray-100);"></div>
     <div id="hist-kpi-dashboard" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:10px;margin-bottom:16px;"></div>
 
     <!-- Filter Bar -->
