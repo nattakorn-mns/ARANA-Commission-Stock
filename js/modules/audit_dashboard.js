@@ -130,8 +130,10 @@ async function adashRenderData() {
 
   // กรองสาขา
   const fb = list => adashBranch ? list.filter(x => (x.branch || x.branch_name || '') === adashBranch) : list;
-  const fBills = fb(bills || []);
-  const fDeposits = fb(deposits || []);
+  const adashSeeCommission = (typeof audCanAccessCommission !== 'function') || audCanAccessCommission();
+  const adashSeeDeposits = (typeof audCanAccessDeposits !== 'function') || audCanAccessDeposits();
+  const fBills = adashSeeCommission ? fb(bills || []) : [];
+  const fDeposits = adashSeeDeposits ? fb(deposits || []) : [];
   const fOpdReq = fb(opdRequests || []);
   const fStockLogs = fb(pendingStockLogs || []);
   const fLogs = adashBranch ? logs.filter(l => {
@@ -157,8 +159,8 @@ async function adashRenderData() {
   const rejectedToday = logsToday.filter(l => l.action === 'ตีกลับ' || l.newStatus === 'ตีกลับ').length;
 
   kpi.innerHTML = `
-    ${adashKpiCard('badge-dollar-sign', 'burgundy', 'รอตรวจค่ามือ/คอม', fBills.length, 'ใบ OPD')}
-    ${adashKpiCard('wallet-cards', 'rose', 'รอตรวจยอดมัดจำ', fDeposits.length, 'รายการ')}
+    ${adashSeeCommission ? adashKpiCard('badge-dollar-sign', 'burgundy', 'รอตรวจค่ามือ/คอม', fBills.length, 'ใบ OPD') : ''}
+    ${adashSeeDeposits ? adashKpiCard('wallet-cards', 'rose', 'รอตรวจยอดมัดจำ', fDeposits.length, 'รายการ') : ''}
     ${adashKpiCard('package-check', 'orange', 'รอตรวจตัดสต๊อก', fOpdReq.length + fStockLogs.length, 'OPD + เบิก/รับ')}
     ${adashKpiCard('alarm-clock', 'purple', 'ค้างเกิน 3 วัน', overdue, 'รายการ')}
     ${adashKpiCard('check-circle-2', 'green', 'อนุมัติวันนี้', approvedToday, 'รายการ')}
@@ -229,10 +231,10 @@ function adashRenderCharts(logs, rangeDays, bills, deposits, opdReq, stockLogs) 
     adashMixChart = new Chart(mixCtx, {
       type: 'doughnut',
       data: {
-        labels: ['ค่ามือ/คอม', 'ยอดมัดจำ', 'ตัดสต๊อก OPD', 'เบิก/รับทั่วไป'],
+        labels: adashMixParts(bills, deposits, opdReq, stockLogs).map(p => p.label),
         datasets: [{
-          data: [bills.length, deposits.length, opdReq.length, stockLogs.length],
-          backgroundColor: ['rgba(139,26,58,0.8)', 'rgba(228,105,133,0.8)', 'rgba(245,158,66,0.8)', 'rgba(59,130,246,0.75)'],
+          data: adashMixParts(bills, deposits, opdReq, stockLogs).map(p => p.value),
+          backgroundColor: adashMixParts(bills, deposits, opdReq, stockLogs).map(p => p.color),
           borderWidth: 2, borderColor: '#fff'
         }]
       },
@@ -242,6 +244,17 @@ function adashRenderCharts(logs, rangeDays, bills, deposits, opdReq, stockLogs) 
       }
     });
   }
+}
+
+function adashMixParts(bills, deposits, opdReq, stockLogs) {
+  const seeCom = (typeof audCanAccessCommission !== 'function') || audCanAccessCommission();
+  const seeDep = (typeof audCanAccessDeposits !== 'function') || audCanAccessDeposits();
+  const parts = [];
+  if (seeCom) parts.push({ label: 'ค่ามือ/คอม', value: bills.length, color: 'rgba(139,26,58,0.8)' });
+  if (seeDep) parts.push({ label: 'ยอดมัดจำ', value: deposits.length, color: 'rgba(228,105,133,0.8)' });
+  parts.push({ label: 'ตัดสต๊อก OPD', value: opdReq.length, color: 'rgba(245,158,66,0.8)' });
+  parts.push({ label: 'เบิก/รับทั่วไป', value: stockLogs.length, color: 'rgba(59,130,246,0.75)' });
+  return parts;
 }
 
 // ── TABLES ────────────────────────────────────────────────
