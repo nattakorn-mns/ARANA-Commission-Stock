@@ -21,9 +21,11 @@ async function histLoadRemote() {
     return;
   }
   histRender();
-  if (historyRemote && (historyRemote.bills || []).length === 0) {
+  if (historyRemote) {
     const box = document.getElementById('history-content');
-    if (box) box.insertAdjacentHTML('afterbegin', `<div style="padding:10px 14px;font-size:.8rem;color:var(--gray-500);border-bottom:1px solid var(--gray-200);">เชื่อมต่อฐานข้อมูลสำเร็จ แต่ไม่พบบิลของบัญชีนี้ (บิล 0 · ค่ามือ ${(historyRemote.services||[]).length} · รายการขาย ${(historyRemote.sales||[]).length})</div>`);
+    const nb = (historyRemote.bills || []).length;
+    const tone = nb === 0 ? 'var(--gray-500)' : 'var(--burgundy-700)';
+    if (box) box.insertAdjacentHTML('afterbegin', `<div style="padding:10px 14px;font-size:.8rem;color:${tone};border-bottom:1px solid var(--gray-200);">เชื่อมต่อฐานข้อมูลสำเร็จ · บิล ${nb} · ค่ามือ ${(historyRemote.services||[]).length} · รายการขาย ${(historyRemote.sales||[]).length}</div>`);
   }
 }
 
