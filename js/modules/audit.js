@@ -584,10 +584,80 @@ async function audOpenStockRequest(billId) {
   const detail=await DB.getBillDetailSupabase(billId); if(!detail?.bill){Toast.show('ไม่พบข้อมูล OPD นี้','error');return;}
   const bill=detail.bill, supplies=detail.supplies||[], images=detail.images||[];
   const programs = detail.services || [];
+  const recorder = bill.created_by_name || bill.createdByName || bill.created_by || '';
   const programHtml = programs.length ? programs.map((p,i)=>`<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-bottom:8px;"><div style="font-weight:700;color:var(--burgundy-700);">โปรแกรม ${i+1}: ${p.program_name||'-'}</div><div style="font-size:.8rem;color:var(--gray-500);">ราคา ฿${formatCurrency(p.price||0)} · ค่ามือ ฿${formatCurrency(p.commission||0)}</div></div>`).join('') : '<div class="empty-state">ไม่พบโปรแกรมใน OPD</div>';
-  const supplyHtml = supplies.length ? supplies.map((s,i)=>`<tr><td style="width:38px;text-align:center;"><input type="checkbox" class="aud-stock-check" data-index="${i}" aria-label="ตรวจแล้ว ${s.product_name||''}"></td><td>${s.category||'ทั่วไป'}</td><td>${s.product_code||'-'}</td><td>${s.product_name||'-'}</td><td>${s.qty}</td><td>${s.unit||'-'}</td></tr>`).join('') : '<tr><td colspan="6">ไม่พบรายการเบิก</td></tr>';
-  openModal(`<div class="modal" style="width:1280px;max-width:98vw;height:86vh;display:flex;flex-direction:column;"><div class="modal-header"><h3 class="modal-title">ตรวจตัดสต๊อก — ${bill.customer_name||'-'}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div style="flex:1;overflow:auto;display:grid;grid-template-columns:minmax(320px,1fr) minmax(420px,1.2fr);gap:16px;padding:16px;"><div style="background:#111;padding:8px;overflow:auto;">${images.length ? images.map(im=>`<img src="${im.file_url}" alt="รูป OPD" style="width:100%;margin-bottom:10px;" />`).join('') : `<p style="color:white;text-align:center;padding:40px 0;">ไม่มีรูป OPD</p>`}</div><div><div style="background:var(--gray-50);padding:12px;border-radius:8px;margin-bottom:12px;"><p><strong>วันที่:</strong> ${formatDate(bill.bill_date)} &nbsp; <strong>สาขา:</strong> ${bill.branch_name||'-'}</p><p><strong>ลูกค้า:</strong> ${bill.customer_name||'-'} &nbsp; <strong>HN:</strong> ${bill.hn||'-'}</p></div><h4 style="margin:0 0 8px;">โปรแกรมบริการ</h4>${programHtml}<h4 style="margin:14px 0 8px;">รายการเบิกใน OPD (${supplies.length} รายการ)</h4><div style="font-size:.78rem;color:var(--gray-500);margin-bottom:6px;">ติ๊กเฉพาะรายการที่ตรวจแล้วและตรงกับหลักฐาน</div><div class="table-wrap"><table><thead><tr><th>ตรวจแล้ว</th><th>ประเภท</th><th>รหัส</th><th>รายการ</th><th>จำนวน</th><th>หน่วย</th></tr></thead><tbody>${supplyHtml}</tbody></table></div><div style="font-size:.75rem;color:var(--gray-500);margin-top:8px;">หมายเหตุ: โครงสร้างข้อมูลปัจจุบันยังไม่ได้ผูกสินค้าแต่ละรายการกับโปรแกรมรายตัว จึงแสดงโปรแกรมและรายการเบิกรวมของ OPD นี้ก่อน</div></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockReject('${billId}')">ตีกลับรายการที่ไม่ผ่าน</button><button class="btn btn-success" onclick="audConfirmStockApprove('${billId}')">อนุมัติทั้งใบ</button></div></div>`);
+  const supplyHtml = supplies.length ? supplies.map((s,i)=>`<tr><td style="width:44px;text-align:center;"><input type="checkbox" class="aud-stock-check" data-index="${i}" aria-label="ตรวจแล้ว ${s.product_name||''}"></td><td><div style="font-weight:600;">${s.product_name||'-'}</div><div style="font-size:.72rem;color:var(--gray-500);">${s.product_code||''}${s.category?' · '+s.category:''}</div></td><td style="text-align:right;white-space:nowrap;">${s.qty}</td><td style="white-space:nowrap;">${s.unit||'-'}</td></tr>`).join('') : '<tr><td colspan="4">ไม่พบรายการเบิก</td></tr>';
+  const imgUrls = images.map(im=>im.file_url).filter(Boolean);
+  window._audImgs = imgUrls;
+  const viewer = imgUrls.length
+    ? `<div id="aud-img-stage" style="position:relative;flex:1;overflow:hidden;background:#111;border-radius:10px;cursor:grab;">
+         <img id="aud-img" src="${imgUrls[0]}" alt="รูป OPD" draggable="false" style="position:absolute;top:50%;left:50%;max-width:none;width:100%;transform:translate(-50%,-50%);transform-origin:center center;user-select:none;-webkit-user-drag:none;">
+       </div>
+       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;">
+         <div style="display:flex;gap:6px;">
+           <button class="btn btn-ghost btn-sm" onclick="audImgStep(-1)">‹ ก่อนหน้า</button>
+           <span id="aud-img-count" style="align-self:center;font-size:.8rem;color:var(--gray-600);">1 / ${imgUrls.length}</span>
+           <button class="btn btn-ghost btn-sm" onclick="audImgStep(1)">ถัดไป ›</button>
+         </div>
+         <div style="display:flex;gap:6px;">
+           <button class="btn btn-ghost btn-sm" onclick="audImgZoom(-1)">−</button>
+           <span id="aud-img-zoom" style="align-self:center;font-size:.8rem;color:var(--gray-600);min-width:46px;text-align:center;">100%</span>
+           <button class="btn btn-ghost btn-sm" onclick="audImgZoom(1)">+</button>
+           <button class="btn btn-ghost btn-sm" onclick="audImgReset()">รีเซ็ต</button>
+         </div>
+       </div>
+       <div style="font-size:.72rem;color:var(--gray-500);padding-top:4px;">เลื่อนล้อเมาส์เพื่อซูม · กดค้างแล้วลากเพื่อเลื่อนดู</div>`
+    : `<div style="flex:1;display:flex;align-items:center;justify-content:center;background:#111;border-radius:10px;color:#fff;">ไม่มีรูป OPD</div>`;
+  openModal(`<div class="modal" style="width:96vw;max-width:1800px;height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-header"><h3 class="modal-title">ตรวจตัดสต๊อก — ${bill.customer_name||'-'}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;">
+      <div style="display:flex;flex-direction:column;min-height:0;">${viewer}</div>
+      <div style="overflow:auto;min-height:0;">
+        <div style="background:var(--gray-50);padding:12px;border-radius:8px;margin-bottom:12px;">
+          <p><strong>วันที่:</strong> ${formatDate(bill.bill_date)} &nbsp; <strong>สาขา:</strong> ${bill.branch_name||'-'}</p>
+          <p><strong>ลูกค้า:</strong> ${bill.customer_name||'-'} &nbsp; <strong>HN:</strong> ${bill.hn||'-'}</p>
+          ${recorder?`<p><strong>ผู้บันทึก:</strong> ${recorder}</p>`:''}
+        </div>
+        <h4 style="margin:0 0 8px;">โปรแกรมบริการ</h4>${programHtml}
+        <h4 style="margin:14px 0 8px;">รายการเบิกใน OPD (${supplies.length} รายการ)</h4>
+        <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:6px;">ติ๊กเฉพาะรายการที่ตรวจแล้วและตรงกับหลักฐาน</div>
+        <div class="table-wrap"><table><thead><tr><th>ตรวจแล้ว</th><th>รายการเบิกของ</th><th style="text-align:right;">จำนวน</th><th>หน่วยนับ</th></tr></thead><tbody>${supplyHtml}</tbody></table></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-danger" onclick="audStockReject('${billId}')">ตีกลับรายการที่ไม่ผ่าน</button><button class="btn btn-success" onclick="audConfirmStockApprove('${billId}')">อนุมัติทั้งใบ</button></div>
+  </div>`);
   lucide.createIcons();
+  audImgInit();
+}
+var _audImgView = { i:0, z:1, x:0, y:0 };
+function audImgApply(){
+  const el=document.getElementById('aud-img'); if(!el) return;
+  el.style.transform=`translate(calc(-50% + ${_audImgView.x}px), calc(-50% + ${_audImgView.y}px)) scale(${_audImgView.z})`;
+  const zl=document.getElementById('aud-img-zoom'); if(zl) zl.textContent=Math.round(_audImgView.z*100)+'%';
+  const cl=document.getElementById('aud-img-count'); if(cl) cl.textContent=(_audImgView.i+1)+' / '+((window._audImgs||[]).length||1);
+}
+function audImgReset(){ _audImgView.z=1; _audImgView.x=0; _audImgView.y=0; audImgApply(); }
+function audImgZoom(dir){ _audImgView.z=Math.min(6,Math.max(0.5,_audImgView.z*(dir>0?1.2:1/1.2))); audImgApply(); }
+function audImgStep(delta){
+  const imgs=window._audImgs||[]; if(imgs.length<2) return;
+  _audImgView.i=(_audImgView.i+delta+imgs.length)%imgs.length;
+  const el=document.getElementById('aud-img'); if(el) el.src=imgs[_audImgView.i];
+  audImgReset();
+}
+function audImgInit(){
+  const stage=document.getElementById('aud-img-stage'); if(!stage) return;
+  _audImgView={i:0,z:1,x:0,y:0}; audImgApply();
+  stage.addEventListener('wheel',function(e){
+    e.preventDefault();
+    const dy=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?100:1);
+    _audImgView.z=Math.min(6,Math.max(0.5,_audImgView.z*Math.exp(-dy*0.0015)));
+    audImgApply();
+  },{passive:false});
+  let dragging=false,sx=0,sy=0,ox=0,oy=0;
+  stage.addEventListener('pointerdown',function(e){dragging=true;sx=e.clientX;sy=e.clientY;ox=_audImgView.x;oy=_audImgView.y;stage.setPointerCapture(e.pointerId);stage.style.cursor='grabbing';});
+  stage.addEventListener('pointermove',function(e){if(!dragging)return;_audImgView.x=ox+(e.clientX-sx);_audImgView.y=oy+(e.clientY-sy);audImgApply();});
+  const end=function(){dragging=false;stage.style.cursor='grab';};
+  stage.addEventListener('pointerup',end); stage.addEventListener('pointercancel',end);
 }
 function audConfirmStockApprove(billId) { const checks=[...document.querySelectorAll('.aud-stock-check')]; if(checks.some(c=>!c.checked)){Toast.show('กรุณาตรวจและติ๊กให้ครบทุกรายการก่อนอนุมัติ','warning');return;} audStockAction(billId,'อนุมัติแล้ว'); }
 function audOpenStockRequestGroup(requestId){
