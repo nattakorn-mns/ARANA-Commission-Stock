@@ -585,7 +585,7 @@ async function audOpenStockRequest(billId) {
   const bill=detail.bill, supplies=detail.supplies||[], images=detail.images||[];
   const programs = detail.services || [];
   const recorder = bill.created_by_name || bill.createdByName || bill.created_by || '';
-  const programHtml = programs.length ? programs.map((p,i)=>`<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-bottom:8px;"><div style="font-weight:700;color:var(--burgundy-700);">โปรแกรม ${i+1}: ${p.program_name||'-'}</div><div style="font-size:.8rem;color:var(--gray-500);">ราคา ฿${formatCurrency(p.price||0)} · ค่ามือ ฿${formatCurrency(p.commission||0)}</div></div>`).join('') : '<div class="empty-state">ไม่พบโปรแกรมใน OPD</div>';
+  const programHtml = programs.length ? programs.map((p,i)=>`<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-bottom:8px;"><div style="font-weight:700;color:var(--burgundy-700);">โปรแกรม ${i+1}: ${p.program_name||'-'}</div></div>`).join('') : '<div class="empty-state">ไม่พบโปรแกรมใน OPD</div>';
   const supplyHtml = supplies.length ? supplies.map((s,i)=>`<tr><td style="width:44px;text-align:center;"><input type="checkbox" class="aud-stock-check" data-index="${i}" aria-label="ตรวจแล้ว ${s.product_name||''}"></td><td><div style="font-weight:600;">${s.product_name||'-'}</div><div style="font-size:.72rem;color:var(--gray-500);">${s.product_code||''}${s.category?' · '+s.category:''}</div></td><td style="text-align:right;white-space:nowrap;">${s.qty}</td><td style="white-space:nowrap;">${s.unit||'-'}</td></tr>`).join('') : '<tr><td colspan="4">ไม่พบรายการเบิก</td></tr>';
   const imgUrls = images.map(im=>im.file_url).filter(Boolean);
   window._audImgs = imgUrls;
@@ -625,7 +625,7 @@ async function audOpenStockRequest(billId) {
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-danger" onclick="audStockReject('${billId}')">ตีกลับรายการที่ไม่ผ่าน</button><button class="btn btn-success" onclick="audConfirmStockApprove('${billId}')">อนุมัติทั้งใบ</button></div>
-  </div>`);
+  </div>`, { width: '1800px' });
   lucide.createIcons();
   audImgInit();
 }
