@@ -153,6 +153,7 @@ const ROUTES = {
   'inventory-transfer': { label: 'เบิกโอนข้ามสาขา', icon: 'truck', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'purple', render: () => renderInventory(getPage(), 'transfer') },
   stockcard: { label: 'สต๊อกการ์ด', icon: 'book-open', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderStockCard(getPage()) },
   weeklycount: { label: 'เช็คสต๊อกประจำสัปดาห์', icon: 'calendar-check', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderWeeklyCount(getPage()) },
+  audit_dashboard: { label: 'แดชบอร์ด สรุปงานทีมออดิท', icon: 'gauge', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAuditDashboard(getPage()) },
   audit: { label: 'Audit Room', icon: 'shield-check', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAudit(getPage()) },
   balance: { label: 'สต๊อกคงเหลือ', icon: 'layers', roles: ['Audit', 'Admin'], render: () => renderBalance(getPage()) },
   reports: { label: 'รายงานผลงานพนักงาน', icon: 'bar-chart-3', roles: ['Frontdesk', 'Admin'], render: () => renderReports(getPage()) },
@@ -172,7 +173,7 @@ function buildNav() {
   const sections = [
     { label: null, routes: ['opd', 'deposit', 'history'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
-    { label: 'Audit Zone', routes: ['audit', 'balance', 'reports'] },
+    { label: 'Audit Zone', routes: ['audit_dashboard', 'audit', 'balance', 'reports'] },
     { label: 'Admin', routes: ['admin', 'admin_dashboard', 'systemlogs'] },
   ];
 
@@ -220,7 +221,7 @@ function navigate(route) {
     if (route === 'opd' || route === 'deposit' || route === 'history') parentCategory = 'OPD & การขาย';
     else if (route.startsWith('inventory-') || route === 'stockcard' || route === 'weeklycount' || route === 'balance') parentCategory = 'คลังสินค้า';
     else if (route === 'reports') parentCategory = 'รายงาน';
-    else if (route === 'audit') parentCategory = 'ห้องตรวจสอบ';
+    else if (route === 'audit' || route === 'audit_dashboard') parentCategory = 'ห้องตรวจสอบ';
     else if (route === 'admin' || route === 'systemlogs') parentCategory = 'ผู้ดูแลระบบ';
 
     headerCard.innerHTML = `
