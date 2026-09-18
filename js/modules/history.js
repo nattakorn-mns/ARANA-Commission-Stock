@@ -14,11 +14,17 @@ async function histLoadRemote() {
   } catch (e) {
     console.error('getMyBillsSupabase error:', e);
     historyRemote = null;
-    if (content) content.innerHTML = `<div class="empty-state"><i data-lucide="wifi-off"></i><h4>โหลดข้อมูลไม่สำเร็จ</h4><p>${(e && e.message) || 'กรุณาลองใหม่อีกครั้ง'}</p></div>`;
+    const msg = (e && (e.message || e.hint || e.details)) || 'กรุณาลองใหม่อีกครั้ง';
+    const code = (e && e.code) ? ` (รหัส ${e.code})` : '';
+    if (content) content.innerHTML = `<div class="empty-state"><i data-lucide="wifi-off"></i><h4>โหลดข้อมูลไม่สำเร็จ</h4><p style="color:var(--gray-600);">${msg}${code}</p></div>`;
     lucide.createIcons();
     return;
   }
   histRender();
+  if (historyRemote && (historyRemote.bills || []).length === 0) {
+    const box = document.getElementById('history-content');
+    if (box) box.insertAdjacentHTML('afterbegin', `<div style="padding:10px 14px;font-size:.8rem;color:var(--gray-500);border-bottom:1px solid var(--gray-200);">เชื่อมต่อฐานข้อมูลสำเร็จ แต่ไม่พบบิลของบัญชีนี้ (บิล 0 · ค่ามือ ${(historyRemote.services||[]).length} · รายการขาย ${(historyRemote.sales||[]).length})</div>`);
+  }
 }
 
 
