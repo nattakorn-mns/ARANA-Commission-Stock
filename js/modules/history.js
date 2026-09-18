@@ -4,6 +4,23 @@
  */
 
 let historyState = { page: 1, perPage: 10, filters: { dateFrom: '', dateTo: '', status: '', branch: '' } };
+let historyRemote = null;
+
+async function histLoadRemote() {
+  const content = document.getElementById('history-content');
+  if (content) content.innerHTML = `<div style="padding:28px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูลจากฐานข้อมูล...</div>`;
+  try {
+    historyRemote = await DB.getMyBillsSupabase();
+  } catch (e) {
+    console.error('getMyBillsSupabase error:', e);
+    historyRemote = null;
+    if (content) content.innerHTML = `<div class="empty-state"><i data-lucide="wifi-off"></i><h4>โหลดข้อมูลไม่สำเร็จ</h4><p>${(e && e.message) || 'กรุณาลองใหม่อีกครั้ง'}</p></div>`;
+    lucide.createIcons();
+    return;
+  }
+  histRender();
+}
+
 
 function renderHistory(container) {
   historyState.page = 1;
@@ -54,15 +71,15 @@ function renderHistory(container) {
     <div id="history-pagination"></div>
   </div>`;
 
-  histRender();
+  histLoadRemote();
   lucide.createIcons();
 }
 
 function histGetBills() {
   const f = historyState.filters;
-  let bills = DB.getBills();
+  let bills = historyRemote ? historyRemote.bills.slice() : DB.getBills();
 
-  if (currentUser.role === 'Frontdesk') {
+  if (!historyRemote && currentUser.role === 'Frontdesk') {
     const allServices = (DB._get('bill_services') || []);
     const allSales = (DB._get('bill_sales') || []);
     const allSupplies = (DB._get('bill_supplies') || []);
@@ -74,6 +91,7 @@ function histGetBills() {
     ]);
     bills = bills.filter(b => myBillIds.has(b.id));
   }
+
 
   if (f.dateFrom) bills = bills.filter(b => b.date >= f.dateFrom);
   if (f.dateTo) bills = bills.filter(b => b.date <= f.dateTo);
@@ -107,12 +125,13 @@ function histRender() {
   
   // KPI Calculation
   let sumService = 0, sumUpsell = 0, sumCrosssell = 0, sumProduct = 0;
-  const allServices = (DB._get('bill_services') || []);
-  const allSales = (DB._get('bill_sales') || []);
+  const allServices = historyRemote ? historyRemote.services : (DB._get('bill_services') || []);
+  const allSales = historyRemote ? historyRemote.sales : (DB._get('bill_sales') || []);
   const billIds = new Set(bills.map(b => b.id));
-  
-  const myServices = allServices.filter(s => billIds.has(s.billId) && !s.is_superseded && (currentUser.role !== 'Frontdesk' || s.createdBy === currentUser.id));
-  const mySales = allSales.filter(s => billIds.has(s.billId) && !s.is_superseded && (currentUser.role !== 'Frontdesk' || s.createdBy === currentUser.id));
+
+  const myServices = allServices.filter(s => billIds.has(s.billId) && !s.is_superseded && (historyRemote || currentUser.role !== 'Frontdesk' || s.createdBy === currentUser.id));
+  const mySales = allSales.filter(s => billIds.has(s.billId) && !s.is_superseded && (historyRemote || currentUser.role !== 'Frontdesk' || s.createdBy === currentUser.id));
+
   
   sumService = myServices.reduce((a, s) => a + (s.commission || 0), 0);
   mySales.forEach(s => {
@@ -190,7 +209,7 @@ function histRender() {
             const bSvcs = myServices.filter(s => s.billId === b.id);
             const bSales = mySales.filter(s => s.billId === b.id);
             
-            const isShared = b.parentBillId || DB.getBills().some(x => x.parentBillId === b.id);
+            const isShared = !!b.parentBillId;
             
             let svcFull = 0, svcEarn = 0;
             let commFull = 0, commEarn = 0;
