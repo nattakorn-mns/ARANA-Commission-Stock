@@ -196,6 +196,42 @@ const DB = {
     catch (error) { console.error('listStockLogsErpSyncSupabase error:', error); return []; }
   },
 
+  // สร้างข้อมูลที่จะส่งให้ ERP ตามสเปคที่ยืนยันแล้ว (2026-09-20)
+  // ไม่รวม source_system เพราะ ERP รู้เองจาก URL ปลายทาง
+  buildErpSyncPayload(row, approvedByName) {
+    const payload = {
+      source_ref_id: row.id,
+      move_type: row.move_type,
+      move_date: row.log_date,
+      from_branch_name: row.branch_name,
+      product_code: row.product_code,
+      qty: row.qty,
+      note: row.note || '',
+      approved_by_name: approvedByName || currentUser?.name || '',
+      approved_at: new Date().toISOString(),
+      photo_urls: []
+    };
+    if (row.move_type === 'TRANSFER') payload.to_branch_name = row.to_branch_name;
+    if (row.move_type === 'OUT') payload.source_department = row.source || '';
+    return payload;
+  },
+
+  // TODO: ยังใช้ส่งจริงไม่ได้ — รอ URL ปลายทางจริง + ต้องย้ายการเซ็นลายเซ็น
+  // ไปทำฝั่งเซิร์ฟเวอร์ก่อน (ห้ามฝังคีย์ลับไว้ในโค้ดเบราว์เซอร์เด็ดขาด
+  // เพราะเปิด Developer Tools ดูได้) — ตอนนี้แค่เตรียมโครงไว้
+  async syncStockLogToErpSupabase(row) {
+    const payload = this.buildErpSyncPayload(row);
+    try {
+      await this._positionRpc('set_stock_log_erp_sync_result', {
+        p_log_id: row.id, p_status: 'ส่งไม่สำเร็จ',
+        p_error: 'ยังไม่ได้เชื่อมช่องทางรับข้อมูลจริงจาก ERP (รอ URL และคีย์ลับ)'
+      });
+    } catch (error) {
+      console.error('syncStockLogToErpSupabase error:', error);
+    }
+    return { ok: false, payload, reason: 'NOT_CONFIGURED_YET' };
+  },
+
   async adminListUsersWithPositionSupabase() {
     try { return await this._positionRpc('admin_list_users_with_position'); }
     catch (error) { console.error('adminListUsersWithPositionSupabase error:', error); return []; }

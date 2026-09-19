@@ -880,7 +880,7 @@ async function admRenderErpSync(body) {
     </div>
     <div class="table-wrap" style="border:none;border-radius:0;">
       <table>
-        <thead><tr><th>วันที่</th><th>ประเภท</th><th>สาขา</th><th>สินค้า</th><th>จำนวน</th><th>สถานะ ERP</th><th>เลขที่เอกสาร ERP</th></tr></thead>
+        <thead><tr><th>วันที่</th><th>ประเภท</th><th>สาขา</th><th>สินค้า</th><th>จำนวน</th><th>สถานะ ERP</th><th>เลขที่เอกสาร ERP</th><th></th></tr></thead>
         <tbody>
           ${rows.length ? rows.map(r => `
           <tr>
@@ -889,12 +889,23 @@ async function admRenderErpSync(body) {
             <td>${r.branch_name||'-'}${r.to_branch_name?' → '+r.to_branch_name:''}</td>
             <td>${r.product_name||r.product_code||'-'}</td>
             <td>${r.qty||'-'}</td>
-            <td>${badge(r.erp_sync_status)}</td>
+            <td>${badge(r.erp_sync_status)}${r.erp_sync_error?`<div style="font-size:0.72rem;color:var(--red-500,#dc2626);margin-top:2px;">${r.erp_sync_error}</div>`:''}</td>
             <td>${r.erp_ref||'—'}</td>
-          </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
+            <td>${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)?`<button class="btn btn-ghost btn-sm" onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}</td>
+          </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
         </tbody>
       </table>
     </div>
   </div>`;
   lucide.createIcons();
+}
+
+async function admSyncStockLog(logId) {
+  const rows = await DB.listStockLogsErpSyncSupabase(null);
+  const row = rows.find(r => r.id === logId);
+  if (!row) { Toast.show('ไม่พบรายการนี้ (อาจถูกอัปเดตไปแล้ว)', 'error'); admRenderErpSync(document.getElementById('adm-body')); return; }
+  const result = await DB.syncStockLogToErpSupabase(row);
+  if (result.ok) Toast.show('ส่งเข้า ERP สำเร็จ', 'success');
+  else Toast.show('ยังส่งไม่ได้: ' + (result.reason === 'NOT_CONFIGURED_YET' ? 'รอเชื่อมช่องทางกับ ERP หลักก่อน' : result.reason), 'error');
+  admRenderErpSync(document.getElementById('adm-body'));
 }
