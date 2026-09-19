@@ -8,6 +8,7 @@ let currentUser = null;
 let currentBranch = null;
 let currentRoute = null;
 let sidebarOpen = true;
+let menuPermissions = {}; // page_key -> { can_view, can_edit } ตามตำแหน่งที่แสดงของผู้ใช้
 
 // ── Init ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -22,7 +23,7 @@ window.addEventListener('DOMContentLoaded', () => {
       currentUser = session.user;
       if (currentUser && session.token) {
         currentBranch = session.branch || currentUser.branch;
-        showApp();
+        showApp(); // async ไม่ต้องรอ ระหว่างโหลดสิทธิ์เมนู จะเห็นเมนูตามสิทธิ์เดิมไปก่อน
         return;
       }
     } catch(e) {}
@@ -70,7 +71,7 @@ async function login() {
     currentBranch = user.branch;
     sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch, token }));
     errorEl.classList.add('hidden');
-    showApp();
+    await showApp();
   } else if (!loginErrorShown) {
     showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     document.getElementById('login-password').value = '';
@@ -119,7 +120,7 @@ function showLogin() {
   lucide.createIcons();
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
 
@@ -133,6 +134,16 @@ function showApp() {
   const branchSel = document.getElementById('branch-select');
   branchSel.value = currentBranch;
   document.getElementById('topbar-branch-name').textContent = currentBranch;
+
+  // โหลดสิทธิ์เมนูตามตำแหน่งที่แสดง แล้วค่อยสร้างเมนู (ถ้าโหลดไม่สำเร็จ จะ fallback ไปใช้สิทธิ์เดิมล้วน ๆ)
+  try {
+    const rows = await DB.getMenuPermissionsForMeSupabase();
+    menuPermissions = {};
+    (rows || []).forEach(r => { menuPermissions[r.page_key] = { can_view: r.can_view, can_edit: r.can_edit }; });
+  } catch (e) {
+    console.warn('โหลดสิทธิ์เมนูไม่สำเร็จ ใช้สิทธิ์ตำแหน่งเดิมแทน:', e);
+    menuPermissions = {};
+  }
 
   // Build nav
   buildNav();
@@ -165,7 +176,10 @@ const ROUTES = {
 function canAccess(route) {
   if (!currentUser) return false;
   const r = ROUTES[route];
-  return r && r.roles.includes(currentUser.role);
+  if (!r || !r.roles.includes(currentUser.role)) return false; // สิทธิ์เดิม (คุมว่ากดบันทึกจริงได้ไหม) ต้องผ่านก่อนเสมอ
+  const perm = menuPermissions[route];
+  if (!perm) return true; // ยังไม่เคยตั้งค่าสิทธิ์เมนูนี้ในระบบใหม่ -> ใช้สิทธิ์เดิมไปก่อน
+  return !!perm.can_view; // ตั้งค่าไว้แล้ว -> ให้ระบบตำแหน่งใหม่เป็นตัวตัดสินการมองเห็น
 }
 
 function buildNav() {
@@ -195,12 +209,17 @@ function buildNav() {
     });
   });
 
-  html += `
-    <div class="nav-section-label">รายจ่าย</div>
-    <a class="nav-item" href="expense/index.html" target="_blank" rel="noopener">
-      <i data-lucide="receipt-text" class="nav-icon"></i>
-      <span class="nav-label">บันทึกรายจ่าย</span>
-    </a>`;
+  // เมนูบันทึกรายจ่าย: ผูกกับระบบสิทธิ์ตำแหน่งใหม่โดยตรง (ไม่มีสิทธิ์เดิมมาเกี่ยวข้อง)
+  // ค่าเริ่มต้น = ไม่แสดง ถ้ายังไม่มีใครตั้งสิทธิ์ให้ตำแหน่งนี้เห็นเมนูนี้ (ปลอดภัยไว้ก่อน)
+  const expensePerm = menuPermissions['expense'];
+  if (expensePerm && expensePerm.can_view) {
+    html += `
+      <div class="nav-section-label">รายจ่าย</div>
+      <a class="nav-item" href="expense/index.html" target="_blank" rel="noopener">
+        <i data-lucide="receipt-text" class="nav-icon"></i>
+        <span class="nav-label">บันทึกรายจ่าย</span>
+      </a>`;
+  }
 
   nav.innerHTML = html;
   lucide.createIcons();

@@ -147,6 +147,55 @@ const DB = {
     await this._appRpc('admin_set_user_active', { p_user_id: userId, p_active: isActive });
   },
 
+  // ── ตำแหน่งและสิทธิ์เมนู (ฟังก์ชันแยก ไม่ผ่าน arana_app_rpc) ──────
+  async _positionRpc(fnName, payload = {}) {
+    const token = this._sessionToken();
+    if (!token) throw new Error('SESSION_REQUIRED');
+    const { data, error } = await sb.rpc(fnName, { p_session_token: token, ...payload });
+    if (error) {
+      if (/SESSION_(INVALID|EXPIRED|REQUIRED)/.test(error.message || '')) {
+        sessionStorage.removeItem('arana_session');
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  async getMenuPermissionsForMeSupabase() {
+    try { return await this._positionRpc('get_menu_permissions_for_me'); }
+    catch (error) { console.error('getMenuPermissionsForMeSupabase error:', error); return []; }
+  },
+
+  async adminListPositionsSupabase() {
+    try { return await this._positionRpc('admin_list_positions'); }
+    catch (error) { console.error('adminListPositionsSupabase error:', error); return []; }
+  },
+
+  async adminCreatePositionSupabase(name, description) {
+    return await this._positionRpc('admin_create_position', { p_name: name, p_description: description || null });
+  },
+
+  async adminListMenuPermissionsSupabase(positionName) {
+    try { return await this._positionRpc('admin_list_menu_permissions', { p_position_name: positionName }); }
+    catch (error) { console.error('adminListMenuPermissionsSupabase error:', error); return []; }
+  },
+
+  async adminSetMenuPermissionSupabase(positionName, pageKey, canView, canEdit, pageLabel) {
+    await this._positionRpc('admin_set_menu_permission', {
+      p_position_name: positionName, p_page_key: pageKey,
+      p_can_view: canView, p_can_edit: canEdit, p_page_label: pageLabel || null
+    });
+  },
+
+  async adminSetUserPositionSupabase(userId, positionName) {
+    await this._positionRpc('admin_set_user_position', { p_user_id: userId, p_position_name: positionName });
+  },
+
+  async adminListUsersWithPositionSupabase() {
+    try { return await this._positionRpc('admin_list_users_with_position'); }
+    catch (error) { console.error('adminListUsersWithPositionSupabase error:', error); return []; }
+  },
+
   async changeOwnPasswordSupabase(username, oldPassword, newPassword) {
     const data = await this._appRpc('change_own_password', {
       p_old_password: oldPassword,

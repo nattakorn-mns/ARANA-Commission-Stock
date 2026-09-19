@@ -22,6 +22,9 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-import" onclick="admSwitch('import')">
         <i data-lucide="file-up"></i>นำเข้าข้อมูล (Import)
       </button>
+      <button class="tab-btn" id="adm-tab-positions" onclick="admSwitch('positions')">
+        <i data-lucide="shield-check"></i>ตั้งค่าสิทธิ์เมนู
+      </button>
     </div>
     <div id="adm-body"></div>
   </div>`;
@@ -48,6 +51,7 @@ function admRender() {
   if (adminTab === 'ai') admRenderAI(body);
   else if (adminTab === 'users') admRenderUsers(body);
   else if (adminTab === 'import') admRenderImport(body);
+  else if (adminTab === 'positions') admRenderPositions(body);
   else admRenderLogs(body);
 }
 
@@ -152,7 +156,15 @@ function admRunAI() {
 // ── Users Management ──────────────────────────────────────
 async function admRenderUsers(body) {
   body.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดรายชื่อพนักงาน...</div>`;
-  const users = await DB.getUsersSupabase();
+  const [usersRaw, positions] = await Promise.all([
+    DB.adminListUsersWithPositionSupabase(),
+    DB.adminListPositionsSupabase()
+  ]);
+  const users = (usersRaw || []).map(u => ({
+    id: u.id, name: u.name, nickname: u.nickname, username: u.username,
+    role: u.role, displayPosition: u.display_position, branch: u.branch, isActive: u.is_active
+  }));
+  const positionOptions = (positions || []).map(p => `<option value="${p.name}">${p.name}</option>`).join('');
   body.innerHTML = `
   <div class="glass-card" style="margin-bottom:16px;">
     <div class="section-header" style="margin-bottom:14px;"><span class="section-title">เพิ่มผู้ใช้ใหม่</span></div>
@@ -196,6 +208,15 @@ async function admRenderUsers(body) {
         </select>
       </div>
     </div>
+    <div class="form-row-3" style="gap:10px;margin-bottom:14px;">
+      <div class="form-group">
+        <label class="form-label">ตำแหน่งที่แสดง (คุมเมนูที่เห็น)</label>
+        <select id="nu-position" class="form-select">
+          ${positionOptions}
+        </select>
+        <p style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">แยกจากช่อง "สิทธิ์" ด้านบน — ช่องนี้คุมว่าเมนูไหนโชว์ในแถบซ้าย ปรับได้ทีหลังที่แท็บ "ตั้งค่าสิทธิ์เมนู"</p>
+      </div>
+    </div>
     <div style="display:flex;justify-content:flex-end;">
       <button class="btn btn-primary" id="nu-submit-btn" onclick="admAddUser()"><i data-lucide="user-plus"></i> เพิ่มผู้ใช้</button>
     </div>
@@ -207,7 +228,7 @@ async function admRenderUsers(body) {
     </div>
     <div class="table-wrap" style="border:none;border-radius:0;">
       <table>
-        <thead><tr><th>ชื่อ</th><th>ชื่อเล่น</th><th>Username</th><th>สิทธิ์</th><th>สาขา</th><th>สถานะ</th><th></th></tr></thead>
+        <thead><tr><th>ชื่อ</th><th>ชื่อเล่น</th><th>Username</th><th>สิทธิ์</th><th>ตำแหน่งที่แสดง</th><th>สาขา</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>
           ${users.map(u => `
           <tr style="${u.isActive ? '' : 'opacity:0.5;'}">
@@ -215,6 +236,12 @@ async function admRenderUsers(body) {
             <td>${u.nickname||'-'}</td>
             <td><code style="font-size:0.8rem;background:var(--gray-100);padding:2px 8px;border-radius:4px;">${u.username||'-'}</code></td>
             <td><span class="user-role role-${(u.role||'frontdesk').toLowerCase()}">${u.role||'-'}</span></td>
+            <td>
+              <select class="form-select" style="padding:4px 8px;font-size:0.8rem;" onchange="admChangeUserPosition('${u.id}', this.value)">
+                <option value="">ยังไม่ตั้ง</option>
+                ${(positions||[]).map(p => `<option value="${p.name}" ${p.name===u.displayPosition?'selected':''}>${p.name}</option>`).join('')}
+              </select>
+            </td>
             <td>${u.branch||'-'}</td>
             <td>${u.isActive ? '<span style="color:var(--green-600, #16a34a);font-size:0.78rem;">● ใช้งานอยู่</span>' : '<span style="color:var(--gray-400);font-size:0.78rem;">● ปิดใช้งาน</span>'}</td>
             <td>
@@ -228,6 +255,16 @@ async function admRenderUsers(body) {
     </div>
   </div>`;
   lucide.createIcons();
+}
+
+async function admChangeUserPosition(userId, positionName) {
+  try {
+    await DB.adminSetUserPositionSupabase(userId, positionName || null);
+    Toast.show('ปรับตำแหน่งที่แสดงเรียบร้อย', 'success');
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
 }
 
 async function admToggleUserActive(userId, newActive) {
@@ -248,6 +285,7 @@ async function admAddUser() {
   const password = document.getElementById('nu-pass')?.value;
   const role = document.getElementById('nu-role')?.value || 'Frontdesk';
   const branch = document.getElementById('nu-branch')?.value || 'พิษณุโลก';
+  const position = document.getElementById('nu-position')?.value || null;
 
   if (!name || !username || !password) { Toast.show('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
   if (password.length < 4) { Toast.show('รหัสผ่านควรมีอย่างน้อย 4 ตัวอักษร', 'error'); return; }
@@ -256,7 +294,11 @@ async function admAddUser() {
   if (btn) btn.disabled = true;
 
   try {
-    await DB.createUserSupabase({ username, password, name, nickname: nick || name.split(' ')[0], role, branch });
+    const newUserId = await DB.createUserSupabase({ username, password, name, nickname: nick || name.split(' ')[0], role, branch });
+    if (position && newUserId) {
+      try { await DB.adminSetUserPositionSupabase(newUserId, position); }
+      catch (e2) { console.warn('ตั้งตำแหน่งที่แสดงไม่สำเร็จ (สร้างผู้ใช้สำเร็จแล้ว):', e2); }
+    }
     Toast.show(`เพิ่มผู้ใช้ ${name} เรียบร้อย`, 'success');
     admRenderUsers(document.getElementById('adm-body'));
   } catch (e) {
@@ -691,3 +733,109 @@ async function admSubmitUserImport() {
   });
 }
 
+
+// ── ตั้งค่าสิทธิ์เมนูตามตำแหน่ง ──────────────────────────────
+let admSelectedPosition = null;
+
+async function admRenderPositions(body) {
+  body.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
+  const positions = await DB.adminListPositionsSupabase();
+  if (!admSelectedPosition && positions.length) admSelectedPosition = positions[0].name;
+
+  body.innerHTML = `
+  <div class="glass-card" style="margin-bottom:16px;">
+    <div class="section-header" style="margin-bottom:14px;"><span class="section-title">เพิ่มตำแหน่งใหม่</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">ชื่อตำแหน่งใหม่</label>
+        <input id="np-name" class="form-input" placeholder="เช่น หัวหน้าสาขา" />
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label class="form-label">คำอธิบาย (ไม่บังคับ)</label>
+        <input id="np-desc" class="form-input" placeholder="อธิบายสั้น ๆ ว่าตำแหน่งนี้ทำหน้าที่อะไร" />
+      </div>
+      <button class="btn btn-primary" onclick="admCreatePosition()"><i data-lucide="plus"></i> เพิ่มตำแหน่ง</button>
+    </div>
+  </div>
+
+  <div class="glass-card" style="padding:0;overflow:hidden;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;">
+      <span class="section-title">เลือกตำแหน่งที่จะตั้งค่าสิทธิ์</span>
+    </div>
+    <div style="padding:14px 16px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${positions.map(p => `
+        <button class="btn ${p.name===admSelectedPosition?'btn-primary':'btn-ghost'} btn-sm" onclick="admSelectPosition('${p.name}')">${p.name}</button>
+      `).join('')}
+    </div>
+  </div>
+
+  <div id="adm-position-permissions" style="margin-top:16px;"></div>
+  `;
+  lucide.createIcons();
+  if (admSelectedPosition) admRenderPositionPermissions();
+}
+
+function admSelectPosition(name) {
+  admSelectedPosition = name;
+  admRenderPositions(document.getElementById('adm-body'));
+}
+
+async function admCreatePosition() {
+  const name = document.getElementById('np-name')?.value.trim();
+  const desc = document.getElementById('np-desc')?.value.trim();
+  if (!name) { Toast.show('กรุณาใส่ชื่อตำแหน่ง', 'error'); return; }
+  try {
+    await DB.adminCreatePositionSupabase(name, desc);
+    Toast.show(`เพิ่มตำแหน่ง "${name}" เรียบร้อย ตั้งค่าสิทธิ์เมนูต่อได้เลย`, 'success');
+    admSelectedPosition = name;
+    admRenderPositions(document.getElementById('adm-body'));
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
+}
+
+async function admRenderPositionPermissions() {
+  const el = document.getElementById('adm-position-permissions');
+  if (!el) return;
+  el.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดสิทธิ์เมนูของ "${admSelectedPosition}"...</div>`;
+  const rows = await DB.adminListMenuPermissionsSupabase(admSelectedPosition);
+
+  el.innerHTML = `
+  <div class="glass-card" style="padding:0;overflow:hidden;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;">
+      <span class="section-title">เมนูที่ตำแหน่ง "${admSelectedPosition}" มองเห็นได้</span>
+    </div>
+    <div class="table-wrap" style="border:none;border-radius:0;">
+      <table>
+        <thead><tr><th>เมนู</th><th style="text-align:center;">ดูได้</th><th style="text-align:center;">แก้ไข/บันทึกได้</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+          <tr>
+            <td>${r.page_label || r.page_key}</td>
+            <td style="text-align:center;">
+              <input type="checkbox" id="view-${r.page_key}" ${r.can_view?'checked':''}
+                onchange="admSavePermission('${r.page_key}', this.checked, document.getElementById('edit-${r.page_key}').checked, '${(r.page_label||r.page_key).replace(/'/g,"\'")}')" />
+            </td>
+            <td style="text-align:center;">
+              <input type="checkbox" id="edit-${r.page_key}" ${r.can_edit?'checked':''}
+                onchange="admSavePermission('${r.page_key}', document.getElementById('view-${r.page_key}').checked, this.checked, '${(r.page_label||r.page_key).replace(/'/g,"\'")}')" />
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p style="font-size:0.78rem;color:var(--gray-400);margin-top:10px;">ติ๊ก/ถอนติ๊กแล้วบันทึกทันที ไม่ต้องกดปุ่มเพิ่ม — พนักงานที่ล็อกอินอยู่แล้วต้องออกจากระบบแล้วเข้าใหม่ ถึงจะเห็นเมนูเปลี่ยนตามสิทธิ์ล่าสุด</p>`;
+  lucide.createIcons();
+}
+
+async function admSavePermission(pageKey, canView, canEdit, pageLabel) {
+  try {
+    await DB.adminSetMenuPermissionSupabase(admSelectedPosition, pageKey, canView, canEdit, pageLabel);
+    Toast.show('บันทึกสิทธิ์เรียบร้อย', 'success');
+  } catch (e) {
+    console.error(e);
+    Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
+}
