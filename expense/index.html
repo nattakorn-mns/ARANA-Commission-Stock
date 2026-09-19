@@ -1,0 +1,1929 @@
+<!doctype html>
+<html lang="th" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>ARANA Expense | ทดลองระบบ</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled="true"]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type="file"]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type="color"] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type="date"],
+    [type="datetime-local"],
+    [type="month"],
+    [type="time"],
+    [type="week"]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: "";
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html>body{padding:0}</style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 rx=%228%22 fill=%22%23db3978%22/%3E%3Ctext x=%2220%22 y=%2229%22 text-anchor=%22middle%22 font-size=%2228%22 fill=%22white%22%3EA%3C/text%3E%3C/svg%3E"><meta name="robots" content="noindex,nofollow"></head>
+<body><aside style="padding:12px 20px;background:#fff0f6;color:#843151;font:14px sans-serif;border-bottom:1px solid #efc5d6">เว็บทดลอง ARANA • ใช้ข้อมูลสมมติเท่านั้น • อย่าใส่เลขบัญชีหรือเอกสารจริง • ข้อมูลที่ลองกรอกจะหายเมื่อรีเฟรช • ยังไม่ส่ง LINE หรือ ERP จริง</aside>
+<div id="arana-expense" aria-label="ARANA ระบบค่าใช้จ่าย">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500&amp;display=swap">
+<style>
+#arana-expense{--a-bg:light-dark(#f4f6f7,#171c20);--a-paper:light-dark(#ffffff,#222a30);--a-ink:light-dark(#233b40,#e5eeed);--a-muted:light-dark(#63797c,#a8babc);--a-line:light-dark(#dde6e6,#39494e);--a-accent:light-dark(#126b62,#88d8c7);--a-soft:light-dark(#e8f4ef,#243f39);--a-warn:light-dark(#855711,#f0cb7c);--a-warnbg:light-dark(#fff3d9,#443824);font-family:'Noto Sans Thai',Tahoma,sans-serif;color:var(--a-ink);background:var(--a-bg);border:1px solid var(--a-line);border-radius:18px;overflow:hidden;font-size:14px;line-height:1.6}
+#arana-expense [hidden]{display:none!important}#arana-expense *{box-sizing:border-box}#arana-expense button,#arana-expense input,#arana-expense select,#arana-expense textarea{font:inherit;color:inherit}#arana-expense button{cursor:pointer;border:1px solid var(--a-line);background:var(--a-paper);border-radius:9px;padding:8px 13px}#arana-expense button:hover{border-color:var(--a-accent)}#arana-expense button.primary{background:var(--a-accent);color:light-dark(#fff,#16332d);border-color:var(--a-accent)}#arana-expense button:disabled{opacity:.45;cursor:default}#arana-expense header{padding:20px 24px;background:var(--a-paper);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--a-line)}#arana-expense .brand{letter-spacing:3px;font-size:22px;font-weight:500}#arana-expense .sub,#arana-expense small{color:var(--a-muted);font-size:12px;letter-spacing:0}#arana-expense .shell{display:grid;grid-template-columns:184px minmax(0,1fr)}#arana-expense nav{padding:22px 12px;background:var(--a-paper);border-right:1px solid var(--a-line)}#arana-expense nav button{display:block;width:100%;text-align:left;border:0;margin-bottom:7px;background:transparent}#arana-expense nav button.active{background:var(--a-soft);color:var(--a-accent)}#arana-expense nav small{display:block;padding:12px}#arana-expense main{padding:24px;min-width:0}#arana-expense h2{font-size:23px;font-weight:500;margin:0}#arana-expense h3{font-size:16px;font-weight:500;margin:0 0 12px}#arana-expense p{margin:5px 0 16px}#arana-expense .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#arana-expense .panel{background:var(--a-paper);border:1px solid var(--a-line);border-radius:12px;padding:18px;margin-top:16px}#arana-expense .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}#arana-expense .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}#arana-expense .metric{background:var(--a-paper);border:1px solid var(--a-line);border-radius:12px;padding:16px}#arana-expense .metric strong{display:block;font-size:24px;font-weight:500;margin-top:7px;font-variant-numeric:tabular-nums}#arana-expense .badge{display:inline-block;border-radius:6px;padding:3px 8px;background:var(--a-soft);color:var(--a-accent);font-size:12px;white-space:nowrap}#arana-expense .warn{background:var(--a-warnbg);color:var(--a-warn)}#arana-expense .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:16px 0}#arana-expense .toolbar button.active{background:var(--a-soft);border-color:var(--a-accent)}#arana-expense table{width:100%;border-collapse:collapse;text-align:left}#arana-expense th{font-size:12px;color:var(--a-muted);font-weight:400}#arana-expense td,#arana-expense th{padding:12px 8px;border-bottom:1px solid var(--a-line);vertical-align:top}#arana-expense .money{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}#arana-expense .tablebox{overflow-x:auto}#arana-expense label.field{display:flex;flex-direction:column;gap:6px}#arana-expense input:not([type=checkbox]),#arana-expense select,#arana-expense textarea{width:100%;padding:9px 11px;background:var(--a-paper);border:1px solid var(--a-line);border-radius:8px;min-width:0;font-size:16px}#arana-expense input[type=checkbox]{accent-color:var(--a-accent)}#arana-expense .span{grid-column:1/-1}#arana-expense .line{padding:12px 0;border-bottom:1px solid var(--a-line)}#arana-expense .steps{display:flex;gap:7px;flex-wrap:wrap;padding:14px 0;color:var(--a-muted);font-size:12px}#arana-expense .steps b{color:var(--a-accent);font-weight:500}#arana-expense .notice{padding:11px 14px;background:var(--a-soft);border-radius:8px;margin:14px 0;color:var(--a-accent)}#arana-expense .paper{background:var(--a-paper);border:1px solid var(--a-line);padding:24px;margin-top:14px}#arana-expense #ae-toast:empty{display:none}#arana-expense #ae-toast{padding:12px 24px;background:var(--a-soft);color:var(--a-accent)}#arana-expense .link{border:0;background:transparent;color:var(--a-accent);padding:0;text-align:left}#arana-expense .check{display:flex;align-items:center;gap:9px;padding:7px 0}#arana-expense .avatar{display:inline-grid;place-items:center;background:var(--a-soft);color:var(--a-accent);border-radius:9px;padding:6px 10px}#arana-expense .detail{border-left:3px solid var(--a-accent);padding-left:16px;margin:16px 0}#arana-expense footer{border-top:1px solid var(--a-line);padding:10px 24px;color:var(--a-muted);font-size:12px;background:var(--a-paper)}@media(max-width:760px){#arana-expense .shell{grid-template-columns:1fr}#arana-expense nav{display:flex;flex-wrap:wrap;padding:10px;border-right:0;border-bottom:1px solid var(--a-line)}#arana-expense nav button{width:auto;margin:0}#arana-expense nav small{display:none}#arana-expense main{padding:16px}#arana-expense .grid{grid-template-columns:1fr}#arana-expense .metrics{grid-template-columns:1fr}#arana-expense header{padding:16px}#arana-expense td,#arana-expense th{padding:9px 6px}}@media(pointer:coarse){#arana-expense button{min-height:44px}}
+#arana-expense{color-scheme:light;--a-bg:#fffafb;--a-paper:#ffffff;--a-ink:#43383e;--a-muted:#76656e;--a-line:#eadde3;--a-accent:#97516e;--a-soft:#faedf3;--a-warn:#805c26;--a-warnbg:#fff6e6;font-family:'Niramit',Tahoma,sans-serif;font-size:14px;line-height:1.65;border-radius:8px;width:100%;max-width:none}
+#arana-expense .shell{display:block}
+#arana-expense header{padding:18px 24px;background:#fff;border-bottom:1px solid var(--a-line)}
+#arana-expense .brand{font-size:23px;letter-spacing:2px;color:#97516e}
+#arana-expense nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px;background:#fff8fb;border-right:0;border-bottom:1px solid var(--a-line)}
+#arana-expense nav small{display:none}
+#arana-expense nav button{width:auto;display:inline-block;margin:0;padding:8px 12px;border-radius:5px;font-size:13px;color:#66555e}
+#arana-expense nav button.active{background:#f4dfe9;color:#793c58;font-weight:500}
+#arana-expense main{padding:20px 24px 28px}
+#arana-expense h2{font-size:22px;line-height:1.5;color:#43383e}
+#arana-expense h3{font-size:16px}
+#arana-expense .sub,#arana-expense small{font-size:12px;color:#76656e}
+#arana-expense button{border-radius:6px;box-shadow:none}
+#arana-expense button.primary{background:#97516e;border-color:#97516e;color:#fff}
+#arana-expense button:hover{background:#f8eaf1;border-color:#be8da4}
+#arana-expense button.primary:hover{background:#80405c;color:#fff}
+#arana-expense .link{background:transparent;color:#884762}
+#arana-expense .panel{border-radius:6px;padding:16px;background:#fff;box-shadow:none}
+#arana-expense .panel:has(>.tablebox){padding:0;overflow:hidden}
+#arana-expense .panel:has(>.tablebox)>.row,#arana-expense .panel:has(>.tablebox)>h3{padding:14px 16px;margin:0}
+#arana-expense .panel:has(>.tablebox)>small{display:block;padding:12px 16px}
+#arana-expense .tablebox{width:100%;overflow-x:auto}
+#arana-expense table{width:100%;border-collapse:collapse;background:#fff}
+#arana-expense th{background:#f8eaf1;color:#604653;font-size:13px;font-weight:500;text-align:left;white-space:nowrap;border-bottom:1px solid #d8bbc8}
+#arana-expense td,#arana-expense th{padding:12px 13px;border-bottom:1px solid #eadde3;vertical-align:middle}
+#arana-expense th+th{border-left:1px solid #ecd8e2}
+#arana-expense tbody tr:nth-child(even){background:#fff9fc}
+#arana-expense tbody tr:hover{background:#fbeef4}
+#arana-expense td.money,#arana-expense th.money{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:'tnum';white-space:nowrap}
+#arana-expense td.money{font-weight:500;font-size:15px;letter-spacing:.15px}
+#arana-expense tfoot td{background:#f8eaf1;font-weight:500;border-top:1px solid #d8bbc8}
+#arana-expense .badge{border-radius:4px;background:#f6e7ef;color:#81405e;font-size:12px;padding:2px 7px}
+#arana-expense .badge.warn{background:#fff6e6;color:#805c26}
+#arana-expense .metrics{gap:0;border:1px solid var(--a-line);border-radius:6px;background:#fff;margin:16px 0;overflow:hidden}
+#arana-expense .metric{border:0;border-radius:0;padding:12px 16px;border-right:1px solid var(--a-line)}
+#arana-expense .metric:last-child{border-right:0}
+#arana-expense .metric strong{font-size:19px;margin-top:2px;color:#6d4357}
+#arana-expense .notice{background:#fcf1f6;color:#795267;border-radius:5px;font-size:13px}
+#arana-expense .toolbar{margin:12px 0}
+#arana-expense .table-summary{display:flex;flex-wrap:wrap;gap:10px 24px;padding:12px 0;margin:12px 0 0;border-top:1px solid var(--a-line);color:var(--a-muted)}
+#arana-expense .table-summary strong{color:var(--a-ink);font-weight:500;font-variant-numeric:tabular-nums}
+#arana-expense .list-table{min-width:880px}
+#arana-expense .list-table .description{min-width:180px;max-width:280px}
+#arana-expense .list-table .orgcell{min-width:145px}
+#arana-expense .table-action{white-space:nowrap}
+#arana-expense footer{background:#fff8fb}
+@media(max-width:760px){#arana-expense main{padding:16px 12px}#arana-expense header{padding:16px}#arana-expense nav{padding:8px}#arana-expense nav button{font-size:13px;padding:8px 10px}#arana-expense .metric{border-right:0;border-bottom:1px solid var(--a-line)}#arana-expense .metric:last-child{border-bottom:0}#arana-expense td,#arana-expense th{padding:10px 12px}}
+
+#arana-expense .ledger-filter-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px}
+#arana-expense .ledger-filters input,#arana-expense .ledger-filters select{font-size:14px;min-height:42px}
+#arana-expense .ledger-date-row{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--a-line)}
+#arana-expense .ledger-date-row label{min-width:155px}
+#arana-expense .ledger-date-row button{min-height:42px}
+#arana-expense .ledger-table{width:max-content;min-width:100%;table-layout:auto}
+#arana-expense .ledger-table td,#arana-expense .ledger-table th{min-width:120px;max-width:230px;padding:12px 14px;border-right:1px solid #f2e8ed}
+#arana-expense .ledger-table .ledger-id{min-width:178px;position:sticky;left:0;z-index:1;background:#fff;border-right:1px solid #d8bbc8;white-space:nowrap}
+#arana-expense .ledger-table thead .ledger-id,#arana-expense .ledger-table tfoot .ledger-id{background:#f8eaf1;z-index:2}
+#arana-expense .ledger-table tbody tr:nth-child(even) .ledger-id{background:#fff9fc}
+#arana-expense .ledger-table tbody tr:hover .ledger-id{background:#fbeef4}
+#arana-expense .ledger-table .ledger-description{min-width:260px;max-width:300px;white-space:normal}
+#arana-expense .ledger-table .ledger-receiver,#arana-expense .ledger-table .ledger-owner{min-width:160px}
+#arana-expense .ledger-table .ledger-id button{font-variant-numeric:tabular-nums}
+#arana-expense .ledger-scroll{scrollbar-color:#c996af #fcf2f7;padding-bottom:6px}
+@media(max-width:800px){#arana-expense .ledger-filter-grid{grid-template-columns:1fr 1fr}#arana-expense .ledger-search{grid-column:1/-1}}
+@media(max-width:480px){#arana-expense .ledger-filter-grid{grid-template-columns:1fr}#arana-expense .ledger-date-row label{width:100%}#arana-expense .ledger-table .ledger-id{position:static}}
+
+#arana-expense .rq-wrap{width:100%;max-width:650px;margin:0 auto}
+#arana-expense .rq-heading{text-align:left;margin:8px 0 20px}
+#arana-expense .rq-kicker{font-size:12px;letter-spacing:.6px;color:#9a5d78}
+#arana-expense .rq-heading h2{font-size:25px;margin:5px 0}
+#arana-expense .rq-heading p{color:#76656e;font-size:14px}
+#arana-expense .rq-progress{list-style:none;display:flex;gap:8px;padding:0;margin:0 0 20px}
+#arana-expense .rq-progress li{flex:1;display:flex;align-items:center;gap:7px;color:#7d6d76;font-size:13px;padding:10px 0;border-bottom:3px solid #eadde3}
+#arana-expense .rq-progress li span{display:grid;place-items:center;border:1px solid #ddcbd4;border-radius:50%;width:25px;height:25px;flex-shrink:0}
+#arana-expense .rq-progress li.current{color:#8b4767;border-color:#ad6d8b;font-weight:500}
+#arana-expense .rq-progress li.current span{background:#97516e;color:#fff;border-color:#97516e}
+#arana-expense .rq-progress li.done{color:#8b4767;border-color:#ddbbcd}
+#arana-expense .rq-section{border:1px solid #eadde3;background:#fff;border-radius:12px;padding:20px;margin-bottom:16px}
+#arana-expense .rq-section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #f0e4e9}
+#arana-expense .rq-number{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;background:#faedf3;border-radius:10px;color:#96516e;font-size:14px}
+#arana-expense .rq-section-head h3{font-size:18px;font-weight:500;margin:0 0 2px}
+#arana-expense .rq-fields{display:flex;flex-direction:column;gap:18px}
+#arana-expense .rq-field{display:flex;flex-direction:column;gap:7px;margin-bottom:2px}
+#arana-expense .rq-field>span{font-size:16px;font-weight:500;color:#4b3942}
+#arana-expense .rq-field input,#arana-expense .rq-field select,#arana-expense .rq-field textarea{font-size:16px;min-height:48px;padding:11px 12px;border:1px solid #ddcbd4;border-radius:8px;background:#fffcfd}
+#arana-expense .rq-field small{font-size:13px;line-height:1.6}
+#arana-expense .rq-modes{display:flex;flex-direction:column;gap:10px}
+#arana-expense .rq-mode{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #eadde3;border-radius:9px;cursor:pointer;min-height:68px}
+#arana-expense .rq-mode.selected{border-color:#b77896;background:#fff3f8}
+#arana-expense .rq-mode input{width:19px;height:19px;flex-shrink:0;accent-color:#97516e}
+#arana-expense .rq-mode strong{font-size:16px;font-weight:500;display:block}
+#arana-expense .rq-mode small{font-size:13px;display:block;margin-top:3px}
+#arana-expense .rq-field .rq-amount{font-size:23px;text-align:right;font-variant-numeric:tabular-nums;background:#fff6fa}
+#arana-expense .rq-actions{display:flex;gap:10px;flex-wrap:wrap}
+#arana-expense .rq-actions button{min-height:48px;font-size:15px;flex:1;padding:12px}
+#arana-expense .rq-actions button.primary{flex:1.6}
+#arana-expense .rq-bottom>small{display:block;margin-top:12px;text-align:center;font-size:12px}
+#arana-expense .rq-upload{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 8px}
+#arana-expense .rq-file-button{display:flex;flex-direction:column;gap:8px;background:#fff7fb;border:1px dashed #c69bb0;border-radius:8px;padding:12px;flex:1;min-width:190px;font-weight:500}
+#arana-expense .rq-file-button input[type=file]{font-size:12px;max-width:100%;background:#fff;border:0;padding:0;min-height:36px}
+#arana-expense .rq-files{margin:16px 0}
+#arana-expense .rq-files .row{padding:8px 0;border-bottom:1px solid #eadde3;font-size:13px}
+#arana-expense .rq-files .row span{overflow-wrap:anywhere;min-width:0;flex:1}
+#arana-expense .rq-hint{padding:12px;background:#fff4f8;border-radius:8px;color:#7a4c63}
+#arana-expense .rq-total{padding:18px;background:#fff2f8;border-radius:9px;margin-bottom:18px;text-align:center}
+#arana-expense .rq-total strong{display:block;font-size:28px;font-weight:500;color:#884762;font-variant-numeric:tabular-nums}
+#arana-expense .rq-total strong span{font-size:15px}
+#arana-expense .rq-review{display:grid;grid-template-columns:135px minmax(0,1fr);gap:0;margin:0}
+#arana-expense .rq-review dt,#arana-expense .rq-review dd{margin:0;padding:11px 0;border-bottom:1px solid #eee0e7;font-size:14px;overflow-wrap:anywhere}
+#arana-expense .rq-review dt{color:#79616e}
+#arana-expense .rq-bank-review strong{font-size:18px;font-weight:500;letter-spacing:1px}
+#arana-expense .rq-confirm{display:flex;gap:10px;align-items:flex-start;margin:20px 0 0;font-size:15px}
+#arana-expense .rq-confirm input{width:20px;height:20px;flex-shrink:0;margin-top:3px;accent-color:#97516e}
+#arana-expense #rq-error{padding:12px 14px;color:#933750;background:#fff0f3;border:1px solid #e0a7b7;border-radius:8px;margin-bottom:16px}
+#arana-expense .rq-success{text-align:center;padding:30px 20px}
+#arana-expense .rq-success>strong{font-size:19px;color:#884762}
+@media(max-width:480px){#arana-expense .rq-section{padding:16px;border-radius:10px}#arana-expense .rq-progress li{font-size:12px;flex-direction:column;align-items:flex-start;gap:6px}#arana-expense .rq-heading h2{font-size:23px}#arana-expense .rq-review{grid-template-columns:1fr}#arana-expense .rq-review dt{padding-bottom:0;border:0;font-size:12px}#arana-expense .rq-review dd{padding-top:3px}#arana-expense .rq-file-button{min-width:100%}#arana-expense .rq-actions{flex-direction:column-reverse}}
+
+#arana-expense{font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif}
+#arana-expense .rq-wrap{max-width:720px}
+#arana-expense .rq-heading{margin:0 0 10px}
+#arana-expense .rq-heading h2{font-size:21px;margin:0}
+#arana-expense .rq-heading .rq-kicker,#arana-expense .rq-heading p{display:none}
+#arana-expense .rq-progress{margin-bottom:12px;gap:12px}
+#arana-expense .rq-progress li{padding:6px 0;font-size:12px;border-bottom-width:2px;flex-direction:row;align-items:center}
+#arana-expense .rq-progress li span{width:21px;height:21px}
+#arana-expense .rq-section{padding:12px 14px;margin-bottom:10px;border-radius:7px}
+#arana-expense .rq-section-head{margin-bottom:10px;padding-bottom:7px;gap:0}
+#arana-expense .rq-section-head .rq-number,#arana-expense .rq-section-head small{display:none}
+#arana-expense .rq-section-head h3{font-size:14px;margin:0;color:#814561}
+#arana-expense .rq-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px}
+#arana-expense .rq-field{min-width:0;gap:4px;margin:0}
+#arana-expense .rq-field>span{font-size:13px}
+#arana-expense .rq-field input,#arana-expense .rq-field select,#arana-expense .rq-field textarea{min-height:44px;padding:8px 10px;font-size:16px;border-radius:6px}
+#arana-expense .rq-field textarea{height:54px;min-height:54px}
+#arana-expense .rq-field small{font-size:11px;line-height:1.4}
+#arana-expense .rq-field:has(textarea){grid-column:1/-1}
+#arana-expense .rq-field .rq-amount{font-size:20px}
+#arana-expense .rq-upload{margin:10px 0 6px;gap:8px}
+#arana-expense .rq-file-button{padding:8px;min-width:130px;font-size:13px}
+#arana-expense .rq-files{margin:8px 0}
+#arana-expense .rq-files p{margin:0 0 6px}
+#arana-expense .rq-actions{flex-direction:row;gap:8px}
+#arana-expense .rq-actions button{min-height:44px;padding:9px;font-size:14px}
+#arana-expense .rq-bottom>small{font-size:11px;margin-top:8px}
+#arana-expense .rq-review{grid-template-columns:115px minmax(0,1fr)}
+#arana-expense .rq-review dt,#arana-expense .rq-review dd{padding:7px 0;font-size:13px;border-bottom:1px solid #eee0e7}
+#arana-expense .rq-total{padding:10px;margin-bottom:8px}
+#arana-expense .rq-total strong{font-size:25px}
+#arana-expense .rq-confirm{margin-top:12px;font-size:14px}
+@media(max-width:480px){#arana-expense main{padding:12px 10px}#arana-expense .rq-section{padding:10px}#arana-expense .rq-fields{gap:9px}#arana-expense .rq-progress{gap:6px}#arana-expense .rq-progress li{gap:5px;font-size:11px}#arana-expense .rq-progress li span{width:18px;height:18px}#arana-expense .rq-field>span{font-size:12px}#arana-expense .rq-heading h2{font-size:20px}#arana-expense .rq-file-button{min-width:120px}#arana-expense .rq-review{grid-template-columns:100px minmax(0,1fr)}}
+
+#arana-expense .rq-ordered{max-width:760px}
+#arana-expense .rq-ordered-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:11px 14px}
+#arana-expense .rq-ordered-grid .rq-full{grid-column:1/-1;min-width:0}
+#arana-expense .rq-ordered .rq-heading{margin-bottom:12px}
+#arana-expense .rq-ordered .rq-heading small{display:block;margin-top:4px;font-size:12px}
+#arana-expense .rq-ordered .rq-section{padding:14px}
+#arana-expense .rq-ordered .rq-field>span,#arana-expense .rq-label{font-size:13px;font-weight:500;color:#4b3942}
+#arana-expense .rq-ordered .rq-upload{margin:6px 0 3px}
+#arana-expense .rq-ordered .rq-file-button{min-width:120px;padding:8px;gap:5px}
+#arana-expense .rq-ordered .rq-total-line{font-size:12px;background:#fff4f8;color:#804560;padding:7px 9px;border-radius:5px;font-variant-numeric:tabular-nums}
+#arana-expense .rq-tax-input{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+#arana-expense .rq-tax-input span{font-size:12px;color:#76656e}
+#arana-expense .rq-footnote{display:block;text-align:center;margin-top:8px;font-size:11px}
+@media(max-width:480px){#arana-expense .rq-ordered-grid{gap:10px}#arana-expense .rq-ordered .rq-section{padding:10px}#arana-expense .rq-ordered .rq-field>span{font-size:12px}#arana-expense .rq-ordered .rq-field input,#arana-expense .rq-ordered .rq-field select{padding:8px;font-size:16px}}
+
+#arana-expense{--a-bg:#fff8fc;--a-paper:#ffffff;--a-ink:#392735;--a-muted:#72566a;--a-line:#f2d5e5;--a-accent:#d72b85;--a-soft:#ffe6f3;--a-warn:#855515;--a-warnbg:#fff4d9;background:#fff8fc;color:#392735}
+#arana-expense header{background:#fff;border-bottom-color:#f2d5e5}
+#arana-expense .brand{color:#d72b85}
+#arana-expense nav{background:#fff0f8;border-bottom-color:#f2d5e5}
+#arana-expense nav button{color:#79546c}
+#arana-expense nav button.active{background:#ffd7ed;color:#a50c5b}
+#arana-expense button{border-color:#efc9de;color:#69465d}
+#arana-expense button.primary{background:#d72b85;border-color:#d72b85;color:#fff}
+#arana-expense button.primary:hover{background:#bd176d;color:#fff}
+#arana-expense button:hover{background:#ffebf6;border-color:#e786ba}
+#arana-expense .link{color:#b8166c;background:transparent}
+#arana-expense h2,#arana-expense h3{color:#392735}
+#arana-expense .sub,#arana-expense small{color:#72566a}
+#arana-expense .toolbar button.active{background:#ffdef0;border-color:#df6da8;color:#a50c5b}
+#arana-expense .panel,#arana-expense .rq-section{background:#fff;border-color:#f2d5e5}
+#arana-expense th{background:#ffe3f2;color:#81375f;border-bottom-color:#eaa6cc}
+#arana-expense td,#arana-expense th{border-bottom-color:#f3dce9}
+#arana-expense tbody tr:nth-child(even){background:#fff6fb}
+#arana-expense tbody tr:hover{background:#ffebf6}
+#arana-expense tfoot td{background:#ffe3f2;border-top-color:#eaa6cc}
+#arana-expense .badge{background:#ffe1f1;color:#a6105e}
+#arana-expense .badge.warn{background:#fff4d9;color:#855515}
+#arana-expense .notice,#arana-expense .rq-hint{background:#fff0f8;color:#9d306d}
+#arana-expense .metric strong{color:#bb1d73}
+#arana-expense .rq-ordered .rq-field>span,#arana-expense .rq-label,#arana-expense .rq-field>span{color:#532c45}
+#arana-expense .rq-field input,#arana-expense .rq-field select,#arana-expense .rq-field textarea{background:#fff;border-color:#eabbd5;color:#392735}
+#arana-expense input:focus,#arana-expense select:focus,#arana-expense textarea:focus{outline:2px solid #dc4b96;outline-offset:2px}
+#arana-expense .rq-total,#arana-expense .rq-ordered .rq-total-line{background:#ffe6f3;color:#a60e5d}
+#arana-expense .rq-total strong,#arana-expense .rq-success>strong{color:#c91c78}
+#arana-expense .rq-file-button{background:#fff2fa;border-color:#e897c2;color:#ac256b}
+#arana-expense .rq-progress li.current{color:#b5166b;border-color:#db398d}
+#arana-expense .rq-progress li.current span{background:#d72b85;border-color:#d72b85}
+#arana-expense .rq-review dt{color:#8b4f72}
+#arana-expense .ledger-table .ledger-id{border-right-color:#eaa6cc}
+#arana-expense .ledger-table thead .ledger-id,#arana-expense .ledger-table tfoot .ledger-id{background:#ffe3f2}
+#arana-expense .ledger-table tbody tr:nth-child(even) .ledger-id{background:#fff6fb}
+#arana-expense .ledger-table tbody tr:hover .ledger-id{background:#ffebf6}
+#arana-expense footer{background:#fff0f8}
+
+#arana-expense .ae-eye{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6px 9px;color:#b8166c;background:#fff0f8;border-color:#efc0da;white-space:nowrap}
+#arana-expense .ae-eye svg{width:17px;height:17px;flex-shrink:0}
+#arana-expense .ae-eye span{font-size:12px}
+#arana-expense .ae-viewer{margin-bottom:16px;border-color:#e9aacb;background:#fff}
+#arana-expense .ae-viewer .toolbar{max-width:100%;flex-wrap:wrap}
+#arana-expense .ae-viewer .toolbar button{max-width:100%;overflow-wrap:anywhere;text-align:left}
+#arana-expense .ae-file-image{display:block;width:100%;max-height:460px;object-fit:contain;background:#fff8fc;border:1px solid #f2d5e5;border-radius:6px}
+#arana-expense .ae-file-pdf{display:block;width:100%;height:480px;border:1px solid #f2d5e5;border-radius:6px;background:#fff}
+@media(pointer:coarse){#arana-expense .ae-eye{min-height:44px}}
+
+</style>
+<header><div><div class="brand">ARANA <span class="sub">/ EXPENSE</span></div><div class="sub">ขอเบิก • อนุมัติ • จ่าย • บันทึกบัญชี</div></div><label class="row"><span class="sub">จำลองมุมมอง</span><select id="ae-role" aria-label="เลือกบทบาท" style="width:auto"><option>บัญชี</option><option>พนักงาน</option><option>หัวหน้างาน</option><option>กรรมการ</option><option>การเงิน</option></select></label></header>
+<div class="shell"><nav id="ae-nav" aria-label="เมนูหลัก"><small>พื้นที่ทำงาน</small><button data-page="inbox" class="active">รายการค่าใช้จ่าย</button><button data-page="form" class="">ส่งคำขอเบิก</button><button data-page="batch" class="">รวมรอบ / เซ็นออนไลน์</button><button data-page="pay" class="">การเงิน / ยืนยันจ่าย</button><button data-page="vouchers" class="">ใบสำคัญจ่าย</button><button data-page="automation" class="">ระบบอัตโนมัติ</button><button data-page="organization" class="">บริษัท / สาขา / แผนก</button><button data-page="erp" class="">เชื่อมต่อ ERP</button><button data-page="archive" class="">คลังเอกสาร</button><button data-page="backup" class="">สำรอง / กู้คืน</button><small>กันยายน 2569<br>เวลาไทย · UTC+7</small></nav><main id="ae-main"><div class="row"><div><h2>ทะเบียนค่าใช้จ่าย</h2><span class="sub">ข้อมูลตัวอย่าง · กรองตามวันที่รายการ · เลขเอกสารอิงวันบันทึก</span></div><button class="primary" data-page="form">+ สร้างคำขอเบิก</button></div><section class="panel ledger-filters"><div class="ledger-filter-grid"><label class="field ledger-search">ค้นหารายการ / ยอดจ่ายสุทธิ<input id="ae-ledger-q" type="search" placeholder="รายละเอียด เลขเอกสาร ชื่อ หรือยอด เช่น 2,734.00" value=""></label><label class="field">บริษัท<select id="ae-ledger-company"><option value="">ทุกบริษัท</option><option value="C01" >บริษัทตัวอย่าง 1</option><option value="C02" >บริษัทตัวอย่าง 2</option></select></label><label class="field">แผนก<select id="ae-ledger-dept"><option value="">ทุกแผนก</option><option value="D01" >ปฏิบัติการ · สยาม (C01)</option><option value="D02" >แพทย์ · สยาม (C01)</option><option value="D03" >ปฏิบัติการ · อโศก (C01)</option><option value="D04" >บริหาร · สำนักงานใหญ่ (C02)</option></select></label><label class="field">หมวดหมู่<select id="ae-ledger-category"><option value="">ทุกหมวดหมู่</option><option >สวัสดิการลูกค้า</option><option >ค่าน้ำประปา</option><option >ค่าไฟ</option><option >ค่าอินเตอร์เน็ต</option><option >ค่าโทรศัพท์</option><option >ที่พักหมอ</option><option >เปิด PO</option><option >เครื่องใช้สำนักงาน</option><option >ค่าจ้างค่าบริการ</option><option >ภาษีป้าย</option><option >พาหนะ</option><option >วัสดุอุปกรณ์ใช้ไป</option><option >สวัสดิการอื่นๆ</option><option >รายจ่ายอื่นๆ</option><option >ค่าแพทย์ดำเนินการ</option><option >ค่าแพทย์ประจำวัน</option><option >ค่าแพทย์ศัลยกรรม/ผู้ช่วยแพทย์</option><option >ค่าน้ำมัน - แพทย์</option><option >ค่าน้ำมัน - แพทย์ศัล/ผช.</option><option >ค่าเช่า</option><option >ค่าข้าวหมอ</option><option >ค่าน้ำหมอศัลยกรรม</option><option >ค่าเฟรนไชส์รายเดือน</option><option >จ่าย PO</option><option >ค่าเดินทาง - น้ำมัน</option><option >เครื่องใช้ในร้าน</option><option >ที่พักหมอศัลยกรรมและผช</option><option >โปรแกรม</option><option >การคืนเงิน</option><option >ค่าที่พัก</option><option >คืนค่าคอร์สโคราช</option><option >ค้างจ่ายค่ามือโคราช</option><option >ยืมเงินกกรมการ</option><option >ค่าโฆษณา</option><option >ค่ารับรอง</option></select></label></div><div class="ledger-date-row"><label class="field">ช่วงวันที่<select id="ae-ledger-period"><option value="today" >วันนี้</option><option value="date" >เฉพาะวันที่</option><option value="week" >สัปดาห์</option><option value="month" selected>เดือน</option><option value="year" >ปี</option><option value="custom" >กำหนดช่วงเอง</option></select></label><label class="field">เลือกเดือน<input type="month" id="ae-ledger-anchor" value="2026-09"></label><button id="ae-ledger-reset" type="button">ล้างตัวกรอง / เดือนปัจจุบัน</button></div></section><div class="row"><div class="toolbar"><button data-group="ทั้งหมด" class="active">ทั้งหมด</button><button data-group="ทั่วไป" class="">ค่าใช้จ่ายทั่วไป</button><button data-group="บิลบริษัท" class="">บิลบริษัท</button></div><label class="row"><span class="sub">คอลัมน์</span><select id="ae-ledger-view" style="width:auto"><option value="sheet" selected>ครบแบบชีตเดิม</option><option value="overview" >ภาพรวมอ่านเร็ว</option></select></label></div><p id="ae-ledger-count" class="sub" aria-live="polite">01/09/2026 – 30/09/2026 · 8 รายการ · ยอดสุทธิ 105,334.00 บาท</p><section class="panel" id="ae-ledger-result"><div class="tablebox ledger-scroll" aria-label="ตารางรายจ่าย เลื่อนแนวนอนเพื่อดูคอลัมน์เพิ่มเติม"><table class="ledger-table"><thead><tr><th class="ledger-id ">เลขเอกสาร</th><th class="ledger-attachments ">ดูเอกสาร</th><th class="ledger-date ">วันที่รายการ</th><th class="ledger-company ">บริษัท</th><th class="ledger-branch ">สาขา / ร้าน</th><th class="ledger-dept ">แผนก</th><th class="ledger-owner ">ผู้ขอเบิก</th><th class="ledger-category ">หมวดหมู่</th><th class="ledger-description ">รายการ / รายละเอียด</th><th class="ledger-gross money">ยอดก่อนหัก</th><th class="ledger-wht money">หัก ณ ที่จ่าย</th><th class="ledger-net money">ยอดจ่ายสุทธิ</th><th class="ledger-receiver ">ชื่อบัญชีรับโอน</th><th class="ledger-bank ">ธนาคารผู้รับ</th><th class="ledger-account ">เลขบัญชี / เลขบัตร</th><th class="ledger-proof ">เอกสารรายจ่าย</th><th class="ledger-receipt ">ได้รับเอกสาร</th><th class="ledger-envelope ">จัดเก็บต้นฉบับ</th><th class="ledger-voucher ">ใบสำคัญจ่าย</th><th class="ledger-approval ">ผลอนุมัติ</th><th class="ledger-approver ">ผู้อนุมัติ</th><th class="ledger-payment ">สถานะจ่าย</th><th class="ledger-paiddate ">วันที่จ่าย</th><th class="ledger-sourcebank ">บัญชีที่ใช้จ่าย</th><th class="ledger-erp ">บันทึก ERP</th><th class="ledger-erpref ">เลขเอกสาร ERP</th><th class="ledger-note ">หมายเหตุ</th><th class="ledger-action ">จัดการ</th></tr></thead><tbody><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091101">EXP2026091101</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091101" aria-label="ดูเอกสารแนบ EXP2026091101 จำนวน 2 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>2 ไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">สยาม</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">เมย์</td><td class="ledger-category ">วัสดุอุปกรณ์ใช้ไป</td><td class="ledger-description ">น้ำดื่มและของใช้ประจำสาขา</td><td class="ledger-gross money">1,280.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">1,280.00</td><td class="ledger-receiver ">เมย์</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">ไม่มีใบเสร็จ</td><td class="ledger-receipt "><span class="badge warn">ไม่มีบิล</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอจัดทำ</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091101">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091201">EXP2026091201</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091201" aria-label="ดูเอกสารแนบ EXP2026091201 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">อโศก</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">พลอย</td><td class="ledger-category ">ค่าจ้างค่าบริการ</td><td class="ledger-description ">ค่าล้างเครื่องปรับอากาศ</td><td class="ledger-gross money">3,500.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">3,500.00</td><td class="ledger-receiver ">บริษัท แอร์ดี จำกัด</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">ใบเสร็จ</td><td class="ledger-receipt "><span class="badge warn">รอตรวจหลักฐาน</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091201">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091202">EXP2026091202</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091202" aria-label="ดูเอกสารแนบ EXP2026091202 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">สยาม</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">หัวหน้าฝน</td><td class="ledger-category ">เปิด PO</td><td class="ledger-description ">ค่ายาและเวชภัณฑ์</td><td class="ledger-gross money">24,800.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">24,800.00</td><td class="ledger-receiver ">บริษัท เมดซัพพลาย จำกัด</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">ใบกำกับภาษี</td><td class="ledger-receipt "><span class="badge warn">รอตรวจหลักฐาน</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091202">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091203">EXP2026091203</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091203" aria-label="ดูเอกสารแนบ EXP2026091203 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">อโศก</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">หัวหน้าฝน</td><td class="ledger-category ">ค่าเช่า</td><td class="ledger-description ">ค่าเช่าสาขา เดือนกันยายน</td><td class="ledger-gross money">45,000.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">45,000.00</td><td class="ledger-receiver ">บริษัท อาคารอโศก จำกัด</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">ใบแจ้งหนี้</td><td class="ledger-receipt "><span class="badge warn">รอตรวจหลักฐาน</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091203">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091206">EXP2026091206</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091206" aria-label="ดูเอกสารแนบ EXP2026091206 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">15/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">สยาม</td><td class="ledger-dept ">แพทย์</td><td class="ledger-owner ">หัวหน้าฝน</td><td class="ledger-category ">ค่าแพทย์ประจำวัน</td><td class="ledger-description ">DF พญ.ณิชา • รอบ 15 ก.ย.</td><td class="ledger-gross money">18,000.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">18,000.00</td><td class="ledger-receiver ">พญ.ณิชา</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">สรุปค่า DF</td><td class="ledger-receipt "><span class="badge warn">รอตรวจหลักฐาน</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091206">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091001">EXP2026091001</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091001" aria-label="ดูเอกสารแนบ EXP2026091001 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">10/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">สยาม</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">เมย์</td><td class="ledger-category ">ค่าเดินทาง - น้ำมัน</td><td class="ledger-description ">ค่าเดินทางซื้อวัสดุ • ค้างจากรอบก่อน</td><td class="ledger-gross money">320.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">320.00</td><td class="ledger-receiver ">เมย์</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">ไม่มีใบเสร็จ</td><td class="ledger-receipt "><span class="badge warn">ไม่มีบิล</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอจัดทำ</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091001">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091204">EXP2026091204</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091204" aria-label="ดูเอกสารแนบ EXP2026091204 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 1</td><td class="ledger-branch ">อโศก</td><td class="ledger-dept ">ปฏิบัติการ</td><td class="ledger-owner ">พลอย</td><td class="ledger-category ">วัสดุอุปกรณ์ใช้ไป</td><td class="ledger-description ">ของใช้สาขา • ชำระด้วยบัตรแล้ว</td><td class="ledger-gross money">2,734.00</td><td class="ledger-wht money">0.00</td><td class="ledger-net money">2,734.00</td><td class="ledger-receiver ">บัตรบริษัท •••• 3663</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">รอต้นฉบับ</td><td class="ledger-receipt "><span class="badge warn">รอต้นฉบับ</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอตรวจการจ่ายเดิม</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091204">เปิดรายการ</button></td></tr><tr><td class="ledger-id "><button class="link" data-detail="EXP2026091205">EXP2026091205</button></td><td class="ledger-attachments "><button class="ae-eye" data-view-request="EXP2026091205" aria-label="ดูเอกสารแนบ EXP2026091205 จำนวน 0 ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>ไม่มีไฟล์</span></button></td><td class="ledger-date ">12/09/2026</td><td class="ledger-company ">บริษัทตัวอย่าง 2</td><td class="ledger-branch ">สำนักงานใหญ่</td><td class="ledger-dept ">บริหาร</td><td class="ledger-owner ">บัญชีตัวอย่าง</td><td class="ledger-category ">ค่าเช่า</td><td class="ledger-description ">ค่าเช่าพื้นที่สำนักงาน • ตัวอย่างบริษัท 2</td><td class="ledger-gross money">10,000.00</td><td class="ledger-wht money">300.00</td><td class="ledger-net money">9,700.00</td><td class="ledger-receiver ">ผู้ให้เช่าตัวอย่าง</td><td class="ledger-bank ">ธนาคารตัวอย่าง</td><td class="ledger-account ">•••• 4821</td><td class="ledger-proof ">รอต้นฉบับ</td><td class="ledger-receipt "><span class="badge warn">รอต้นฉบับ</span></td><td class="ledger-envelope ">ยังไม่ระบุ</td><td class="ledger-voucher "><span class="badge warn">รอบัญชีพิจารณา</span></td><td class="ledger-approval "><span class="badge warn">ยังไม่อนุมัติ</span></td><td class="ledger-approver ">—</td><td class="ledger-payment "><span class="badge warn">รอจ่าย</span></td><td class="ledger-paiddate ">—</td><td class="ledger-sourcebank ">ยังไม่ระบุ</td><td class="ledger-erp "><span class="badge warn">รออนุมัติ</span></td><td class="ledger-erpref ">—</td><td class="ledger-note ">—</td><td class="ledger-action "><button data-detail="EXP2026091205">เปิดรายการ</button></td></tr></tbody><tfoot><tr><td class="ledger-id ">รวม 8 รายการ</td><td class="ledger-attachments "></td><td class="ledger-date "></td><td class="ledger-company "></td><td class="ledger-branch "></td><td class="ledger-dept "></td><td class="ledger-owner "></td><td class="ledger-category "></td><td class="ledger-description "></td><td class="ledger-gross money">105,634.00</td><td class="ledger-wht money">300.00</td><td class="ledger-net money">105,334.00</td><td class="ledger-receiver "></td><td class="ledger-bank "></td><td class="ledger-account "></td><td class="ledger-proof "></td><td class="ledger-receipt "></td><td class="ledger-envelope "></td><td class="ledger-voucher "></td><td class="ledger-approval "></td><td class="ledger-approver "></td><td class="ledger-payment "></td><td class="ledger-paiddate "></td><td class="ledger-sourcebank "></td><td class="ledger-erp "></td><td class="ledger-erpref "></td><td class="ledger-note "></td><td class="ledger-action "></td></tr></tfoot></table></div></section><p class="sub" style="margin-top:8px">เลื่อนตารางแนวนอนเพื่อดูผู้รับเงิน เอกสาร และผลบันทึก ERP · เลขเอกสารตรึงไว้ด้านซ้าย</p><div id="ae-detail"></div></main></div><div id="ae-toast" role="status" aria-live="polite"></div><footer>ต้นแบบ • ข้อมูลสมมติและผลลงนามอยู่เฉพาะในหน้านี้ • ยังไม่เชื่อมฐานข้อมูล LINE หรือ ERP</footer>
+<script>
+(()=>{
+const root=document.getElementById('arana-expense'),main=root.querySelector('#ae-main');
+const money=n=>Number(n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let role='บัญชี',page='inbox',group='ทั้งหมด',selected=new Set(),batch=[],approved=false,paid=false,synced=false,detail=null,doc='general';
+let items=[
+{id:'EX-09012',title:'น้ำดื่มและของใช้ประจำสาขา',branch:'สยาม',owner:'เมย์',group:'ทั่วไป',pay:'คืนเงินพนักงาน',to:'เมย์',amount:1280,proof:'ไม่มีใบเสร็จ',status:'รอตรวจ',date:'2026-09-12'},
+{id:'EX-09013',title:'ค่าล้างเครื่องปรับอากาศ',branch:'อโศก',owner:'พลอย',group:'ทั่วไป',pay:'จ่ายผู้ให้บริการ',to:'บริษัท แอร์ดี จำกัด',amount:3500,proof:'ใบเสร็จ',status:'พร้อมอนุมัติ',date:'2026-09-12'},
+{id:'BL-09014',title:'ค่ายาและเวชภัณฑ์',branch:'สยาม',owner:'หัวหน้าฝน',group:'บิลบริษัท',pay:'จ่ายผู้ให้บริการ',to:'บริษัท เมดซัพพลาย จำกัด',amount:24800,proof:'ใบกำกับภาษี',status:'พร้อมอนุมัติ',date:'2026-09-12'},
+{id:'BL-09015',title:'ค่าเช่าสาขา เดือนกันยายน',branch:'อโศก',owner:'หัวหน้าฝน',group:'บิลบริษัท',pay:'จ่ายผู้ให้บริการ',to:'บริษัท อาคารอโศก จำกัด',amount:45000,proof:'ใบแจ้งหนี้',status:'รอแก้ไข',date:'2026-09-12'},
+{id:'DF-09016',title:'DF พญ.ณิชา • รอบ 15 ก.ย.',branch:'สยาม',owner:'หัวหน้าฝน',group:'บิลบริษัท',pay:'DF แพทย์',to:'พญ.ณิชา',amount:18000,proof:'สรุปค่า DF',status:'พร้อมอนุมัติ',date:'2026-09-15'}];
+const total=a=>a.reduce((s,i)=>s+i.amount,0),badge=(s,w=false)=>`<span class="badge ${w?'warn':''}">${esc(s)}</span>`;
+const toast=t=>{root.querySelector('#ae-toast').textContent=t};
+const allowed={บัญชี:['inbox','form','batch','pay','vouchers','automation'],พนักงาน:['inbox','form'],หัวหน้างาน:['inbox','form','batch'],กรรมการ:['batch'],การเงิน:['pay','vouchers']};
+const names={inbox:'รายการค่าใช้จ่าย',form:'สร้างคำขอ',batch:'รวมรอบ / เซ็นออนไลน์',pay:'โอนจ่าย / ERP',vouchers:'ใบสำคัญจ่าย',automation:'ระบบอัตโนมัติ'};
+const visible=()=>items.filter(i=>role!=='พนักงาน'||i.group==='ทั่วไป');
+function nav(){root.querySelector('#ae-nav').innerHTML='<small>พื้นที่ทำงาน</small>'+allowed[role].map(k=>`<button data-page="${k}" class="${page===k?'active':''}">${names[k]}</button>`).join('')+'<small>กันยายน 2569<br>เวลาไทย · UTC+7</small>';}
+function heading(title,sub){return `<h2>${title}</h2><p class="sub">${sub}</p>`}
+function rows(list,choose=false){return `<div class="tablebox"><table><thead><tr>${choose?'<th>เลือก</th>':''}<th>รายการ / ผู้รับเงิน</th><th>สาขา / กลุ่ม</th><th class="money">ยอดจ่าย</th><th>สถานะ</th></tr></thead><tbody>${list.map(i=>`<tr>${choose?`<td><input type="checkbox" aria-label="เลือกรายการ ${i.id}" data-select="${i.id}" ${selected.has(i.id)?'checked':''} ${i.status!=='พร้อมอนุมัติ'?'disabled':''}></td>`:''}<td><button class="link" data-detail="${i.id}">${esc(i.title)}</button><br><small>${i.id} · ${esc(i.to)}<br>${esc(i.pay)}</small></td><td>${esc(i.branch)}<br><small>${i.group}</small></td><td class="money">${money(i.amount)}</td><td>${badge(i.status,i.status==='รอแก้ไข'||i.status==='รอตรวจ')}<br><small>${i.proof}</small></td></tr>`).join('')||'<tr><td colspan="5">ยังไม่มีรายการ</td></tr>'}</tbody></table></div>`}
+function render(){nav();if(page==='inbox')inbox();if(page==='form')form();if(page==='batch')batchView();if(page==='pay')payView();if(page==='vouchers')vouchers();if(page==='automation')automation();}
+function inbox(){let list=visible().filter(i=>group==='ทั้งหมด'||i.group===group);main.innerHTML=heading('รายการค่าใช้จ่าย','ตรวจหลักฐานให้ครบ ก่อนเข้ารอบขออนุมัติ')+`<div class="row"><span>${badge(role==='พนักงาน'?'สิทธิ์: ค่าใช้จ่ายทั่วไป':'ค่าใช้จ่ายทั่วไป + บิลบริษัท')}</span><button class="primary" data-page="form">+ สร้างคำขอ</button></div><div class="metrics"><div class="metric"><small>รอตรวจเอกสาร</small><strong>${list.filter(i=>i.status==='รอตรวจ').length} รายการ</strong></div><div class="metric"><small>พร้อมเสนออนุมัติ</small><strong>฿${money(total(list.filter(i=>i.status==='พร้อมอนุมัติ')))}</strong></div><div class="metric"><small>ส่งกลับแก้ไข</small><strong>${list.filter(i=>i.status==='รอแก้ไข').length} รายการ</strong></div></div><div class="toolbar">${(role==='พนักงาน'?['ทั่วไป']:['ทั้งหมด','ทั่วไป','บิลบริษัท']).map(g=>`<button data-group="${g}" class="${group===g?'active':''}">${g}</button>`).join('')}</div><section class="panel">${rows(list)}</section><div id="ae-detail"></div>`;if(detail)showDetail(detail);}
+function showDetail(id){const i=visible().find(x=>x.id===id);if(!i)return;detail=id;let d=main.querySelector('#ae-detail');if(!d){d=document.createElement('div');main.append(d);}d.innerHTML=`<section class="panel"><div class="row"><h3>${i.id} · ${esc(i.title)}</h3><button data-close>ปิดรายละเอียด</button></div><div class="grid"><div><small>ผู้ขอ / วันที่ค่าใช้จ่าย</small><p>${esc(i.owner)} · ${i.date}</p><small>ปลายทางการจ่าย</small><p>${esc(i.to)} · ${esc(i.receiverBank||'ยังไม่ระบุธนาคาร')} ${esc(i.receiverAccount||'')}</p><small>ยอดจ่ายสุทธิ</small><p>฿${money(i.amount)}</p></div><div><small>แฟ้มหลักฐาน</small><div class="detail">${i.proof==='ไม่มีใบเสร็จ'?'ไม่มีใบเสร็จ · รอระบุเหตุผล / หลักฐานประกอบ':`${i.proof} · เอกสารตัวอย่าง 1 ไฟล์`}</div><small>ประวัติรายการ</small><p>ผู้ขอส่งข้อมูล → ${i.status}</p></div></div>${i.status==='รอแก้ไข'?'<div class="notice">บัญชีขอให้แนบรายละเอียดผู้รับเงินก่อนเสนออนุมัติ</div>':''}${role==='บัญชี'&&['รอตรวจ','รอแก้ไข'].includes(i.status)?`<label class="field">หมายเหตุการตรวจ<textarea id="ae-review" placeholder="ระบุข้อมูลที่ต้องแก้ไข หรือเหตุผลกรณีไม่มีใบเสร็จ"></textarea></label><div class="toolbar"><button data-return="${id}">ส่งกลับแก้ไข</button><button class="primary" data-ready="${id}">ตรวจครบ / พร้อมอนุมัติ</button></div>`:''}</section>`;}
+function form(){main.innerHTML=heading('สร้างคำขอค่าใช้จ่าย','กรอกครั้งเดียว ติดตามได้จนจ่ายสำเร็จ')+`<section class="panel"><form id="ae-form"><div class="grid"><label class="field">กลุ่มค่าใช้จ่าย<select name="group"><option value="ทั่วไป">ค่าใช้จ่ายทั่วไป</option>${role!=='พนักงาน'?'<option>บิลบริษัท</option>':''}</select></label><label class="field">รูปแบบการจ่าย<select name="pay" id="ae-paytype"><option>คืนเงินพนักงาน</option><option>จ่ายผู้ให้บริการ</option><option>บันทึกค่าใช้จ่ายที่จ่ายแล้ว</option>${role!=='พนักงาน'?'<option>DF แพทย์</option>':''}</select></label><label class="field">สาขา<select name="branch"><option>สยาม</option><option>อโศก</option></select></label><label class="field">วันที่ค่าใช้จ่าย<input name="date" type="date" value="2026-09-12" required></label><label class="field span">รายการ / วัตถุประสงค์<input name="title" required placeholder="เช่น ค่าวัสดุทำความสะอาดสาขา"></label><label class="field">ชื่อผู้รับเงิน<input name="to" required placeholder="พนักงาน / บริษัท / แพทย์"></label><label class="field">ยอดขอจ่ายสุทธิ (บาท)<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label><label class="field">ธนาคาร / เลขบัญชี<input name="bank" required placeholder="ข้อมูลตัวอย่างเท่านั้น"></label><label class="field">กำหนดจ่าย<input type="date" name="due" value="2026-09-14" required></label><label class="field">เอกสารประกอบ<select name="proof" id="ae-proof"><option>ใบเสร็จ</option><option>ใบกำกับภาษี</option><option>ใบแจ้งหนี้</option><option>ไม่มีใบเสร็จ</option><option>รอต้นฉบับ</option></select></label><label class="field">แนบเอกสาร / รูปถ่าย<input id="ae-files" type="file" accept="image/*,application/pdf" multiple><small>ทดลองเลือกไฟล์เท่านั้น · ยังไม่อัปโหลด</small></label><label class="field span" id="ae-reason-wrap" hidden>เหตุผลที่ไม่มีใบเสร็จ<textarea name="reason" id="ae-reason"></textarea></label></div><div class="notice" id="ae-form-note">คืนเงินเข้าบัญชีพนักงานผู้สำรองจ่าย</div><label class="check"><input type="checkbox" required>ยืนยันข้อมูลผู้รับเงินและยอดขอจ่ายถูกต้อง</label><div class="row"><small>เช็กลิสต์ตัวอย่าง · ปรับตามฟอร์มเดิมได้</small><button class="primary" type="submit">ส่งให้บัญชีตรวจ</button></div></form></section>`;
+main.querySelector('#ae-proof').onchange=e=>{const no=e.target.value==='ไม่มีใบเสร็จ';main.querySelector('#ae-reason-wrap').hidden=!no;main.querySelector('#ae-reason').required=no;};
+main.querySelector('#ae-paytype').onchange=e=>{const v=e.target.value;main.querySelector('#ae-form-note').textContent=v==='DF แพทย์'?'จ่ายรายสัปดาห์ทุกวันอังคาร · รวมเอกสารรายเดือนตามแพทย์ + สาขา':v==='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?'ต้องแนบหลักฐานการจ่าย · ส่งตรวจและอนุมัติบันทึกบัญชี โดยไม่สร้างคำสั่งโอนซ้ำ':v==='จ่ายผู้ให้บริการ'?'โอนตรงให้ผู้ขาย / ผู้ให้บริการ ตามข้อมูลผู้รับเงิน':'คืนเงินเข้าบัญชีพนักงานผู้สำรองจ่าย';};
+main.querySelector('#ae-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const proof=f.get('proof');items.unshift({id:nextDocId(),title:f.get('title'),branch:f.get('branch'),owner:role==='พนักงาน'?'เมย์':role,group:f.get('group'),pay:f.get('pay'),to:f.get('to'),amount:Number(f.get('amount')),proof,status:'รอตรวจ',date:f.get('date'),submittedAt:'2026-09-12T15:50:00+07:00',cycleId:null,wht:0});page='inbox';group='ทั้งหมด';detail=null;render();toast('จำลองส่งคำขอสำเร็จ • รายการอยู่ในคิวรอตรวจของบัญชี');};}
+function batchView(){let ready=items.filter(i=>i.status==='พร้อมอนุมัติ'&&i.date<='2026-09-12');main.innerHTML=heading('รอบอนุมัติประจำวัน','12 กันยายน 2569 · ตัดรอบ 16.00 น. · DF รอบถัดไป 15 ก.ย.')+`<div class="steps"><b>01 ตรวจครบ</b> → <b>02 สรุปรอบ</b> → 03 กรรมการอนุมัติ → 04 ส่งการเงิน</div>`;
+if(!batch.length){main.innerHTML+=`<section class="panel"><div class="row"><h3>รายการพร้อมเข้ารอบ</h3>${badge('แยกเอกสารตามสิทธิ์')}</div>${rows(ready,true)}<div class="row" style="margin-top:16px"><span id="ae-selected">เลือก ${selected.size} รายการ</span><button class="primary" data-build ${role!=='บัญชี'?'disabled':''}>สร้างชุดขออนุมัติ</button></div><small>รายการหลังตัดรอบไปวันทำการถัดไป · รายการรอแก้ไขไม่ถูกรวม</small></section>`;if(role==='กรรมการ')main.innerHTML+='<div class="notice">ยังไม่มีชุดเสนออนุมัติ · ทดลองเปลี่ยนเป็นบัญชีเพื่อสร้างชุด</div>';return;}
+main.innerHTML+=`<section class="panel"><div class="row"><h3>AP-20260912-01</h3>${badge(approved?'อนุมัติแล้ว':'รอกรรมการ')}</div><div class="metrics"><div class="metric"><small>ค่าใช้จ่ายทั่วไป</small><strong>฿${money(total(batch.filter(i=>i.group==='ทั่วไป')))}</strong></div><div class="metric"><small>บิลบริษัท</small><strong>฿${money(total(batch.filter(i=>i.group==='บิลบริษัท')))}</strong></div><div class="metric"><small>ยอดเสนอทั้งหมด</small><strong>฿${money(total(batch))}</strong></div></div>${rows(batch)}<div class="toolbar"><button data-preview>ดูเอกสารเสนออนุมัติ</button>${!approved?`<button data-reject ${role!=='กรรมการ'?'disabled':''}>ส่งชุดกลับแก้ไข</button><button class="primary" data-approve ${role!=='กรรมการ'?'disabled':''}>อนุมัติและลงนาม (จำลอง)</button>`:badge('ล็อกรุ่นเอกสารที่อนุมัติแล้ว')}</div><small>บัญชีเตรียมชุด • กรรมการลงนาม • หากแก้ยอดหรือผู้รับ ต้องเสนออนุมัติใหม่</small></section><div id="ae-preview"></div>`;}
+function payView(){const payment=batch.filter(i=>i.pay!=='บันทึกค่าใช้จ่ายที่จ่ายแล้ว');main.innerHTML=heading('โอนจ่ายและบันทึก ERP','ติดตามการจ่ายเงินแยกจากสถานะการส่งข้อมูลบัญชี')+`<section class="panel"><h3>${approved?'AP-20260912-01':'ยังไม่มีชุดที่อนุมัติ'}</h3>${approved?`<div class="row">${badge(paid?'โอนสำเร็จ':'รอโอน')}${badge(synced?'ERP บันทึกสำเร็จ': 'ERP รอส่ง',!synced)}</div>${rows(payment)}<div class="grid" style="margin-top:16px"><div><h3>การเงิน</h3><label class="field">เลขอ้างอิงการโอน<input id="ae-ref" placeholder="เช่น BANK-20260912-001" ${paid?'disabled':''}></label><label class="field">แนบสลิป<input id="ae-slip" type="file" accept="image/*,application/pdf" ${paid?'disabled':''}></label><div class="toolbar"><button class="primary" data-paid ${paid||role!=='การเงิน'||!payment.length?'disabled':''}>ยืนยันโอนสำเร็จ</button></div><small>ต้นแบบยืนยันทั้งชุด · ระบบจริงติดตามผลโอนและสลิปแยกรายการ</small></div><div><h3>ERP</h3><p>${synced?'เลขอ้างอิง ERP-AP-09012':'รายการที่อนุมัติแล้วพร้อมส่งข้อมูลและหลักฐานเข้า ERP'}</p><div class="toolbar"><button data-sync ${synced||role!=='บัญชี'?'disabled':''}>จำลองส่ง ERP สำเร็จ</button><button data-fail ${synced||role!=='บัญชี'?'disabled':''}>จำลอง ERP ขัดข้อง</button></div><small>ส่งซ้ำด้วยเลขคำขอเดิมเพื่อป้องกันลงบัญชีซ้ำ · การเงินจ่ายต่อได้แม้ ERP รอส่ง</small></div></div>`:'<p class="sub">สร้างชุดในมุมมองบัญชี แล้วเปลี่ยนเป็นกรรมการเพื่อทดลองอนุมัติ</p>'}</section>`;}
+function vouchers(){main.innerHTML=heading('ใบสำคัญจ่าย','กันยายน 2569 · แฟ้มรายเดือนและหลักฐานเชื่อมจากคำขอ')+`<div class="toolbar"><button data-doc="general" class="${doc==='general'?'active':''}">ค่าใช้จ่ายทั่วไป / สาขา</button><button data-doc="df" class="${doc==='df'?'active':''}">DF / แพทย์ / สาขา</button></div><section class="panel"><div class="row"><h3>${doc==='general'?'สยาม · กันยายน 2569':'พญ.ณิชา · สยาม · กันยายน 2569'}</h3>${badge('ร่างสะสมรายเดือน',true)}</div><div class="paper"><div class="row"><div class="brand">ARANA</div><div>ใบสำคัญจ่าย<br><small>ตัวอย่างเอกสาร · ยังไม่ออกเลขจริง</small></div></div><hr><p>${doc==='general'?'ค่าใช้จ่ายทั่วไปที่ไม่มีใบเสร็จ · สาขาสยาม':'ค่า DF แพทย์ · พญ.ณิชา · สาขาสยาม'}</p><div class="tablebox"><table><thead><tr><th>วันที่ / อ้างอิง</th><th>รายละเอียด</th><th class="money">ยอดจ่าย</th></tr></thead><tbody>${doc==='general'?'<tr><td>05 ก.ย. · EX-09003</td><td>ค่าขนส่งวัสดุ<br><small>หลักฐานรับเงิน 1 ไฟล์</small></td><td class="money">450.00</td></tr><tr><td>08 ก.ย. · EX-09008</td><td>ค่าเดินทางซื้อของ<br><small>หลักฐานประกอบ 2 ไฟล์</small></td><td class="money">320.00</td></tr>':'<tr><td>อังคาร 01 ก.ย.</td><td>DF รอบ 25–31 ส.ค.</td><td class="money">16,500.00</td></tr><tr><td>อังคาร 08 ก.ย.</td><td>DF รอบ 1–7 ก.ย.</td><td class="money">18,000.00</td></tr>'}</tbody></table></div><div class="row" style="margin-top:20px"><span>รวมยอดที่จ่ายแล้วในเดือน</span><h3>฿${doc==='general'?'770.00':'34,500.00'}</h3></div><div class="row" style="margin-top:24px"><small>ผู้จัดทำ __________________</small><small>ผู้อนุมัติ __________________</small><small>ผู้รับเงิน / หลักฐานแนบ</small></div></div><div class="toolbar"><button data-vpreview>ดูแฟ้มหลักฐาน</button><button class="primary" data-vfinal>จำลองตรวจความพร้อมปิดเดือน</button></div><small>${doc==='general'?'แยกหนึ่งใบต่อสาขาต่อเดือน · รายการมีเอกสารเก็บหลักฐานเชื่อมใน ERP':'แยกหนึ่งใบต่อแพทย์ + สาขา + เดือน · เก็บรายละเอียดรอบจ่ายทุกวันอังคาร'}</small><div id="ae-vdetail"></div></section>`;}
+function automation(){const flows=[['เมื่อส่งคำขอ','ตรวจช่องบังคับและเอกสาร → บันทึกเลขคำขอ → แจ้งบัญชีตามกลุ่มสิทธิ์'],['ก่อนตัดรอบ 15.30 น.','เตือนเอกสารที่ยังไม่ครบ → ผู้ขอแก้ไข → บัญชีตรวจอีกครั้ง'],['ทุกวันทำการ 16.00 น.','บัญชีกดรวมคำขอในรอบ → ตรวจยอดและเอกสารค้าง → แชร์ลิงก์ให้กรรมการเซ็นในระบบ'],['เมื่อกรรมการอนุมัติ','ล็อกรุ่นข้อมูล → เข้าคิวการเงิน → รอยืนยันจ่ายก่อนส่ง ERP'],['เมื่อการเงินยืนยันจ่าย','แนบสลิป / เวลา / ผู้ยืนยัน → ตรวจว่าอนุมัติแล้ว → ส่งรายจ่ายเข้า ERP พร้อมหลักฐาน'],['ทุกวันอังคาร','จัดรอบ DF ตามช่วงบริการ → ตรวจและเสนออนุมัติ → สะสมยอดเดือนตามแพทย์และสาขา'],['สิ้นเดือน','สรุปใบสำคัญจ่ายรายสาขา / DF รายแพทย์และสาขา → ตรวจยอด → ออกเอกสาร'],['เมื่อ ERP ขัดข้อง','เก็บรายการในคิว → ลองส่งใหม่ → แจ้งบัญชีเมื่อยังไม่สำเร็จ พร้อมประวัติข้อผิดพลาด']];main.innerHTML=heading('ระบบอัตโนมัติ','ข้อเสนอการทำงาน · ยังไม่ได้เปิดใช้งานจริง')+`<section class="panel">${flows.map((a,i)=>`<div class="line"><div class="row"><span><span class="avatar">${String(i+1).padStart(2,'0')}</span> ${a[0]}</span>${badge('แบบร่าง')}</div><p class="sub" style="margin:8px 0 0">${a[1]}</p></div>`).join('')}</section><section class="panel"><h3>ขอบเขตข้อมูล</h3><p>พนักงานที่มีสิทธิ์ → ค่าใช้จ่ายทั่วไป<br>หัวหน้างาน / บัญชี → ค่าใช้จ่ายทั่วไป + บิลบริษัท<br>กรรมการ → ชุดเสนออนุมัติและหลักฐาน<br>การเงิน → รายการอนุมัติที่ต้องจ่ายและข้อมูลผู้รับเงิน</p><small>LINE ใช้แจ้งเตือนและเปิดลิงก์ตามสิทธิ์ · ฐานข้อมูลเป็นแหล่งหลัก · จำกัดสิทธิ์เอกสารแนบและข้อมูลบัญชีธนาคารแยกจากรายการ</small></section>`;}
+// Local prototype of daily cutoff, online review and approval.
+let cycleState='empty', cycleVersion=0, cycleLog=[], cycleSignature=[], cycleSigner='', cycleSignedAt='', cycleShare=false, cycleIncludeOlder=false;
+const cycleStart='2026-09-11T16:00:00+07:00',cycleEnd='2026-09-12T16:00:00+07:00';
+items.forEach((i,n)=>{i.submittedAt=['2026-09-11T16:00:00+07:00','2026-09-12T09:10:00+07:00','2026-09-12T11:25:00+07:00','2026-09-12T14:40:00+07:00','2026-09-12T16:00:00+07:00'][n];i.cycleId=null;i.wht=0;});
+items.push({id:'EX-09011',title:'ค่าเดินทางซื้อวัสดุ • ค้างจากรอบก่อน',branch:'สยาม',owner:'เมย์',group:'ทั่วไป',pay:'คืนเงินพนักงาน',to:'เมย์',amount:320,wht:0,proof:'ไม่มีใบเสร็จ',status:'รอตรวจ',date:'2026-09-10',submittedAt:'2026-09-10T14:00:00+07:00',cycleId:null});
+items.push({id:'EX-09018',title:'ของใช้สาขา • ชำระด้วยบัตรแล้ว',branch:'อโศก',owner:'พลอย',group:'ทั่วไป',pay:'บันทึกค่าใช้จ่ายที่จ่ายแล้ว',to:'บัตรบริษัท •••• 3663',amount:2734,wht:0,proof:'รอต้นฉบับ',status:'รอตรวจ',date:'2026-09-12',submittedAt:'2026-09-12T15:10:00+07:00',cycleId:null});
+function cycleEligible(i){return !i.cycleId && ['รอตรวจ','พร้อมอนุมัติ'].includes(i.status);}
+function cycleCurrent(i){return cycleEligible(i)&&Date.parse(i.submittedAt)>=Date.parse(cycleStart)&&Date.parse(i.submittedAt)<Date.parse(cycleEnd);}
+function cycleOlder(i){return cycleEligible(i)&&Date.parse(i.submittedAt)<Date.parse(cycleStart);}
+function cycleMoney(list){return {net:total(list),withheld:list.reduce((s,i)=>s+(i.wht||0),0),paid:total(list.filter(i=>i.pay==='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'))};}
+function cycleRecord(s){cycleLog.push({time:new Date().toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}),text:s});}
+function cycleSummary(list){const s=cycleMoney(list);return `<div class="metrics"><div class="metric"><small>ยอดจ่ายสุทธิรวม · ${list.length} รายการ</small><strong>฿${money(s.net)}</strong><small>ก่อนหัก ${money(s.net+s.withheld)} · หัก ${money(s.withheld)}</small></div><div class="metric"><small>บันทึกค่าใช้จ่ายที่จ่ายแล้ว</small><strong>฿${money(s.paid)}</strong></div><div class="metric"><small>ยอดรอการเงินดำเนินการจ่าย</small><strong>฿${money(s.net-s.paid)}</strong></div></div>`;}
+function cycleDoc(list){return ['ทั่วไป','บิลบริษัท'].map(g=>{const a=list.filter(i=>i.group===g);if(!a.length)return '';return `<section class="panel"><div class="row"><h3>${g==='ทั่วไป'?'ค่าใช้จ่ายทั่วไป':'บิลบริษัท'}</h3><span>${a.length} รายการ · ฿${money(total(a))}</span></div><div class="tablebox"><table><thead><tr><th>รายการ / วันที่ / ผู้ขอ</th><th>ผู้รับ / เอกสาร</th><th class="money">ก่อนหัก</th><th class="money">หัก ณ ที่จ่าย</th><th class="money">สุทธิ</th></tr></thead><tbody>${a.map(i=>`<tr><td>${esc(i.title)}<br><small>${i.id} · ${esc(i.date)}<br>${esc(i.branch)} · ${esc(i.owner)}</small></td><td>${esc(i.to)}<br><small>${esc(i.pay)}</small><br>${badge(i.proof,['ไม่มีใบเสร็จ','รอต้นฉบับ'].includes(i.proof))}<br><button class="link" data-cycle="evidence" data-id="${i.id}">ดูหลักฐาน / งานค้าง</button></td><td class="money">${money(i.amount+(i.wht||0))}</td><td class="money">${money(i.wht||0)}</td><td class="money">${money(i.amount)}</td></tr>`).join('')}</tbody></table></div></section>`;}).join('');}
+function batchView(){
+ const canEdit=role==='บัญชี',canSign=role==='กรรมการ',current=items.filter(cycleCurrent),older=items.filter(cycleOlder);
+ main.innerHTML=heading('รวมรอบเบิกและอนุมัติออนไลน์','12 กันยายน 2569 · เวลาไทย · ต้นแบบข้อมูลสมมติ')+`<div class="steps"><b>1 รวมยอด</b> → <b>2 ตรวจเอกสารรอบเบิก</b> → 3 แชร์ลิงก์ → 4 เซ็นและอนุมัติ</div><div class="panel"><div class="row"><div><small>ช่วงเวลาส่งคำขอ</small><p style="margin-bottom:0">11 ก.ย. 16.00 น. ถึงก่อน 12 ก.ย. 16.00 น.</p></div>${badge('รับเวลา 16.00 น. เข้ารอบถัดไป')}</div></div>`;
+ if(cycleState==='empty'){
+  main.innerHTML+=cycleSummary(current)+`<section class="panel"><h3>รอรวมรอบนี้ ${current.length} รายการ</h3><p class="sub">รวมคำขอที่ส่งเข้าระบบแล้วและยังไม่ส่งอนุมัติ · ตามเอกสารต่อหลังส่งเบิกได้</p><div class="row"><span>${badge('ค้างจากรอบก่อน '+older.length+' รายการ',!!older.length)}</span><button class="primary" data-cycle="collect" ${!canEdit?'disabled':''}>รวมยอดทุกรายการในรอบ</button></div><p class="sub" style="margin-top:14px;margin-bottom:0">${items.filter(i=>i.status==='รอแก้ไข'&&!i.cycleId).length} รายการรอแก้ข้อมูล · ${items.filter(i=>cycleEligible(i)&&Date.parse(i.submittedAt)>=Date.parse(cycleEnd)).length} รายการส่งหลังตัดรอบ</p></section>`;
+  if(!canEdit)main.innerHTML+='<div class="notice">ยังไม่มีชุดเสนออนุมัติ · บัญชีเป็นผู้รวบรวมและส่งชุด</div>';
+ } else {
+  main.innerHTML+=`<div class="panel"><div class="row"><div><h3>AP-20260912-01 · รุ่น ${cycleVersion}</h3><small>เอกสารขออนุมัติเบิกค่าใช้จ่ายประจำวัน</small></div>${badge({draft:'ร่างรอตรวจ',sent:'ส่งแล้ว · รอกรรมการ',approved:'อนุมัติแล้ว',returned:'ส่งกลับแก้ไข'}[cycleState])}</div></div>`+cycleSummary(batch)+cycleDoc(batch);
+  if(cycleState==='draft'){
+   main.innerHTML+=`<section class="panel"><h3>ตรวจรอบก่อนส่ง</h3><div class="notice">${batch.filter(i=>['ไม่มีใบเสร็จ','รอต้นฉบับ'].includes(i.proof)).length} รายการมีงานเอกสารค้าง · แสดงให้กรรมการเห็น และติดตามต่อหลังอนุมัติ</div>${older.length?`<label class="check"><input type="checkbox" id="ae-cycle-older" ${cycleIncludeOlder?'checked':''} ${!canEdit?'disabled':''}>รวมรายการตกค้างก่อนรอบ ${older.length} รายการ เพิ่ม ฿${money(total(older))}</label>`:''}<label class="check"><input id="ae-cycle-check" type="checkbox" ${!canEdit?'disabled':''}>ตรวจยอด ผู้รับเงิน และรายการที่จ่ายแล้วเรียบร้อย</label><div class="toolbar"><button data-cycle="recollect" ${!canEdit||cycleVersion>1?'disabled':''}>ดึงรายการล่าสุดในรอบ</button><button class="primary" data-cycle="send" ${!canEdit?'disabled':''}>ส่งอนุมัติและเตรียมแชร์ LINE</button></div></section>`;
+  }
+  if(cycleState==='sent'&&canEdit){main.innerHTML+=`<section class="panel"><div class="row"><h3>ส่งอนุมัติแล้ว</h3>${badge(cycleShare?'แจ้งกลุ่มแล้ว':'รอแจ้งกลุ่ม',!cycleShare)}</div><p>รายการในชุดนี้ถูกกันออกจากการรวมรอบใหม่แล้ว · เอกสารพร้อมให้กรรมการเปิดตรวจ</p><div class="toolbar"><button class="primary" data-cycle="notify">${cycleShare?'ส่งแจ้งเตือนซ้ำ':'ส่งแจ้งเตือนเข้ากลุ่ม'}</button><button data-cycle="open">เปิดหน้ากรรมการ (จำลอง)</button></div><small>ระบบจริงจะส่งข้อความอัตโนมัติผ่าน LINE Messaging API หรือ Webhook ที่ตั้งค่าไว้ โดยพนักงานไม่ต้องคัดลอกข้อความ</small></section>`;}
+  if(cycleShare&&canEdit&&cycleState==='sent')main.innerHTML+=`<section class="panel"><div class="row"><h3>ข้อความสำหรับ LINE · ตัวอย่าง</h3>${badge('ถึงกรรมการผู้มีสิทธิ์')}</div><p>ARANA ขออนุมัติรอบวันที่ 12 ก.ย. 2569<br>เอกสาร AP-20260912-01 · รุ่น ${cycleVersion}<br>${batch.length} รายการ · ยอดสุทธิ ฿${money(total(batch))}</p><button class="primary" data-cycle="open">เปิดเอกสารเพื่อตรวจและลงนาม</button><p class="sub" style="margin-top:10px;margin-bottom:0">ต้นแบบเปิดภายในหน้านี้ · ระบบจริงใช้ลิงก์เอกสารที่ตรวจสิทธิ์ก่อนแสดงข้อมูล</p></section>`;
+  if(cycleState==='sent'&&canSign){main.innerHTML+=`<section class="panel"><h3>ลงนามอนุมัติชุดนี้</h3><p class="sub">บัญชีผู้อนุมัติ: กรรมการตัวอย่าง · มุมมองจำลองหลังตรวจสิทธิ์</p><label class="field">ชื่อผู้ลงนาม<input id="ae-cycle-signer" value="${esc(cycleSigner)}" placeholder="ชื่อสำหรับทดลองลงนาม"></label><div class="toolbar"><button data-cycle="clear-signature">ล้างลายเซ็น</button></div><canvas id="ae-cycle-canvas" width="720" height="180" aria-label="พื้นที่วาดลายเซ็นด้วยเมาส์หรือนิ้ว" style="display:block;width:100%;height:150px;touch-action:none;background:var(--a-paper);border:1px dashed var(--a-line);border-radius:8px">พื้นที่วาดลายเซ็น</canvas><label class="check"><input type="checkbox" id="ae-cycle-consent">ยืนยันอนุมัติรายการและยอดในเอกสารรุ่น ${cycleVersion}</label><label class="field">เหตุผล / หมายเหตุ<textarea id="ae-cycle-comment" placeholder="กรณีส่งกลับแก้ไข ต้องระบุเหตุผล"></textarea></label><div class="toolbar"><button data-cycle="return">ส่งชุดกลับแก้ไข</button><button class="primary" data-cycle="approve">บันทึกลายเซ็นและอนุมัติ (จำลอง)</button></div><small>การอนุมัติครอบคลุมทั้งชุด · ลายเซ็นและผลทดลองเก็บเฉพาะขณะเปิดต้นแบบ</small></section>`;cycleWireSignature();}
+  if(cycleState==='approved')main.innerHTML+=`<section class="panel"><div class="row"><h3>อนุมัติและบันทึกแล้ว (จำลอง)</h3>${badge('ล็อกเอกสารรุ่น '+cycleVersion)}</div><p>${esc(cycleSigner)} · ${esc(cycleSignedAt)}</p><canvas id="ae-cycle-signed" width="720" height="180" aria-label="ลายเซ็นที่บันทึกในการทดลอง" style="max-width:100%;width:360px;height:90px"></canvas><div class="grid"><div class="notice">การเงิน: รอยืนยันจ่าย ฿${money(cycleMoney(batch).net-cycleMoney(batch).paid)}</div><div class="notice">ERP: รอยืนยันจ่ายก่อนส่ง · เอกสารค้างติดตามต่อได้</div></div><small>ไม่มีการโอนเงินหรือส่งข้อมูลออกจากต้นแบบ</small></section>`;
+  if(cycleState==='returned')main.innerHTML+=`<section class="panel"><h3>กรรมการส่งกลับแก้ไข</h3><p>เก็บประวัติและเอกสารรุ่นเดิมไว้ · บัญชีแก้ไขก่อนส่งรุ่นใหม่</p><button data-cycle="revise" ${!canEdit?'disabled':''}>เปิดร่างแก้ไขรุ่นใหม่</button></section>`;
+ }
+ main.innerHTML+='<div id="ae-cycle-evidence"></div>';
+ if(cycleLog.length)main.innerHTML+=`<section class="panel"><h3>ประวัติรอบเบิก</h3>${cycleLog.map(l=>`<div class="line"><small>${esc(l.time)}</small> ${esc(l.text)}</div>`).join('')}</section>`;
+ if(cycleState==='approved')cycleDraw(main.querySelector('#ae-cycle-signed'));
+}
+function cycleDraw(canvas){if(!canvas)return;const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle=getComputedStyle(root).getPropertyValue('--a-ink').trim();ctx.strokeStyle=getComputedStyle(root).color;ctx.lineWidth=2;ctx.lineCap='round';cycleSignature.forEach(stroke=>{ctx.beginPath();stroke.forEach((p,n)=>n?ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height):ctx.moveTo(p[0]*canvas.width,p[1]*canvas.height));ctx.stroke();});}
+function cycleWireSignature(){const c=main.querySelector('#ae-cycle-canvas');if(!c)return;let drawing=false;const point=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height];};c.onpointerdown=e=>{drawing=true;c.setPointerCapture(e.pointerId);cycleSignature.push([point(e)]);};c.onpointermove=e=>{if(!drawing)return;cycleSignature.at(-1).push(point(e));cycleDraw(c);};c.onpointerup=c.onpointercancel=()=>{drawing=false;};main.querySelector('#ae-cycle-signer').oninput=e=>{cycleSigner=e.target.value;};cycleDraw(c);}
+function cycleAction(action,b){
+ const canEdit=role==='บัญชี',canSign=role==='กรรมการ';
+ if(['collect','recollect'].includes(action)&&canEdit&&['empty','draft'].includes(cycleState)){
+  batch=items.filter(cycleCurrent).map(i=>({...i}));if(!batch.length){toast('ไม่มีคำขอใหม่ในช่วงเวลาของรอบนี้');return;}
+  cycleState='draft';cycleIncludeOlder=false;cycleVersion=cycleVersion||1;cycleRecord('บัญชีรวบรวม '+batch.length+' รายการในรอบ');render();toast('รวมครบตามเวลาส่งคำขอ · ตรวจข้อมูลแล้วกดส่งอนุมัติ');return;
+ }
+ if(action==='send'&&canEdit&&cycleState==='draft'){
+  if(!main.querySelector('#ae-cycle-check').checked){toast('กรุณายืนยันการตรวจยอดและผู้รับเงินก่อนส่งอนุมัติ');return;}
+  if(main.querySelector('#ae-cycle-older')?.checked){batch.push(...items.filter(cycleOlder).filter(i=>!batch.some(b=>b.id===i.id)).map(i=>({...i})));}
+  batch.forEach(b=>{const i=items.find(i=>i.id===b.id);i.cycleId='AP-20260912-01';i.status='รออนุมัติ';b.status='รออนุมัติ';});
+  cycleState='sent';cycleShare=true;cycleRecord('ส่งเอกสารรุ่น '+cycleVersion+' ให้กรรมการ · กันรายการออกจากรอบใหม่');render();toast('จำลองส่งอนุมัติแล้ว · เปิดตัวอย่างลิงก์ด้านล่างเพื่อเซ็น');return;
+ }
+ if(action==='notify'&&canEdit&&cycleState==='sent'){cycleShare=true;cycleRecord('ส่งแจ้งเตือนกลุ่มผู้อนุมัติ · AP-20260912-01 · ลิงก์ตรวจสิทธิ์พร้อมใช้');render();toast('จำลองส่งแจ้งเตือนเข้ากลุ่มแล้ว · ระบบจริงเรียก LINE/Webhook อัตโนมัติ');return;}
+ if(action==='share'&&canEdit&&cycleState==='sent'){cycleShare=true;render();toast('แสดงข้อความแจ้งเตือนเดิม · ไม่สร้างชุดหรือยอดซ้ำ และยังไม่ได้ส่ง LINE จริง');return;}
+ if(action==='open'&&cycleState==='sent'&&canEdit){role='กรรมการ';root.querySelector('#ae-role').value=role;page='batch';cycleRecord('กรรมการเปิดอ่านเอกสาร (จำลอง)');render();toast('มุมมองกรรมการ · ตรวจตารางและลงนามด้านล่าง');return;}
+ if(action==='clear-signature'&&canSign){cycleSignature=[];cycleDraw(main.querySelector('#ae-cycle-canvas'));return;}
+ if(action==='approve'&&canSign&&cycleState==='sent'){
+  cycleSigner=main.querySelector('#ae-cycle-signer').value.trim();if(!cycleSigner||!cycleSignature.some(s=>s.length>3)||!main.querySelector('#ae-cycle-consent').checked){toast('ระบุชื่อ วาดลายเซ็น และยืนยันอนุมัติก่อนบันทึก');return;}
+  cycleState='approved';approved=true;cycleSignedAt=new Date().toLocaleString('th-TH',{timeZone:'Asia/Bangkok'});
+  batch.forEach(b=>{b.status='อนุมัติแล้ว';items.find(i=>i.id===b.id).status='อนุมัติแล้ว';});
+  cycleRecord('กรรมการ '+cycleSigner+' ลงนามและอนุมัติรุ่น '+cycleVersion+' · เข้าคิวการเงิน · ERP รอยืนยันจ่าย (จำลอง)');render();toast('จำลองบันทึกลายเซ็นและอนุมัติสำเร็จ · เอกสารชุดเดิมแสดงผลอนุมัติได้ทันที');return;
+ }
+ if(action==='return'&&canSign&&cycleState==='sent'){const reason=main.querySelector('#ae-cycle-comment').value.trim();if(!reason){toast('ระบุเหตุผลที่ส่งกลับแก้ไข');return;}cycleState='returned';cycleSignature=[];cycleRecord('กรรมการส่งกลับ: '+reason);render();return;}
+ if(action==='revise'&&canEdit&&cycleState==='returned'){cycleState='draft';cycleVersion++;cycleSignature=[];cycleRecord('เปิดร่างรุ่น '+cycleVersion+' · เก็บประวัติรุ่นก่อน');render();return;}
+ if(action==='evidence'){const i=batch.find(i=>i.id===b.dataset.id);if(!i)return;main.querySelector('#ae-cycle-evidence').innerHTML=`<section class="panel"><h3>${esc(i.id)} · หลักฐานและงานค้าง</h3><p>${esc(i.proof)}</p><p>${i.proof==='ไม่มีใบเสร็จ'?'งานค้าง: จัดทำใบสำคัญจ่ายรายเดือนตามสาขา':i.proof==='รอต้นฉบับ'?'งานค้าง: ตามต้นฉบับจากผู้ขอเบิก':'ระบบจริงเปิดไฟล์แนบในหน้านี้ · ต้นแบบไม่มีเอกสารจริง'}</p><small>สถานะเอกสารคงติดตามต่อได้แม้อนุมัติหรือจ่ายแล้ว</small></section>`;}
+}
+
+// All entities and transport outcomes in this module are local demo data.
+const orgCompanies=[{id:'C01',name:'บริษัทตัวอย่าง 1',tax:'',address:'',erp:'',active:true},{id:'C02',name:'บริษัทตัวอย่าง 2',tax:'',address:'',erp:'',active:true}];
+const orgBranches=[{id:'B01',company:'C01',name:'สยาม',code:'00001',erp:'',active:true},{id:'B02',company:'C01',name:'อโศก',code:'00002',erp:'',active:true},{id:'B03',company:'C02',name:'สำนักงานใหญ่',code:'00000',erp:'',active:true}];
+const orgDepartments=[{id:'D01',branch:'B01',name:'ปฏิบัติการ',erp:'',active:true},{id:'D02',branch:'B01',name:'แพทย์',erp:'',active:true},{id:'D03',branch:'B02',name:'ปฏิบัติการ',erp:'',active:true},{id:'D04',branch:'B03',name:'บริหาร',erp:'',active:true}];
+let orgSelected='C01',orgEdit=null,erpFilter='ทั้งหมด',paymentTarget=null;
+const erpSettings={C01:{name:'ERP หลัก',url:'',connected:false,auto:true,expenseAccount:'',payeeMap:false},C02:{name:'ERP หลัก',url:'',connected:false,auto:true,expenseAccount:'',payeeMap:false}};
+const erpEvents=[];
+const erpSamples=[
+ {id:'DEMO-ERP-01',title:'ค่าบริการทำความสะอาด (ตัวอย่าง)',companyId:'C01',branchId:'B01',departmentId:'D01',companyName:'บริษัทตัวอย่าง 1',branch:'สยาม',departmentName:'ปฏิบัติการ',group:'ทั่วไป',owner:'พนักงานตัวอย่าง',to:'ผู้ให้บริการตัวอย่าง',date:'2026-09-11',amount:970,wht:30,proof:'รอต้นฉบับ',status:'จ่ายแล้ว',pay:'จ่ายผู้ให้บริการ',paymentRef:'DEMO-BANK-001',paidAt:'2026-09-12',paymentVerified:true,slipName:'สลิปตัวอย่าง',approvalRef:'DEMO-AP-01',erpStatus:'pending',erpRef:''},
+ {id:'DEMO-ERP-02',title:'ค่าอุปกรณ์สำนักงาน (ตัวอย่าง)',companyId:'C02',branchId:'B03',departmentId:'D04',companyName:'บริษัทตัวอย่าง 2',branch:'สำนักงานใหญ่',departmentName:'บริหาร',group:'บิลบริษัท',owner:'บัญชีตัวอย่าง',to:'ผู้ขายตัวอย่าง',date:'2026-09-12',amount:2300,wht:0,proof:'ใบเสร็จ',status:'อนุมัติแล้ว',pay:'จ่ายผู้ให้บริการ',paymentVerified:false,approvalRef:'DEMO-AP-02',erpStatus:'pending',erpRef:''}
+];
+function orgAssign(i){if(i.companyId)return;i.companyId='C01';i.branchId=i.branch==='อโศก'?'B02':'B01';i.departmentId=i.pay==='DF แพทย์'?'D02':i.branchId==='B02'?'D03':'D01';i.companyName='บริษัทตัวอย่าง 1';i.departmentName=orgDepartments.find(d=>d.id===i.departmentId).name;i.paymentVerified=false;i.erpStatus='pending';i.erpRef='';}
+items.forEach(orgAssign);
+const orgCompany=id=>orgCompanies.find(c=>c.id===id), orgBranch=id=>orgBranches.find(b=>b.id===id), orgDept=id=>orgDepartments.find(d=>d.id===id);
+const orgValid=(c,b,d)=>{const co=orgCompany(c),br=orgBranch(b),de=orgDept(d);return !!(co?.active&&br?.active&&de?.active&&br.company===c&&de.branch===b);};
+const erpAll=()=>[...items,...erpSamples];
+const erpApproved=i=>['อนุมัติแล้ว','จ่ายแล้ว'].includes(i.status);
+const erpPaid=i=>i.paymentVerified===true&&!!i.paymentRef&&!!i.paidAt;
+function erpBlock(i){if(!erpApproved(i))return 'รออนุมัติ';if(!erpPaid(i))return 'รอยืนยันจ่าย';if(i.erpStatus==='success')return '';const c=orgCompany(i.companyId),b=orgBranch(i.branchId),d=orgDept(i.departmentId),s=erpSettings[i.companyId];if(!orgValid(i.companyId,i.branchId,i.departmentId))return 'รอตรวจบริษัท / สาขา / แผนก';if(!c.erp||!b.erp||!d.erp||!s?.expenseAccount||!s?.payeeMap)return 'รอจับคู่รหัส ERP';if(!s.connected)return 'รอเชื่อมต่อ ERP';return '';}
+function erpLabel(i){if(i.erpStatus==='success')return 'ส่งสำเร็จ';return erpBlock(i)||(i.erpStatus==='failed'?'ส่งไม่สำเร็จ':'พร้อมส่ง');}
+function erpSend(i,fail=false){if(i.erpStatus==='success'||erpBlock(i))return false;i.attempts=(i.attempts||0)+1;i.syncKey=i.syncKey||`${i.companyId}:${i.id}:expense-v1`;i.erpStatus=fail?'failed':'success';i.lastError=fail?'ERP ไม่ตอบรับรายการในการทดสอบ':'';if(!fail)i.erpRef=`DEMO-${i.companyId}-${i.id}`;erpEvents.push(`${i.id} · ครั้งที่ ${i.attempts} · ${fail?'ส่งไม่สำเร็จ เก็บคิวส่งใหม่':'ERP ตอบรับสำเร็จ (จำลอง)'}`);return true;}
+function erpAuto(){erpAll().filter(i=>erpSettings[i.companyId]?.auto&&i.erpStatus!=='failed').forEach(i=>erpSend(i));}
+function orgOptions(list,id){return list.map(i=>`<option value="${i.id}" ${i.id===id?'selected':''}>${esc(i.name)}</option>`).join('');}
+function orgPicker(){return `<label class="field">บริษัท<select id="ae-org-company">${orgOptions(orgCompanies,orgSelected)}</select></label>`;}
+function orgView(){const c=orgCompany(orgSelected);main.innerHTML=heading('บริษัท สาขา และแผนก','ข้อมูลตัวอย่าง 2 บริษัท · เปลี่ยนเป็นชื่อนิติบุคคลจริงได้')+`<div class="row">${orgPicker()}<button data-org="add-company">+ เพิ่มบริษัท</button></div><section class="panel"><div class="row"><h3>${esc(c.name)}</h3><button data-org="edit-company" data-id="${c.id}">แก้ไขบริษัท</button></div><div class="grid"><div><small>รหัสบริษัท</small><p>${c.id}</p><small>เลขประจำตัวผู้เสียภาษี</small><p>${esc(c.tax)||'ยังไม่ระบุ'}</p></div><div><small>ที่อยู่จดทะเบียน</small><p>${esc(c.address)||'ยังไม่ระบุ'}</p><small>รหัสบริษัทใน ERP</small><p>${esc(c.erp)||'รอจับคู่'}</p></div></div></section><section class="panel"><div class="row"><h3>สาขาภายใต้บริษัทนี้</h3><button data-org="add-branch">+ เพิ่มสาขา</button></div>${orgBranches.filter(b=>b.company===c.id).map(b=>`<div class="line"><div class="row"><span>${esc(b.name)} · ${esc(b.code)} ${badge(b.active?'ใช้งาน':'ปิดใช้งาน',!b.active)}</span><div class="toolbar"><button data-org="edit-branch" data-id="${b.id}">แก้ไขสาขา</button><button data-org="add-dept" data-id="${b.id}" ${!b.active?'disabled':''}>+ แผนก</button></div></div>${orgDepartments.filter(d=>d.branch===b.id).map(d=>`<div class="row" style="padding:7px 12px"><span>${esc(d.name)} <small>${d.id} · ERP ${esc(d.erp)||'รอจับคู่'} · ${d.active?'ใช้งาน':'ปิดใช้งาน'}</small></span><button class="link" data-org="edit-dept" data-id="${d.id}">แก้ไข</button></div>`).join('')||'<small>ยังไม่มีแผนก</small>'}</div>`).join('')||'<p>ยังไม่มีสาขา</p>'}</section><div id="ae-org-editor"></div><div class="notice">คำขอแต่ละรายการผูกบริษัท สาขา และแผนก · เก็บชื่อ ณ วันที่ทำรายการไว้ในเอกสารย้อนหลัง</div>`;
+ main.querySelector('#ae-org-company').onchange=e=>{orgSelected=e.target.value;orgEdit=null;render();};if(orgEdit)orgEditor();}
+function orgEditor(){const {kind,id,parent}=orgEdit,arr=kind==='company'?orgCompanies:kind==='branch'?orgBranches:orgDepartments;const v=arr.find(x=>x.id===id)||{name:'',erp:'',active:true,tax:'',address:'',code:''};main.querySelector('#ae-org-editor').innerHTML=`<section class="panel"><h3>${id?'แก้ไข':'เพิ่ม'}${{company:'บริษัท',branch:'สาขา',dept:'แผนก'}[kind]}</h3><form id="ae-org-edit"><div class="grid"><label class="field">ชื่อ<input name="name" required value="${esc(v.name)}"></label><label class="field">รหัสใน ERP<input name="erp" value="${esc(v.erp)}" placeholder="เว้นว่างได้ระหว่างรอเชื่อมต่อ"></label>${kind==='company'?`<label class="field">เลขประจำตัวผู้เสียภาษี<input name="tax" inputmode="numeric" pattern="[0-9]{13}" maxlength="13" value="${esc(v.tax)}"></label><label class="field">ที่อยู่จดทะเบียน<textarea name="address">${esc(v.address)}</textarea></label>`:''}${kind==='branch'?`<label class="field">รหัสสาขา<input name="code" required value="${esc(v.code)}" placeholder="เช่น 00000"></label>`:''}<label class="check"><input name="active" type="checkbox" ${v.active?'checked':''}>เปิดใช้งาน</label></div><div class="toolbar"><button type="submit" class="primary">บันทึก (จำลอง)</button><button type="button" data-org="close">ปิด</button></div><small>ปิดใช้งานเพื่อหยุดคำขอใหม่ โดยยังเก็บประวัติเดิม</small></form></section>`;
+ main.querySelector('#ae-org-edit').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),name=f.get('name').trim();if(!name){toast('กรุณาระบุชื่อ');return;}if(arr.some(x=>x.id!==id&&x.name===name&&(kind==='company'||(kind==='branch'?x.company===parent:x.branch===parent)))){toast('ชื่อนี้มีอยู่ในหน่วยงานเดียวกันแล้ว');return;}const record={...v,name,erp:f.get('erp').trim(),active:f.get('active')==='on'};if(kind==='company'){record.tax=f.get('tax').trim();record.address=f.get('address').trim();}if(kind==='branch')record.code=f.get('code').trim();if(id)Object.assign(v,record);else{record.id=(kind==='company'?'C':kind==='branch'?'B':'D')+String(arr.length+1).padStart(2,'0');if(kind==='branch')record.company=parent;if(kind==='dept')record.branch=parent;arr.push(record);if(kind==='company'){orgSelected=record.id;erpSettings[record.id]={name:'ERP หลัก',url:'',connected:false,auto:true,expenseAccount:'',payeeMap:false};}}orgEdit=null;render();toast('บันทึกข้อมูลตัวอย่างแล้ว · เอกสารย้อนหลังคงชื่อเดิม');};}
+function erpView(){const cfg=erpSettings[orgSelected],list=erpAll().filter(i=>i.companyId===orgSelected&&erpApproved(i)),display=list.filter(i=>erpFilter==='ทั้งหมด'||erpLabel(i)===erpFilter);
+ main.innerHTML=heading('เชื่อมต่อ ERP และคิวรายจ่าย','ส่งเมื่ออนุมัติแล้ว + ยืนยันจ่ายแล้ว · ไม่ต้องคีย์รายการใหม่')+`<div class="row">${orgPicker()}${badge('ยังไม่เชื่อมระบบจริง',true)}</div><section class="panel"><div class="row"><h3>การเชื่อมต่อของ ${esc(orgCompany(orgSelected).name)}</h3>${badge(cfg.connected?'เชื่อมต่อในโหมดจำลอง':'รอเชื่อมต่อ',!cfg.connected)}</div><form id="ae-erp-config"><div class="grid"><label class="field">ชื่อระบบปลายทาง<input name="name" value="${esc(cfg.name)}" required></label><label class="field">URL ระบบ ERP<input name="url" type="url" placeholder="https://erp.example.com" value="${esc(cfg.url)}"></label></div><label class="check"><input name="auto" type="checkbox" ${cfg.auto?'checked':''}>ส่งอัตโนมัติเมื่ออนุมัติและยืนยันจ่ายครบ</label><div class="toolbar"><button type="submit">บันทึกค่ารอเชื่อมต่อ</button><button type="button" data-org="connect-demo">เติมรหัสและเชื่อมต่อทดสอบ (จำลอง)</button><button type="button" data-org="disconnect" ${!cfg.connected?'disabled':''}>หยุดการเชื่อมต่อจำลอง</button></div></form><small>รหัสบริษัท สาขา แผนก บัญชีค่าใช้จ่าย และผู้รับเงินต้องจับคู่กับ ERP ก่อนส่ง · ไม่กรอก API key ในต้นแบบ</small><p class="sub" style="margin:8px 0 0">บริษัท: ${esc(orgCompany(orgSelected).erp)||'ยังไม่จับคู่'} · บัญชีค่าใช้จ่าย: ${esc(cfg.expenseAccount)||'ยังไม่จับคู่'} · ผู้รับเงิน: ${cfg.payeeMap?'รหัสตัวอย่างพร้อม':'รอจับคู่'}</p></section><div class="toolbar">${['ทั้งหมด','รอยืนยันจ่าย','รอจับคู่รหัส ERP','รอเชื่อมต่อ ERP','พร้อมส่ง','ส่งไม่สำเร็จ','ส่งสำเร็จ'].map(s=>`<button data-org="filter" data-id="${s}" class="${erpFilter===s?'active':''}">${s}</button>`).join('')}</div><section class="panel"><div class="row"><h3>คิวของบริษัทนี้ · ${display.length} รายการ</h3><button class="primary" data-org="sync-all">ส่งรายการที่พร้อม (จำลอง)</button></div><div class="tablebox"><table><thead><tr><th>รายการ / หน่วยงาน</th><th class="money">ยอดสุทธิ</th><th>เงื่อนไขการส่ง</th><th>ERP</th></tr></thead><tbody>${display.map(i=>`<tr><td><button class="link" data-org="payload" data-id="${i.id}">${esc(i.title)}</button><br><small>${i.id}<br>${esc(i.branch)} / ${esc(i.departmentName)}</small></td><td class="money">${money(i.amount)}</td><td>${badge('อนุมัติแล้ว')}<br>${badge(erpPaid(i)?'ยืนยันจ่ายแล้ว':'รอยืนยันจ่าย',!erpPaid(i))}<br><small>${esc(i.proof)}</small></td><td>${badge(erpLabel(i),erpLabel(i)!=='ส่งสำเร็จ')}<br><small>${esc(i.erpRef||i.lastError||'ยังไม่มีเลขเอกสาร ERP')}</small><div class="toolbar"><button data-org="sync-one" data-id="${i.id}" ${erpBlock(i)||i.erpStatus==='success'?'disabled':''}>${i.erpStatus==='failed'?'ลองส่งใหม่':'ส่ง'}</button><button data-org="fail-one" data-id="${i.id}" ${erpBlock(i)||i.erpStatus==='success'?'disabled':''}>ทดสอบขัดข้อง</button></div></td></tr>`).join('')||'<tr><td colspan="4">ไม่มีรายการในสถานะนี้</td></tr>'}</tbody></table></div></section><div id="ae-erp-payload"></div><section class="panel"><h3>ประวัติการส่ง</h3>${erpEvents.length?erpEvents.map(x=>`<div class="line">${esc(x)}</div>`).join(''):'<small>ยังไม่มีการส่ง · รายการตัวอย่างขึ้นต้น DEMO แยกจากรอบเบิก</small>'}</section>`;
+ main.querySelector('#ae-org-company').onchange=e=>{orgSelected=e.target.value;render();};main.querySelector('#ae-erp-config').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);cfg.name=f.get('name');cfg.url=f.get('url');cfg.auto=f.get('auto')==='on';cfg.connected=false;render();toast('บันทึกค่าตัวอย่างแล้ว · รอทีม ERP เชื่อมต่อและทดสอบจริง');};}
+function payView(){const list=erpAll().filter(erpApproved);main.innerHTML=heading('การเงินยืนยันการจ่าย','แยกรายการจ่ายสำเร็จออกจากผลส่ง ERP')+`<section class="panel"><div class="tablebox"><table><thead><tr><th>รายการ / บริษัท</th><th class="money">ยอดจ่ายสุทธิ</th><th>สถานะ</th><th>ดำเนินการ</th></tr></thead><tbody>${list.map(i=>`<tr><td>${esc(i.title)}<br><small>${esc(i.companyName)} · ${esc(i.branch)} / ${esc(i.departmentName)}<br>${esc(i.to)}</small></td><td class="money">${money(i.amount)}</td><td>${badge(erpPaid(i)?'จ่ายแล้ว':'รอยืนยันจ่าย',!erpPaid(i))}<br><small>${esc(i.paymentRef||'')}${erpPaid(i)?'<br>'+erpLabel(i):''}</small></td><td><button data-org="payment" data-id="${i.id}" ${role!=='การเงิน'||erpPaid(i)?'disabled':''}>${i.pay==='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?'ตรวจหลักฐานจ่ายเดิม':'บันทึกผลโอน'}</button></td></tr>`).join('')||'<tr><td colspan="4">ยังไม่มีรายการอนุมัติ</td></tr>'}</tbody></table></div></section><div id="ae-payment-editor"></div>`;}
+function paymentEditor(i){main.querySelector('#ae-payment-editor').innerHTML=`<section class="panel"><h3>${esc(i.id)} · ยืนยันยอด ${money(i.amount)} บาท</h3><form id="ae-payment-form"><div class="grid"><label class="field">วันที่จ่าย<input name="date" type="date" required value="2026-09-12"></label><label class="field">เลขอ้างอิงการโอน / การชำระ<input name="ref" required></label><label class="field">สลิป / หลักฐานจ่าย<input name="slip" type="file" accept="image/*,application/pdf" required></label></div><label class="check"><input type="checkbox" required>ตรวจผู้รับเงิน ยอด และหลักฐานการจ่ายแล้ว</label><button class="primary" type="submit">ยืนยันจ่ายและเข้าคิว ERP (จำลอง)</button></form></section>`;main.querySelector('#ae-payment-form').onsubmit=e=>{e.preventDefault();if(role!=='การเงิน'||!erpApproved(i)||erpPaid(i))return;const f=new FormData(e.target);i.paymentRef=f.get('ref').trim();if(!i.paymentRef){toast('ระบุเลขอ้างอิงการจ่าย');return;}i.paidAt=f.get('date');i.slipName=f.get('slip').name;i.paymentVerified=true;i.status='จ่ายแล้ว';const b=batch.find(b=>b.id===i.id);if(b)Object.assign(b,{paymentRef:i.paymentRef,paidAt:i.paidAt,paymentVerified:true,status:'จ่ายแล้ว'});erpAuto();render();toast('จำลองยืนยันจ่ายแล้ว · '+erpLabel(i));};}
+function orgAction(action,b){const id=b.dataset.id;if(action==='payment'&&role==='การเงิน'){const i=erpAll().find(i=>i.id===id);if(i&&erpApproved(i)&&!erpPaid(i))paymentEditor(i);return;}if(role!=='บัญชี')return;
+ if(action==='close'){orgEdit=null;render();return;}
+ if(action==='add-company'||action==='edit-company')orgEdit={kind:'company',id:action.startsWith('edit')?id:null};
+ if(action==='add-branch'||action==='edit-branch')orgEdit={kind:'branch',id:action.startsWith('edit')?id:null,parent:orgSelected};
+ if(action==='add-dept'||action==='edit-dept')orgEdit={kind:'dept',id:action.startsWith('edit')?id:null,parent:action.startsWith('edit')?orgDept(id).branch:id};
+ if(orgEdit&&['add-company','edit-company','add-branch','edit-branch','add-dept','edit-dept'].includes(action)){render();return;}
+ if(action==='connect-demo'){const c=orgCompany(orgSelected),cfg=erpSettings[orgSelected];c.erp=c.erp||'DEMO-'+c.id;orgBranches.filter(b=>b.company===c.id).forEach(b=>{b.erp=b.erp||'DEMO-'+b.id;orgDepartments.filter(d=>d.branch===b.id).forEach(d=>d.erp=d.erp||'DEMO-'+d.id);});cfg.expenseAccount='DEMO-EXPENSE';cfg.payeeMap=true;cfg.connected=true;erpAuto();render();toast('เชื่อมต่อจำลองของบริษัทนี้ · ไม่มีการเรียก ERP จริง');return;}
+ if(action==='disconnect'){erpSettings[orgSelected].connected=false;render();return;}
+ if(action==='filter'){erpFilter=id;render();return;}
+ if(action==='sync-all'){let n=0;erpAll().filter(i=>i.companyId===orgSelected).forEach(i=>{if(erpSend(i))n++;});render();toast('จำลองส่งสำเร็จ '+n+' รายการ · ข้ามรายการที่ยังไม่ผ่านเงื่อนไขหรือเคยส่งสำเร็จแล้ว');return;}
+ if(action==='sync-one'||action==='fail-one'){const i=erpAll().find(i=>i.id===id);if(!i||i.companyId!==orgSelected)return;const sent=erpSend(i,action==='fail-one');render();toast(sent?'บันทึกผลการส่งจำลองแล้ว': 'รายการยังไม่ผ่านเงื่อนไข หรือส่งสำเร็จแล้ว');return;}
+ if(action==='payload'){const i=erpAll().find(i=>i.id===id);if(!i||i.companyId!==orgSelected)return;main.querySelector('#ae-erp-payload').innerHTML=`<section class="panel"><h3>ข้อมูลส่งต่อ · ${esc(i.id)}</h3><div class="grid"><div><p>บริษัท: ${esc(i.companyName)}<br>สาขา: ${esc(i.branch)}<br>แผนก: ${esc(i.departmentName)}<br>ผู้ขอ: ${esc(i.owner)}<br>ผู้รับ: ${esc(i.to)}</p></div><div><p>ก่อนหัก: ${money(i.amount+(i.wht||0))}<br>หัก ณ ที่จ่าย: ${money(i.wht||0)}<br>สุทธิ: ${money(i.amount)}<br>วันที่รายการ: ${esc(i.date)}<br>วันที่จ่าย: ${esc(i.paidAt||'ยังไม่จ่าย')}</p></div></div><p>อ้างอิงอนุมัติ: ${esc(i.approvalRef||i.cycleId||'รอข้อมูล')}<br>อ้างอิงการจ่าย: ${esc(i.paymentRef||'ยังไม่ยืนยัน')}<br>หลักฐานจ่าย: ${esc(i.slipName||'รอแนบ')}<br>หลักฐานค่าใช้จ่าย: ${esc(i.proof)}</p><small>คีย์ป้องกันบันทึกซ้ำ: ${esc(i.syncKey||`${i.companyId}:${i.id}:expense-v1`)}<br>ส่งซ้ำใช้คีย์เดิม · สำเร็จเมื่อ ERP ตอบรับพร้อมเลขเอกสาร · เอกสารที่ตามภายหลังแนบเพิ่มในรายการเดิม</small></section>`;}
+}
+const previousForm=form;
+form=function(){previousForm();const frm=main.querySelector('#ae-form');const old=frm.onsubmit;const branch=frm.querySelector('[name="branch"]');branch.closest('label').outerHTML=`<label class="field">บริษัท<select name="companyId" id="ae-request-company" required>${orgOptions(orgCompanies.filter(c=>c.active),'C01')}</select></label><label class="field">สาขา<select name="branch" id="ae-request-branch" required></select></label><label class="field">แผนก<select name="departmentId" id="ae-request-dept" required></select></label>`;
+ const co=frm.querySelector('#ae-request-company'),br=frm.querySelector('#ae-request-branch'),de=frm.querySelector('#ae-request-dept');function deps(){de.innerHTML=orgOptions(orgDepartments.filter(d=>d.active&&d.branch===br.value));}function branches(){br.innerHTML=orgOptions(orgBranches.filter(b=>b.active&&b.company===co.value));deps();}co.onchange=branches;br.onchange=deps;branches();
+ frm.onsubmit=e=>{if(!orgValid(co.value,br.value,de.value)){e.preventDefault();toast('เลือกบริษัท สาขา และแผนกที่สัมพันธ์กันและเปิดใช้งาน');return;}const snapshot={companyId:co.value,branchId:br.value,departmentId:de.value,companyName:orgCompany(co.value).name,branch:orgBranch(br.value).name,departmentName:orgDept(de.value).name,paymentVerified:false,erpStatus:'pending',erpRef:''};const n=items.length;old(e);if(items.length>n){Object.assign(items[0],snapshot);render();}};
+};
+names.organization='บริษัท / สาขา / แผนก';names.erp='เชื่อมต่อ ERP';names.pay='การเงิน / ยืนยันจ่าย';allowed['บัญชี'].push('organization','erp');
+const previousRender=render;
+render=function(){if(page==='organization'){nav();orgView();}else if(page==='erp'){nav();erpView();}else previousRender();};
+
+const previousCycleDoc=cycleDoc;cycleDoc=function(list){return orgCompanies.map(c=>{const part=list.filter(i=>i.companyId===c.id);return part.length?'<div class="panel"><h3>'+esc(part[0].companyName)+'</h3><small>'+part.length+' รายการ · แยกบันทึกบัญชีตามบริษัท</small></div>'+previousCycleDoc(part):'';}).join('');};
+
+// Familiar ledger layout; all workflow actions retain their original handlers.
+rows=function(list,choose=false){return `<div class="tablebox"><table class="list-table"><thead><tr>${choose?'<th>เลือก</th>':''}<th>วันที่ / เลขคำขอ</th><th>บริษัท / สาขา / แผนก</th><th>รายละเอียด / ผู้ขอเบิก</th><th class="money">ยอดสุทธิ (บาท)</th><th>สถานะรายการ</th><th>เอกสาร</th><th>จัดการ</th></tr></thead><tbody>${list.map(i=>`<tr>${choose?`<td><input type="checkbox" aria-label="เลือกรายการ ${esc(i.id)}" data-select="${i.id}" ${selected.has(i.id)?'checked':''} ${i.status!=='พร้อมอนุมัติ'?'disabled':''}></td>`:''}<td>${esc(i.date.split('-').reverse().join('/'))}<br><small>${esc(i.id)}</small></td><td class="orgcell">${esc(i.companyName||'ยังไม่ระบุบริษัท')}<br><small>${esc(i.branch)} / ${esc(i.departmentName||'ยังไม่ระบุแผนก')}</small></td><td class="description">${esc(i.title)}<br><small>${esc(i.owner)} · ${esc(i.pay)}</small></td><td class="money">${money(i.amount)}</td><td>${badge(i.status,['รอตรวจ','รอแก้ไข'].includes(i.status))}</td><td>${badge(i.proof,['ไม่มีใบเสร็จ','รอต้นฉบับ'].includes(i.proof))}</td><td class="table-action"><button data-detail="${i.id}">เปิดรายการ</button></td></tr>`).join('')||'<tr><td colspan="8">ยังไม่มีรายการ</td></tr>'}</tbody><tfoot><tr><td colspan="${choose?4:3}">รวม ${list.length} รายการ</td><td class="money">${money(total(list))}</td><td colspan="3"></td></tr></tfoot></table></div>`;};
+inbox=function(){const list=visible().filter(i=>group==='ทั้งหมด'||i.group===group);main.innerHTML=`<div class="row"><div><h2>ทะเบียนค่าใช้จ่าย</h2><span class="sub">กันยายน 2569 · ข้อมูลตัวอย่าง · หน่วย: บาท</span></div><button class="primary" data-page="form">+ สร้างคำขอเบิก</button></div><div class="table-summary"><span>ทั้งหมด <strong>${list.length}</strong> รายการ</span><span>รอตรวจ <strong>${list.filter(i=>i.status==='รอตรวจ').length}</strong></span><span>รอแก้ไข <strong>${list.filter(i=>i.status==='รอแก้ไข').length}</strong></span><span>ยอดรวม <strong>${money(total(list))} บาท</strong></span></div><div class="toolbar">${(role==='พนักงาน'?['ทั่วไป']:['ทั้งหมด','ทั่วไป','บิลบริษัท']).map(g=>`<button data-group="${g}" class="${group===g?'active':''}">${g==='ทั่วไป'?'ค่าใช้จ่ายทั่วไป':g}</button>`).join('')}</div><section class="panel">${rows(list)}</section><div id="ae-detail"></div>`;if(detail)showDetail(detail);};
+orgView=function(){const c=orgCompany(orgSelected);main.innerHTML=heading('บริษัท สาขา และแผนก','ข้อมูลตัวอย่าง · เลือกบริษัทเพื่อดูสาขาและแผนกที่เกี่ยวข้อง')+`<div class="row">${orgPicker()}<button data-org="add-company">+ เพิ่มบริษัท</button></div><section class="panel"><div class="tablebox"><table><thead><tr><th>บริษัท</th><th>เลขผู้เสียภาษี</th><th>ที่อยู่</th><th>รหัส ERP</th><th>จัดการ</th></tr></thead><tbody><tr><td>${esc(c.name)}<br><small>${c.id}</small></td><td>${esc(c.tax)||'ยังไม่ระบุ'}</td><td>${esc(c.address)||'ยังไม่ระบุ'}</td><td>${esc(c.erp)||'รอจับคู่'}</td><td><button data-org="edit-company" data-id="${c.id}">แก้ไข</button></td></tr></tbody></table></div></section><section class="panel"><div class="row"><h3>สาขาและแผนก</h3><button data-org="add-branch">+ เพิ่มสาขา</button></div><div class="tablebox"><table><thead><tr><th>รหัสสาขา</th><th>สาขา</th><th>แผนก</th><th>รหัสแผนก ERP</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${orgBranches.filter(b=>b.company===c.id).map(b=>{const ds=orgDepartments.filter(d=>d.branch===b.id);return `<tr><td>${esc(b.code)}</td><td>${esc(b.name)}</td><td>ทุกแผนกในสาขา</td><td>—</td><td>${badge(b.active?'ใช้งาน':'ปิดใช้งาน',!b.active)}</td><td><button data-org="edit-branch" data-id="${b.id}">แก้ไขสาขา</button> <button data-org="add-dept" data-id="${b.id}" ${!b.active?'disabled':''}>+ แผนก</button></td></tr>`+ds.map(d=>`<tr><td><small>${esc(b.code)}</small></td><td><small>${esc(b.name)}</small></td><td>${esc(d.name)}</td><td>${esc(d.erp)||'รอจับคู่'}</td><td>${badge(d.active?'ใช้งาน':'ปิดใช้งาน',!d.active)}</td><td><button data-org="edit-dept" data-id="${d.id}">แก้ไขแผนก</button></td></tr>`).join('');}).join('')||'<tr><td colspan="6">ยังไม่มีสาขา</td></tr>'}</tbody></table></div></section><div id="ae-org-editor"></div>`;main.querySelector('#ae-org-company').onchange=e=>{orgSelected=e.target.value;orgEdit=null;render();};if(orgEdit)orgEditor();};
+
+const ledgerCategories=['สวัสดิการลูกค้า','ค่าน้ำประปา','ค่าไฟ','ค่าอินเตอร์เน็ต','ค่าโทรศัพท์','ที่พักหมอ','เปิด PO','เครื่องใช้สำนักงาน','ค่าจ้างค่าบริการ','ภาษีป้าย','พาหนะ','วัสดุอุปกรณ์ใช้ไป','สวัสดิการอื่นๆ','รายจ่ายอื่นๆ','ค่าแพทย์ดำเนินการ','ค่าแพทย์ประจำวัน','ค่าแพทย์ศัลยกรรม/ผู้ช่วยแพทย์','ค่าน้ำมัน - แพทย์','ค่าน้ำมัน - แพทย์ศัล/ผช.','ค่าเช่า','ค่าข้าวหมอ','ค่าน้ำหมอศัลยกรรม','ค่าเฟรนไชส์รายเดือน','จ่าย PO','ค่าเดินทาง - น้ำมัน','เครื่องใช้ในร้าน','ที่พักหมอศัลยกรรมและผช','โปรแกรม','การคืนเงิน','ค่าที่พัก','คืนค่าคอร์สโคราช','ค้างจ่ายค่ามือโคราช','ยืมเงินกกรมการ','ค่าโฆษณา','ค่ารับรอง'];
+function ledgerToday(){const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const value=k=>p.find(x=>x.type===k).value;return `${value('year')}-${value('month')}-${value('day')}`;}
+const ledgerISO=d=>d.toISOString().slice(0,10);
+function ledgerPeriod(mode,anchor){if(!/^\d{4}-\d{2}-\d{2}$/.test(anchor))return null;const d=new Date(anchor+'T00:00:00Z');if(Number.isNaN(+d))return null;const y=d.getUTCFullYear(),m=d.getUTCMonth();if(mode==='month')return [ledgerISO(new Date(Date.UTC(y,m,1))),ledgerISO(new Date(Date.UTC(y,m+1,0)))];if(mode==='year')return [`${y}-01-01`,`${y}-12-31`];if(mode==='week'){const start=new Date(d);start.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));const end=new Date(start);end.setUTCDate(start.getUTCDate()+6);return [ledgerISO(start),ledgerISO(end)];}return [anchor,anchor];}
+let ledgerFilter={q:'',period:'month',anchor:ledgerToday(),from:'',to:'',company:'',department:'',category:'',view:'sheet'};
+const ledgerCounters={};
+function nextDocId(day=ledgerToday()){const key=day.replaceAll('-','');ledgerCounters[key]=(ledgerCounters[key]||0)+1;return 'EXP'+key+String(ledgerCounters[key]).padStart(2,'0');}
+items.push({id:'LEGACY-C02',title:'ค่าเช่าพื้นที่สำนักงาน • ตัวอย่างบริษัท 2',date:'2026-09-12',submittedAt:'2026-09-12T15:20:00+07:00',companyId:'C02',companyName:'บริษัทตัวอย่าง 2',branchId:'B03',branch:'สำนักงานใหญ่',departmentId:'D04',departmentName:'บริหาร',owner:'บัญชีตัวอย่าง',to:'ผู้ให้เช่าตัวอย่าง',amount:9700,wht:300,group:'บิลบริษัท',pay:'จ่ายผู้ให้บริการ',proof:'รอต้นฉบับ',status:'พร้อมอนุมัติ',cycleId:null,paymentVerified:false,erpStatus:'pending',erpRef:'',category:'ค่าเช่า'});
+const ordered=[...items].sort((a,b)=>String(a.submittedAt).localeCompare(String(b.submittedAt)));
+ordered.forEach(i=>{i.legacyId=i.id;i.createdAt=i.submittedAt||i.date+'T12:00:00+07:00';i.id=nextDocId(i.createdAt.slice(0,10));i.category=i.category||(i.pay==='DF แพทย์'?'ค่าแพทย์ประจำวัน':i.title.includes('เช่า')?'ค่าเช่า':i.title.includes('ยาและ')?'เปิด PO':i.title.includes('เครื่องปรับ')?'ค่าจ้างค่าบริการ':i.title.includes('เดินทาง')?'ค่าเดินทาง - น้ำมัน':'วัสดุอุปกรณ์ใช้ไป');i.receiverBank=i.receiverBank||'ธนาคารตัวอย่าง';i.receiverAccount=i.receiverAccount||'•••• 4821';i.note=i.note||'';});
+function ledgerRange(){if(ledgerFilter.period==='custom')return ledgerFilter.from&&ledgerFilter.to&&ledgerFilter.from<=ledgerFilter.to?[ledgerFilter.from,ledgerFilter.to]:null;return ledgerPeriod(ledgerFilter.period,ledgerFilter.period==='today'?ledgerToday():ledgerFilter.anchor);}
+function ledgerMatches(i,f,range){if(!range||i.date<range[0]||i.date>range[1])return false;if(f.company&&i.companyId!==f.company)return false;if(f.department&&i.departmentId!==f.department)return false;if(f.category&&i.category!==f.category)return false;const q=f.q.trim().toLocaleLowerCase('th-TH');if(!q)return true;const numeric=q.replace(/[,\s฿]/g,'').replace(/บาท$/,'');if(/^\d+(\.\d+)?$/.test(numeric))return Math.round(i.amount*100)===Math.round(Number(numeric)*100);return [i.id,i.title,i.owner,i.to,i.category,i.companyName,i.branch,i.departmentName,i.note].some(s=>String(s||'').toLocaleLowerCase('th-TH').includes(q));}
+const ledgerDate=s=>s?s.split('-').reverse().join('/'):'—';
+function ledgerDocStatus(i){if(i.proof==='ไม่มีใบเสร็จ')return 'ไม่มีบิล';if(i.proof==='รอต้นฉบับ')return 'รอต้นฉบับ';return i.receiptStatus||'รอตรวจหลักฐาน';}
+function ledgerVoucher(i){return i.voucherStatus||(i.proof==='ไม่มีใบเสร็จ'?'รอจัดทำ':'รอบัญชีพิจารณา');}
+function ledgerApproval(i){return ['อนุมัติแล้ว','จ่ายแล้ว'].includes(i.status)?'อนุมัติแล้ว':i.status==='รออนุมัติ'?'รอกรรมการ':'ยังไม่อนุมัติ';}
+function ledgerColumns(){const cols=[
+ ['id','เลขเอกสาร',i=>`<button class="link" data-detail="${i.id}">${i.id}</button>`],
+ ['date','วันที่รายการ',i=>ledgerDate(i.date)],
+ ['company','บริษัท',i=>esc(i.companyName)],
+ ['branch','สาขา / ร้าน',i=>esc(i.branch)],
+ ['dept','แผนก',i=>esc(i.departmentName)],
+ ['owner','ผู้ขอเบิก',i=>esc(i.owner)],
+ ['category','หมวดหมู่',i=>esc(i.category||'ยังไม่ระบุ')],
+ ['description','รายการ / รายละเอียด',i=>esc(i.title)],
+ ['gross','ยอดก่อนหัก',i=>money(i.amount+(i.wht||0))],
+ ['wht','หัก ณ ที่จ่าย',i=>money(i.wht||0)],
+ ['net','ยอดจ่ายสุทธิ',i=>money(i.amount)],
+ ['receiver','ชื่อบัญชีรับโอน',i=>esc(i.to)],
+ ['bank','ธนาคารผู้รับ',i=>esc(i.receiverBank||'ยังไม่ระบุ')],
+ ['account','เลขบัญชี / เลขบัตร',i=>esc(i.receiverAccount||'ยังไม่ระบุ')],
+ ['proof','เอกสารรายจ่าย',i=>esc(i.proof)],
+ ['receipt','ได้รับเอกสาร',i=>badge(ledgerDocStatus(i),true)],
+ ['envelope','จัดเก็บต้นฉบับ',i=>esc(i.envelopeStatus||'ยังไม่ระบุ')],
+ ['voucher','ใบสำคัญจ่าย',i=>badge(ledgerVoucher(i),true)],
+ ['approval','ผลอนุมัติ',i=>badge(ledgerApproval(i),ledgerApproval(i)!=='อนุมัติแล้ว')],
+ ['approver','ผู้อนุมัติ',i=>esc(ledgerApproval(i)==='อนุมัติแล้ว'?(cycleSigner||'ยังไม่ระบุ'):'—')],
+ ['payment','สถานะจ่าย',i=>badge(erpPaid(i)?'จ่ายแล้ว':i.pay==='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?'รอตรวจการจ่ายเดิม':'รอจ่าย',!erpPaid(i))],
+ ['paiddate','วันที่จ่าย',i=>ledgerDate(i.paidAt)],
+ ['sourcebank','บัญชีที่ใช้จ่าย',i=>esc(i.payerAccount||'ยังไม่ระบุ')],
+ ['erp','บันทึก ERP',i=>badge(erpLabel(i),i.erpStatus!=='success')],
+ ['erpref','เลขเอกสาร ERP',i=>esc(i.erpRef||'—')],
+ ['note','หมายเหตุ',i=>esc(i.note||'—')],
+ ['action','จัดการ',i=>`<button data-detail="${i.id}">เปิดรายการ</button>`]
+ ];const overview=new Set(['id','date','branch','category','description','net','receipt','approval','payment','action']);return ledgerFilter.view==='sheet'?cols:cols.filter(c=>overview.has(c[0]));}
+function ledgerTable(list){const cols=ledgerColumns(),numeric=['gross','wht','net'];return `<div class="tablebox ledger-scroll" aria-label="ตารางรายจ่าย เลื่อนแนวนอนเพื่อดูคอลัมน์เพิ่มเติม"><table class="ledger-table"><thead><tr>${cols.map(([key,label])=>`<th class="ledger-${key} ${numeric.includes(key)?'money':''}">${label}</th>`).join('')}</tr></thead><tbody>${list.map(i=>`<tr>${cols.map(([key,label,fn])=>`<td class="ledger-${key} ${numeric.includes(key)?'money':''}">${fn(i)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" style="padding:30px">ยังไม่พบรายการ ลองเปลี่ยนคำค้นหรือช่วงวันที่นะคะ</td></tr>`}</tbody><tfoot><tr>${cols.map(([key],n)=>`<td class="ledger-${key} ${numeric.includes(key)?'money':''}">${n===0?'รวม '+list.length+' รายการ':key==='net'?money(total(list)):key==='gross'?money(list.reduce((s,i)=>s+i.amount+(i.wht||0),0)):key==='wht'?money(list.reduce((s,i)=>s+(i.wht||0),0)):''}</td>`).join('')}</tr></tfoot></table></div>`;}
+function ledgerResults(){const range=ledgerRange(),list=visible().filter(i=>(group==='ทั้งหมด'||i.group===group)&&ledgerMatches(i,ledgerFilter,range));main.querySelector('#ae-ledger-result').innerHTML=range?ledgerTable(list):'<p role="alert" style="padding:20px">เลือกวันที่ให้ครบ และให้วันเริ่มต้นไม่เกินวันสิ้นสุด</p>';main.querySelector('#ae-ledger-count').textContent=`${range?ledgerDate(range[0])+' – '+ledgerDate(range[1]):'ช่วงวันที่ไม่ถูกต้อง'} · ${list.length} รายการ · ยอดสุทธิ ${money(total(list))} บาท`;}
+function ledgerDateInput(){const f=ledgerFilter;if(f.period==='today')return '<span class="sub">วันนี้ '+ledgerDate(ledgerToday())+'</span>';if(f.period==='custom')return `<label class="field">ตั้งแต่<input type="date" id="ae-ledger-from" value="${f.from}"></label><label class="field">ถึง<input type="date" id="ae-ledger-to" value="${f.to}"></label>`;if(f.period==='month')return `<label class="field">เลือกเดือน<input type="month" id="ae-ledger-anchor" value="${f.anchor.slice(0,7)}"></label>`;if(f.period==='year')return `<label class="field">เลือกปี ค.ศ.<input type="number" min="1900" max="2200" id="ae-ledger-anchor" value="${f.anchor.slice(0,4)}"></label>`;return `<label class="field">${f.period==='week'?'เลือกวันในสัปดาห์ (จันทร์–อาทิตย์)':'เลือกวันที่'}<input type="date" id="ae-ledger-anchor" value="${f.anchor}"></label>`;}
+function ledgerDepartments(){return orgDepartments.filter(d=>!ledgerFilter.company||orgBranch(d.branch)?.company===ledgerFilter.company);}
+inbox=function(){main.innerHTML=`<div class="row"><div><h2>ทะเบียนค่าใช้จ่าย</h2><span class="sub">ข้อมูลตัวอย่าง · กรองตามวันที่รายการ · เลขเอกสารอิงวันบันทึก</span></div><button class="primary" data-page="form">+ สร้างคำขอเบิก</button></div><section class="panel ledger-filters"><div class="ledger-filter-grid"><label class="field ledger-search">ค้นหารายการ / ยอดจ่ายสุทธิ<input id="ae-ledger-q" type="search" placeholder="รายละเอียด เลขเอกสาร ชื่อ หรือยอด เช่น 2,734.00" value="${esc(ledgerFilter.q)}"></label><label class="field">บริษัท<select id="ae-ledger-company"><option value="">ทุกบริษัท</option>${orgOptions(orgCompanies,ledgerFilter.company)}</select></label><label class="field">แผนก<select id="ae-ledger-dept"><option value="">ทุกแผนก</option>${ledgerDepartments().map(d=>`<option value="${d.id}" ${d.id===ledgerFilter.department?'selected':''}>${esc(d.name)} · ${esc(orgBranch(d.branch).name)} (${orgBranch(d.branch).company})</option>`).join('')}</select></label><label class="field">หมวดหมู่<select id="ae-ledger-category"><option value="">ทุกหมวดหมู่</option>${ledgerCategories.map(c=>`<option ${c===ledgerFilter.category?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div><div class="ledger-date-row"><label class="field">ช่วงวันที่<select id="ae-ledger-period">${[['today','วันนี้'],['date','เฉพาะวันที่'],['week','สัปดาห์'],['month','เดือน'],['year','ปี'],['custom','กำหนดช่วงเอง']].map(([v,l])=>`<option value="${v}" ${ledgerFilter.period===v?'selected':''}>${l}</option>`).join('')}</select></label>${ledgerDateInput()}<button id="ae-ledger-reset" type="button">ล้างตัวกรอง / เดือนปัจจุบัน</button></div></section><div class="row"><div class="toolbar">${(role==='พนักงาน'?['ทั่วไป']:['ทั้งหมด','ทั่วไป','บิลบริษัท']).map(g=>`<button data-group="${g}" class="${group===g?'active':''}">${g==='ทั่วไป'?'ค่าใช้จ่ายทั่วไป':g}</button>`).join('')}</div><label class="row"><span class="sub">คอลัมน์</span><select id="ae-ledger-view" style="width:auto"><option value="sheet" ${ledgerFilter.view==='sheet'?'selected':''}>ครบแบบชีตเดิม</option><option value="overview" ${ledgerFilter.view==='overview'?'selected':''}>ภาพรวมอ่านเร็ว</option></select></label></div><p id="ae-ledger-count" class="sub" aria-live="polite"></p><section class="panel" id="ae-ledger-result"></section><p class="sub" style="margin-top:8px">เลื่อนตารางแนวนอนเพื่อดูผู้รับเงิน เอกสาร และผลบันทึก ERP · เลขเอกสารตรึงไว้ด้านซ้าย</p><div id="ae-detail"></div>`;
+const bind=(id,ev,fn)=>{const node=main.querySelector(id);if(node)node[ev]=fn;};
+bind('#ae-ledger-q','oninput',e=>{ledgerFilter.q=e.target.value;ledgerResults();});
+bind('#ae-ledger-company','onchange',e=>{ledgerFilter.company=e.target.value;ledgerFilter.department='';detail=null;inbox();});
+bind('#ae-ledger-dept','onchange',e=>{ledgerFilter.department=e.target.value;ledgerResults();});
+bind('#ae-ledger-category','onchange',e=>{ledgerFilter.category=e.target.value;ledgerResults();});
+bind('#ae-ledger-period','onchange',e=>{ledgerFilter.period=e.target.value;if(ledgerFilter.period==='custom'&&!ledgerFilter.from){const r=ledgerPeriod('month',ledgerToday());[ledgerFilter.from,ledgerFilter.to]=r;}inbox();});
+bind('#ae-ledger-anchor','onchange',e=>{const v=e.target.value;ledgerFilter.anchor=ledgerFilter.period==='month'?v+'-01':ledgerFilter.period==='year'?v+'-01-01':v;ledgerResults();});
+bind('#ae-ledger-from','onchange',e=>{ledgerFilter.from=e.target.value;ledgerResults();});bind('#ae-ledger-to','onchange',e=>{ledgerFilter.to=e.target.value;ledgerResults();});
+bind('#ae-ledger-view','onchange',e=>{ledgerFilter.view=e.target.value;ledgerResults();});
+bind('#ae-ledger-reset','onclick',()=>{ledgerFilter={q:'',period:'month',anchor:ledgerToday(),from:'',to:'',company:'',department:'',category:'',view:ledgerFilter.view};group=role==='พนักงาน'?'ทั่วไป':'ทั้งหมด';detail=null;inbox();});ledgerResults();if(detail)showDetail(detail);
+};
+const ledgerOldForm=form;form=function(){ledgerOldForm();const frm=main.querySelector('#ae-form'),old=frm.onsubmit;frm.querySelector('[name="title"]').closest('label').insertAdjacentHTML('beforebegin',`<label class="field">หมวดหมู่<select name="category" required><option value="">เลือกหมวดหมู่</option>${ledgerCategories.map(c=>`<option>${esc(c)}</option>`).join('')}</select></label>`);frm.onsubmit=e=>{const f=new FormData(e.target),category=f.get('category');if(!category){e.preventDefault();toast('กรุณาเลือกหมวดหมู่');return;}const bank=f.get('bank'),n=items.length;old(e);if(items.length>n){items[0].category=category;items[0].receiverBank='ตามข้อมูลผู้ขอ';items[0].receiverAccount=bank;items[0].createdAt=new Date().toISOString();render();}};};
+
+let requestStep=1,requestError='',requestSent=null;
+const requestBlank=()=>({pay:'คืนเงินพนักงาน',group:'ทั่วไป',companyId:'',branchId:'',departmentId:'',category:'',title:'',amount:'',date:ledgerToday(),to:'',bank:'',account:'',proof:'รอต้นฉบับ',reason:'',note:'',files:[],confirmed:false});
+let requestDraft=requestBlank();
+const requestBanks=['ธ.กสิกรไทย','ธ.ไทยพาณิชย์','ธ.กรุงไทย','ธ.กรุงเทพ','ธ.กรุงศรี','ธ.ออมสิน','ธ.ทหารไทยธนชาติ','ธ.UOB','พร้อมเพย์','อื่น ๆ'];
+function requestValidate(step){const d=requestDraft;if(step===1){if(!orgValid(d.companyId,d.branchId,d.departmentId))return 'เลือกบริษัท สาขา และแผนกให้ครบก่อนนะคะ';if(!d.category)return 'เลือกหมวดหมู่ค่าใช้จ่าย';if(!d.title.trim())return 'เพิ่มรายละเอียดว่าขอเบิกค่าอะไร';if(!/^\d+(\.\d{1,2})?$/.test(d.amount.replaceAll(',',''))||Number(d.amount.replaceAll(',',''))<=0)return 'กรอกยอดเงินมากกว่า 0 และทศนิยมไม่เกิน 2 ตำแหน่ง';if(!d.date)return 'เลือกวันที่ค่าใช้จ่าย';}
+if(step===2){if(!d.to.trim())return d.pay==='คืนเงินพนักงาน'?'ระบุชื่อบัญชีของผู้สำรองจ่าย':'ระบุชื่อผู้รับเงิน';if(d.pay!=='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'){if(!d.bank)return 'เลือกธนาคารหรือพร้อมเพย์';if(!/^\d{6,20}$/.test(d.account.replace(/[\s-]/g,'')))return 'ตรวจเลขบัญชีหรือพร้อมเพย์ ใช้ตัวเลข 6–20 หลัก';}if(d.proof==='ไม่มีใบเสร็จ'&&!d.reason.trim())return 'บอกเหตุผลที่ไม่มีบิล เพื่อให้บัญชีจัดทำเอกสารต่อ';if(['ใบเสร็จ','ใบกำกับภาษี'].includes(d.proof)&&!d.files.length)return 'แนบเอกสาร หรือเลือก “เอกสารจะส่งตามทีหลัง”';}return '';}
+function requestField(label,name,control,help=''){return `<label class="rq-field"><span>${label}</span>${control}${help?`<small>${help}</small>`:''}</label>`;}
+function requestInput(name,extra=''){return `<input data-request-field="${name}" value="${esc(requestDraft[name])}" ${extra}>`;}
+function requestSelect(name,list,placeholder){return `<select data-request-field="${name}"><option value="">${placeholder}</option>${list.map(v=>{const id=typeof v==='string'?v:v.id,label=typeof v==='string'?v:v.name;return `<option value="${esc(id)}" ${requestDraft[name]===id?'selected':''}>${esc(label)}</option>`;}).join('')}</select>`;}
+function requestBlock(n,title,subtitle,content){return `<section class="rq-section"><div class="rq-section-head"><span class="rq-number">${n}</span><div><h3>${title}</h3><small>${subtitle}</small></div></div>${content}</section>`;}
+form=function(){const d=requestDraft;if(role==='พนักงาน'){d.group='ทั่วไป';if(d.pay==='DF แพทย์')d.pay='คืนเงินพนักงาน';}
+if(requestSent){main.innerHTML=`<div class="rq-wrap"><section class="rq-section rq-success"><span class="rq-kicker">ส่งคำขอแล้ว</span><h2>เรียบร้อยค่ะ ♡</h2><p>บัญชีจะตรวจรายการและติดตามเอกสารต่อให้</p><strong>${esc(requestSent)}</strong><p class="sub">ผลทดลองเก็บเฉพาะขณะเปิดต้นแบบนี้</p><div class="rq-actions"><button data-request="list">ดูรายการของฉัน</button><button class="primary" data-request="new">+ ส่งเบิกอีกรายการ</button></div></section></div>`;return;}
+const modes=[['คืนเงินพนักงาน','สำรองจ่ายแล้ว','ขอคืนเงินเข้าบัญชีของฉัน'],['จ่ายผู้ให้บริการ','ให้บริษัทโอนจ่าย','จ่ายตรงให้ร้านหรือผู้ให้บริการ'],['บันทึกค่าใช้จ่ายที่จ่ายแล้ว','บริษัทจ่ายแล้ว','บันทึกรายจ่าย ไม่ขอโอนซ้ำ']];
+if(role!=='พนักงาน')modes.push(['DF แพทย์','ค่า DF แพทย์','จ่ายตามรอบแพทย์ของบริษัท']);
+main.innerHTML=`<div class="rq-wrap"><div class="rq-heading"><span class="rq-kicker">ARANA · คำขอค่าใช้จ่าย</span><h2>ส่งคำขอเบิก</h2><p>กรอกข้อมูล แล้วตรวจอีกครั้งก่อนส่งนะคะ</p></div><ol class="rq-progress" aria-label="ขั้นตอนส่งเบิก">${['รายการที่เบิก','ผู้รับเงินและบิล','ตรวจแล้วส่ง'].map((s,n)=>`<li class="${requestStep===n+1?'current':requestStep>n+1?'done':''}" ${requestStep===n+1?'aria-current="step"':''}><span>${n+1}</span>${s}</li>`).join('')}</ol><div id="rq-error" role="alert" ${requestError?'':'hidden'}>${esc(requestError)}</div><div class="rq-content">
+${requestStep===1?requestBlock('01','รูปแบบการเบิก','เลือกให้ตรงกับการจ่ายครั้งนี้',`<label class="rq-field"><select data-request-field="pay" aria-label="รูปแบบการเบิก">${modes.map(([v,title])=>`<option value="${v}" ${d.pay===v?'selected':''}>${title}</option>`).join('')}</select></label>`)+requestBlock('02','บริษัทและหน่วยงาน','ช่วยให้รายการไปถึงบริษัทและแผนกที่ถูกต้อง',`<div class="rq-fields">${role!=='พนักงาน'?requestField('กลุ่มค่าใช้จ่าย','group',requestSelect('group',['ทั่วไป','บิลบริษัท'],'เลือกกลุ่ม')):''}${requestField('บริษัท','companyId',requestSelect('companyId',orgCompanies.filter(c=>c.active),'เลือกบริษัท'))}${requestField('สาขา','branchId',requestSelect('branchId',orgBranches.filter(b=>b.active&&b.company===d.companyId),d.companyId?'เลือกสาขา':'เลือกบริษัทก่อน'))}${requestField('แผนก','departmentId',requestSelect('departmentId',orgDepartments.filter(x=>x.active&&x.branch===d.branchId),d.branchId?'เลือกแผนก':'เลือกสาขาก่อน'))}</div>`)+requestBlock('03','รายละเอียดค่าใช้จ่าย','ระบุให้บัญชีอ่านแล้วเข้าใจได้ทันที',`<div class="rq-fields">${requestField('หมวดหมู่','category',requestSelect('category',ledgerCategories,'เลือกหมวดหมู่'))}${requestField('วันที่ค่าใช้จ่าย','date',requestInput('date','type="date"'))}${requestField('ขอเบิกค่าอะไร','title',`<textarea data-request-field="title" rows="3" placeholder="เช่น ค่าน้ำดื่มสำหรับสาขา 3 แพ็ก">${esc(d.title)}</textarea>`)}${requestField('ยอดขอจ่ายสุทธิ (บาท)','amount',requestInput('amount','type="text" inputmode="decimal" placeholder="0.00" class="rq-amount"'),'ตรวจให้ตรงกับยอดที่ต้องการจ่ายจริง · บัญชีตรวจรายละเอียดภาษีต่อ')}</div>`):''}
+${requestStep===2?requestBlock('01',d.pay==='คืนเงินพนักงาน'?'ผู้รับเงิน':d.pay==='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?'รายการนี้จ่ายให้ใคร':'ผู้รับเงิน','เช็กชื่อและข้อมูลผู้รับเงินให้ตรงกัน',`<div class="rq-fields">${requestField(d.pay==='คืนเงินพนักงาน'?'ชื่อบัญชีผู้สำรองจ่าย':'ชื่อผู้รับเงิน / ชื่อบัญชี','to',requestInput('to','autocomplete="name" placeholder="ชื่อ–นามสกุล หรือชื่อบริษัท"'))}${d.pay!=='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?requestField('ธนาคาร / ช่องทางรับเงิน','bank',requestSelect('bank',requestBanks,'เลือกธนาคารหรือพร้อมเพย์'))+requestField('เลขบัญชี / พร้อมเพย์','account',requestInput('account','type="text" inputmode="numeric" autocomplete="off" placeholder="กรอกตัวเลขให้ครบ"'),'เก็บเลขศูนย์ด้านหน้าได้ · ตรวจอีกครั้งก่อนส่ง'):'<div class="rq-hint">รายการนี้จะส่งให้บัญชีตรวจการจ่ายเดิม และไม่สร้างคำขอโอนซ้ำ</div>'}</div>`)+requestBlock('02','แนบบิลและรูปประกอบ','ยังไม่มีเอกสารครบ ส่งตามภายหลังได้',`${requestField('ตอนนี้มีเอกสารแบบไหน','proof',`<select data-request-field="proof">${[['รอต้นฉบับ','เอกสารจะส่งตามทีหลัง'],['ใบเสร็จ','มีใบเสร็จรับเงิน'],['ใบกำกับภาษี','มีใบกำกับภาษี'],['ไม่มีใบเสร็จ','ไม่มีบิล / ต้องให้บัญชีจัดทำเอกสาร']].map(([v,l])=>`<option value="${v}" ${d.proof===v?'selected':''}>${l}</option>`).join('')}</select>`)}${d.proof==='ไม่มีใบเสร็จ'?requestField('เหตุผลที่ไม่มีบิล','reason',`<textarea data-request-field="reason" rows="2" placeholder="เช่น ร้านค้าไม่ได้ออกใบเสร็จ">${esc(d.reason)}</textarea>`):''}<div class="rq-upload"><label class="rq-file-button">ถ่ายรูป<input data-request-upload type="file" accept="image/*" capture="environment"></label><label class="rq-file-button">เลือกรูป / PDF<input data-request-upload type="file" accept="image/*,application/pdf" multiple></label></div><small>เลือกได้หลายไฟล์ · ต้นแบบเก็บเฉพาะชื่อไฟล์ ไม่อัปโหลด</small><div class="rq-files">${d.files.map((f,n)=>`<div class="row"><span>${esc(f.name)}</span><button data-request="remove-file" data-index="${n}" aria-label="นำไฟล์ ${esc(f.name)} ออก">นำออก</button></div>`).join('')||'<p class="sub">ยังไม่มีไฟล์แนบ</p>'}</div>${requestField('ฝากข้อความถึงบัญชี (ถ้ามี)','note',`<textarea data-request-field="note" rows="2" placeholder="เช่น จะส่งบิลต้นฉบับให้วันพรุ่งนี้">${esc(d.note)}</textarea>`)}`):''}
+${requestStep===3?`<section class="rq-section"><div class="rq-section-head"><span class="rq-number">✓</span><div><h3>ตรวจข้อมูลก่อนส่ง</h3><small>รายละเอียดและยอดที่จะส่งให้บัญชี</small></div></div><div class="rq-total"><small>ยอดขอจ่ายสุทธิ</small><strong>${money(Number(d.amount.replaceAll(',','')))} <span>บาท</span></strong></div><dl class="rq-review"><dt>รายการ</dt><dd>${esc(d.title)}</dd><dt>วันที่ / หมวดหมู่</dt><dd>${ledgerDate(d.date)} · ${esc(d.category)}</dd><dt>บริษัท</dt><dd>${esc(orgCompany(d.companyId)?.name||'')}</dd><dt>สาขา / แผนก</dt><dd>${esc(orgBranch(d.branchId)?.name||'')} / ${esc(orgDept(d.departmentId)?.name||'')}</dd><dt>วิธีจ่าย</dt><dd>${esc(d.pay)}</dd><dt>ผู้รับเงิน</dt><dd>${esc(d.to)}</dd>${d.pay!=='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'?`<dt>ธนาคาร / เลขบัญชี</dt><dd class="rq-bank-review">${esc(d.bank)}<br><strong>${esc(d.account)}</strong></dd>`:''}<dt>เอกสาร</dt><dd>${esc(d.proof)} · แนบ ${d.files.length} ไฟล์${d.reason?'<br>'+esc(d.reason):''}</dd><dt>ข้อความถึงบัญชี</dt><dd>${esc(d.note)||'—'}</dd></dl><label class="rq-confirm"><input type="checkbox" data-request-field="confirmed" ${d.confirmed?'checked':''}><span>ตรวจยอดและข้อมูลผู้รับเงินแล้ว ถูกต้องค่ะ</span></label></section>`:''}
+</div><div class="rq-bottom"><div class="rq-actions">${requestStep>1?'<button data-request="back">ย้อนกลับไปแก้ไข</button>':'<button data-request="draft">พักไว้ก่อน</button>'}<button class="primary" data-request="${requestStep===3?'submit':'next'}">${requestStep===1?'ถัดไป · ผู้รับเงินและบิล':requestStep===2?'ตรวจสรุปก่อนส่ง':'ยืนยันส่งให้บัญชี'}</button></div><small>ข้อมูลที่กรอกคงอยู่ระหว่างเปลี่ยนหน้าในต้นแบบ · ปิดหรือรีโหลดแล้วข้อมูลจะหาย</small></div></div>`;
+};
+function requestCommit(){if(requestSent)return false;const error=requestValidate(1)||requestValidate(2);if(error||!requestDraft.confirmed){requestError=error||'กดยืนยันว่าตรวจยอดและผู้รับเงินแล้วก่อนส่งนะคะ';form();return false;}const d=requestDraft,id=nextDocId();items.unshift({id,title:d.title.trim(),companyId:d.companyId,companyName:orgCompany(d.companyId).name,branchId:d.branchId,branch:orgBranch(d.branchId).name,departmentId:d.departmentId,departmentName:orgDept(d.departmentId).name,group:role==='พนักงาน'?'ทั่วไป':d.group,owner:role==='พนักงาน'?'พนักงานตัวอย่าง':role,category:d.category,to:d.to.trim(),amount:Number(d.amount.replaceAll(',','')),wht:0,taxReviewPending:true,date:d.date,submittedAt:new Date().toISOString(),createdAt:new Date().toISOString(),pay:d.pay,receiverBank:d.bank,receiverAccount:d.account.replace(/[\s-]/g,''),proof:d.proof,documentReason:d.reason,note:d.note,attachments:d.files.map(f=>({name:f.name,type:f.type,size:f.size})),status:'รอตรวจ',cycleId:null,paymentVerified:false,erpStatus:'pending',erpRef:''});requestSent=id;requestError='';form();toast('ส่งคำขอตัวอย่างแล้ว · '+id);return true;}
+function requestAction(action,b){if(!['บัญชี','พนักงาน','หัวหน้างาน'].includes(role))return;if(action==='next'){requestError=requestValidate(requestStep);if(!requestError)requestStep++;form();return;}if(action==='back'){requestStep=Math.max(1,requestStep-1);requestError='';form();return;}if(action==='draft'){toast('พักข้อมูลไว้ในต้นแบบแล้ว · กลับมาที่ “ส่งคำขอเบิก” เพื่อกรอกต่อ');page='inbox';render();return;}if(action==='submit'){requestCommit();return;}if(action==='remove-file'){requestDraft.files.splice(Number(b.dataset.index),1);form();return;}if(action==='list'){ledgerFilter={q:requestSent||'',period:'date',anchor:requestDraft.date,from:'',to:'',company:'',department:'',category:'',view:ledgerFilter.view};group=role==='พนักงาน'?'ทั่วไป':'ทั้งหมด';page='inbox';render();return;}if(action==='new'){requestDraft=requestBlank();requestStep=1;requestSent=null;requestError='';form();}}
+root.addEventListener('input',e=>{const k=e.target.dataset.requestField;if(!k)return;if(['pay','companyId','branchId','departmentId','proof','group','bank','category'].includes(k))return;requestDraft[k]=e.target.type==='checkbox'?e.target.checked:e.target.value;requestDraft.confirmed=k==='confirmed'?e.target.checked:false;});
+root.addEventListener('change',e=>{if(e.target.hasAttribute('data-request-upload')){for(const f of Array.from(e.target.files||[])){if(!requestDraft.files.some(x=>x.name===f.name&&x.size===f.size))requestDraft.files.push({name:f.name,size:f.size,type:f.type});}requestDraft.confirmed=false;form();return;}const k=e.target.dataset.requestField;if(!k)return;requestDraft[k]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(k!=='confirmed')requestDraft.confirmed=false;if(k==='companyId'){requestDraft.branchId='';requestDraft.departmentId='';}if(k==='branchId')requestDraft.departmentId='';if(['pay','companyId','branchId','proof'].includes(k)){requestError='';form();}});
+names.form='ส่งคำขอเบิก';
+
+const rqSession=()=>({id:{บัญชี:'DEMO-ACC',พนักงาน:'DEMO-EMP',หัวหน้างาน:'DEMO-HEAD',กรรมการ:'DEMO-DIR',การเงิน:'DEMO-FIN'}[role],name:{บัญชี:'น้องบัญชี (ตัวอย่าง)',พนักงาน:'พนักงาน (ตัวอย่าง)',หัวหน้างาน:'หัวหน้างาน (ตัวอย่าง)',กรรมการ:'กรรมการ (ตัวอย่าง)',การเงิน:'การเงิน (ตัวอย่าง)'}[role],departmentByBranch:{B01:'D01'}});
+function rqCents(v){const s=String(v||'').replaceAll(',','').trim();if(!/^\d+(\.\d{1,2})?$/.test(s))return null;const [whole,decimal='']=s.split('.');const n=Number(whole)*100+Number(decimal.padEnd(2,'0'));return Number.isSafeInteger(n)?n:null;}
+function rqTotals(){const gross=rqCents(requestDraft.amount),tax=requestDraft.hasWht==='yes'?rqCents(requestDraft.whtAmount):0;return {gross,tax,net:gross!==null&&tax!==null?gross-tax:null};}
+function rqValid(){const d=requestDraft,c=orgCompany(d.companyId),b=orgBranch(d.branchId),t=rqTotals();if(!d.date)return 'เลือกวันที่ค่าใช้จ่าย';if(!c?.active||!b?.active||b.company!==c.id)return 'เลือกบริษัทและสาขาให้ครบ';if(!d.category)return 'เลือกหมวดหมู่';if(!d.title.trim())return 'ระบุรายละเอียดค่าใช้จ่าย';if(t.gross===null||t.gross<=0)return 'กรอกยอดก่อนหักให้ถูกต้อง ทศนิยมไม่เกิน 2 ตำแหน่ง';if(t.tax===null||t.tax<0||t.tax>t.gross)return 'ยอดหัก ณ ที่จ่ายต้องไม่เกินยอดก่อนหัก';if(d.hasWht==='yes'&&t.tax===0)return 'ระบุจำนวนเงินหัก ณ ที่จ่าย หรือเลือกไม่มี';if(!d.to.trim())return 'ระบุชื่อผู้รับเงิน';if(d.pay!=='บันทึกค่าใช้จ่ายที่จ่ายแล้ว'){if(!d.bank)return 'เลือกธนาคารหรือช่องทางรับเงิน';if(d.bank!=='เงินสด'&&!/^\d{6,20}$/.test(d.account.replace(/[\s-]/g,'')))return 'ตรวจเลขบัญชีหรือพร้อมเพย์ให้ถูกต้อง';}if(['ใบเสร็จ','ใบกำกับภาษี'].includes(d.proof)&&!d.files.length)return 'แนบเอกสาร หรือเลือกส่งเอกสารตามภายหลัง';return '';}
+let rqReview=false;
+const rqPreviousForm=form;
+function rqUpdateTotal(){const n=main.querySelector('#rq-inline-total');if(!n)return;const t=rqTotals();n.textContent=t.net!==null&&t.net>=0?`ก่อนหัก ${money(t.gross/100)} − หัก ณ ที่จ่าย ${money(t.tax/100)} = จ่ายสุทธิ ${money(t.net/100)} บาท`:'กรอกยอดเงินเพื่อคำนวณยอดสุทธิ';}
+form=function(){if(requestSent){rqPreviousForm();return;}const d=requestDraft;d.hasWht=d.hasWht||'no';d.whtAmount=d.whtAmount||'';if(role==='พนักงาน'){d.group='ทั่วไป';if(d.pay==='DF แพทย์')d.pay='คืนเงินพนักงาน';}else if(group==='บิลบริษัท'||d.pay==='DF แพทย์')d.group='บิลบริษัท';const session=rqSession();
+if(rqReview){const t=rqTotals();main.innerHTML=`<div class="rq-wrap rq-ordered"><div class="rq-heading"><h2>ตรวจแล้วส่ง</h2><small>ผู้ขอเบิก: ${esc(session.name)} · บัญชีผู้ใช้จำลอง</small></div><section class="rq-section"><div class="rq-total"><small>ยอดจ่ายสุทธิ</small><strong>${money(t.net/100)} <span>บาท</span></strong></div><dl class="rq-review"><dt>รายการ</dt><dd>${esc(d.title)} · ${esc(d.category)}</dd><dt>วันที่ / วิธีเบิก</dt><dd>${ledgerDate(d.date)} · ${esc(d.pay)}</dd><dt>บริษัท / สาขา</dt><dd>${esc(orgCompany(d.companyId).name)} / ${esc(orgBranch(d.branchId).name)}</dd><dt>ก่อนหัก / หัก</dt><dd>${money(t.gross/100)} / ${money(t.tax/100)} บาท</dd><dt>ผู้รับเงิน</dt><dd>${esc(d.to)}</dd><dt>ธนาคาร / บัญชี</dt><dd>${esc(d.bank||'บันทึกการจ่ายเดิม')}<br>${esc(d.bank==='เงินสด'?'ไม่ใช้เลขบัญชี':d.account)}</dd><dt>เอกสาร</dt><dd>${esc(d.proof)} · ${d.files.length} ไฟล์</dd><dt>ฝากข้อความ</dt><dd>${esc(d.note)||'—'}</dd></dl><label class="rq-confirm"><input type="checkbox" data-request-field="confirmed" ${d.confirmed?'checked':''}><span>ตรวจยอดและผู้รับเงินถูกต้องแล้ว</span></label></section><div id="rq-error" role="alert" ${requestError?'':'hidden'}>${esc(requestError)}</div><div class="rq-actions"><button data-request="edit-ordered">กลับไปแก้ไข</button><button class="primary" data-request="submit">ยืนยันส่งให้บัญชี</button></div></div>`;return;}
+const modes=['คืนเงินพนักงาน','จ่ายผู้ให้บริการ','บันทึกค่าใช้จ่ายที่จ่ายแล้ว',...(role==='พนักงาน'?[]:['DF แพทย์'])];
+const field=(label,name,ctrl)=>requestField(label,name,ctrl);const sel=(name,a,p)=>requestSelect(name,a,p);
+main.innerHTML=`<div class="rq-wrap rq-ordered"><div class="rq-heading"><h2>ส่งคำขอเบิก</h2><small>ผู้ขอเบิก: ${esc(session.name)} · บัญชีผู้ใช้จำลอง</small></div><div id="rq-error" role="alert" ${requestError?'':'hidden'}>${esc(requestError)}</div><section class="rq-section"><div class="rq-ordered-grid">
+${field('วันที่ค่าใช้จ่าย','date',requestInput('date','type="date"'))}
+${field('รูปแบบการเบิก','pay',sel('pay',modes,'เลือกรูปแบบ'))}
+${field('บริษัท','companyId',sel('companyId',orgCompanies.filter(c=>c.active),'เลือกบริษัท'))}
+${field('สาขา','branchId',sel('branchId',orgBranches.filter(b=>b.active&&b.company===d.companyId),d.companyId?'เลือกสาขา':'เลือกบริษัทก่อน'))}
+${field('หมวดหมู่','category',sel('category',ledgerCategories,'เลือกหมวดหมู่'))}
+${field('รายละเอียดค่าอะไร','title',requestInput('title','type="text" placeholder="เช่น ค่าน้ำดื่ม 3 แพ็ก"'))}
+${field('ยอดเท่าไหร่ (ก่อนหัก)','amount',requestInput('amount','type="text" inputmode="decimal" placeholder="0.00"'))}
+${field('มีหัก ณ ที่จ่ายไหม','hasWht',`<select data-request-field="hasWht"><option value="no" ${d.hasWht==='no'?'selected':''}>ไม่มี</option><option value="yes" ${d.hasWht==='yes'?'selected':''}>มี</option></select>${d.hasWht==='yes'?`<div class="rq-tax-input"><span>จำนวนที่หัก (บาท)</span>${requestInput('whtAmount','type="text" inputmode="decimal" placeholder="0.00" aria-label="จำนวนเงินหัก ณ ที่จ่าย"')}</div>`:''}`)}
+<div class="rq-full rq-total-line" id="rq-inline-total" aria-live="polite"></div>
+<div class="rq-full">${field('ผู้รับเงิน','to',requestInput('to','type="text" placeholder="ชื่อบัญชี / ชื่อผู้รับเงิน"'))}</div>
+${field('ธนาคาร / ช่องทาง','bank',sel('bank',[...requestBanks,'เงินสด'],'เลือกช่องทาง'))}
+${field('เลขบัญชี / พร้อมเพย์','account',requestInput('account',`type="text" inputmode="numeric" placeholder="${d.bank==='เงินสด'?'ไม่ใช้เลขบัญชี':'เลขบัญชีผู้รับ'}" ${d.bank==='เงินสด'?'disabled':''}`))}
+<div class="rq-full">${field('เอกสารรายจ่ายแบบไหน','proof',`<select data-request-field="proof">${[['รอต้นฉบับ','ส่งเอกสารตามภายหลัง'],['ใบเสร็จ','มีใบเสร็จรับเงิน'],['ใบกำกับภาษี','มีใบกำกับภาษี'],['ไม่มีใบเสร็จ','ไม่มีบิล / ให้บัญชีจัดทำเอกสาร']].map(([v,l])=>`<option value="${v}" ${d.proof===v?'selected':''}>${l}</option>`).join('')}</select>`)}</div>
+<div class="rq-full"><span class="rq-label">แนบรูป / เอกสาร</span><div class="rq-upload"><label class="rq-file-button">เปิดกล้อง<input data-request-upload type="file" accept="image/*" capture="environment"></label><label class="rq-file-button">แนบไฟล์<input data-request-upload type="file" accept="image/*,application/pdf" multiple></label></div>${d.files.length?`<div class="rq-files">${d.files.map((f,n)=>`<div class="row"><span>${esc(f.name)}</span><button data-request="remove-file" data-index="${n}">นำออก</button></div>`).join('')}</div>`:'<small>ยังไม่แนบก็ได้ หากเลือกส่งเอกสารตามภายหลัง</small>'}</div>
+<div class="rq-full">${field('ฝากข้อความ (ถ้ามี)','note',`<textarea data-request-field="note" rows="2" placeholder="ข้อความเพิ่มเติมถึงบัญชี">${esc(d.note)}</textarea>`)}</div>
+</div></section><div class="rq-actions"><button data-request="draft">พักไว้ก่อน</button><button class="primary" data-request="review-ordered">ตรวจแล้วส่ง</button></div><small class="rq-footnote">ข้อมูลทดลอง · ยังไม่อัปโหลดไฟล์หรือบันทึกเข้าระบบจริง</small></div>`;rqUpdateTotal();};
+requestCommit=function(){if(requestSent)return false;requestError=rqValid();if(!requestError&&!requestDraft.confirmed)requestError='ยืนยันว่าตรวจยอดและผู้รับเงินแล้วก่อนส่ง';if(requestError){form();return false;}const d=requestDraft,t=rqTotals(),s=rqSession(),candidate=s.departmentByBranch[d.branchId],dept=orgDept(candidate),validDept=dept?.active&&dept.branch===d.branchId?dept:null,id=nextDocId();items.unshift({id,title:d.title.trim(),companyId:d.companyId,companyName:orgCompany(d.companyId).name,branchId:d.branchId,branch:orgBranch(d.branchId).name,departmentId:validDept?.id||null,departmentName:validDept?.name||'รอบัญชีระบุ',owner:s.name,requesterUserId:s.id,group:role==='พนักงาน'?'ทั่วไป':d.group,category:d.category,to:d.to.trim(),grossAmount:t.gross/100,amount:t.net/100,wht:t.tax/100,taxReviewPending:true,date:d.date,submittedAt:new Date().toISOString(),createdAt:new Date().toISOString(),pay:d.pay,receiverBank:d.bank,receiverAccount:d.bank==='เงินสด'?'':d.account.replace(/[\s-]/g,''),proof:d.proof,note:d.note,attachments:d.files.map(f=>({name:f.name,type:f.type,size:f.size})),status:'รอตรวจ',cycleId:null,paymentVerified:false,erpStatus:'pending',erpRef:''});requestSent=id;requestError='';rqReview=false;form();toast('ส่งคำขอตัวอย่างแล้ว · '+id);return true;};
+const rqPriorAction=requestAction;requestAction=function(action,b){if(!['บัญชี','พนักงาน','หัวหน้างาน'].includes(role))return;if(action==='review-ordered'){requestError=rqValid();if(!requestError){rqReview=true;requestDraft.confirmed=false;}form();return;}if(action==='edit-ordered'){rqReview=false;requestError='';requestDraft.confirmed=false;form();return;}if(action==='new'){rqReview=false;}rqPriorAction(action,b);};
+root.addEventListener('input',e=>{if(['amount','whtAmount'].includes(e.target.dataset.requestField))rqUpdateTotal();});
+root.addEventListener('change',e=>{const k=e.target.dataset.requestField;if(['hasWht','bank'].includes(k)){if(k==='hasWht'&&requestDraft.hasWht==='no')requestDraft.whtAmount='';rqReview=false;form();}});
+
+const archiveTypes={RCPT:'ใบเสร็จรับเงิน',TAX:'ใบกำกับภาษี',PHOTO:'รูปของ / หลักฐานประกอบ',SLIP:'สลิปการจ่าย',PV:'ใบสำคัญจ่าย',CERT:'ใบรับรองแทนใบเสร็จ',APP:'เอกสารอนุมัติ',OTHER:'รอจัดประเภท'};
+let archiveFilter={q:'',company:'',branch:'',type:'',from:'',to:''},archiveSelected=null;
+const archiveFiles=[
+ {id:'ATT-DEMO-001',company:'C01',branch:'B01',type:'RCPT',day:'2026-09-13',expenseDate:'2026-09-12',doc:items[0].id,links:[items[0].id],title:'ของใช้ประจำสาขา',original:'receipt.jpg',seq:1,version:1,ext:'jpg',size:'1.2 MB',backup:'สำรองแล้ว (ตัวอย่าง)',erp:'รอยืนยันซิงค์',state:'ใช้งาน',versions:[{v:1,day:'2026-09-13',reason:'รับไฟล์ครั้งแรก'}]},
+ {id:'ATT-DEMO-002',company:'C01',branch:'B01',type:'PHOTO',day:'2026-09-12',expenseDate:'2026-09-12',doc:items[0].id,links:[items[0].id],title:'รูปของใช้ประกอบใบสำคัญจ่าย',original:'IMG_1023.jpg',seq:2,version:2,ext:'jpg',size:'2.1 MB',backup:'รอสำรองรุ่นล่าสุด',erp:'ยังไม่ส่ง',state:'ใช้งาน',versions:[{v:1,day:'2026-09-12',reason:'ภาพไม่ชัด'},{v:2,day:'2026-09-13',reason:'แนบภาพชัดขึ้น'}]},
+ {id:'ATT-DEMO-003',company:'C02',branch:'B03',type:'TAX',day:'2026-09-12',expenseDate:'2026-09-11',doc:'EXP2026091101',links:['EXP2026091101'],title:'ใบกำกับภาษีค่าอุปกรณ์สำนักงาน',original:'tax-invoice.pdf',seq:1,version:1,ext:'pdf',size:'420 KB',backup:'สำรองไม่สำเร็จ (ตัวอย่าง)',erp:'ERP รับไฟล์แล้ว (ตัวอย่าง)',state:'ใช้งาน',versions:[{v:1,day:'2026-09-12',reason:'รับไฟล์ครั้งแรก'}]},
+ {id:'ATT-DEMO-004',company:'C01',branch:'B02',type:'PV',day:'2026-08-31',expenseDate:'2026-08-31',doc:'PV-C01-B02-202608-001',links:['EXP2026080501','EXP2026081802'],title:'ใบสำคัญจ่ายรวมเดือนสิงหาคม สาขาอโศก',original:'payment-voucher.pdf',seq:1,version:1,ext:'pdf',size:'860 KB',backup:'สำรองแล้ว (ตัวอย่าง)',erp:'ERP รับไฟล์แล้ว (ตัวอย่าง)',state:'ใช้งาน',versions:[{v:1,day:'2026-08-31',reason:'ฉบับลงนาม'}]}
+];
+const archiveName=f=>`${f.day.replaceAll('-','')}_${f.doc}_${f.type}_${String(f.seq).padStart(3,'0')}_v${String(f.version).padStart(2,'0')}.${f.ext}`;
+const archiveFolder=f=>`${f.company}/${f.branch}/${f.type}/${f.day.slice(0,4)}/${f.day.slice(5,7)}/${f.doc}/`;
+function archiveMatch(f){const q=archiveFilter.q.toLowerCase().trim();return (!archiveFilter.company||f.company===archiveFilter.company)&&(!archiveFilter.branch||f.branch===archiveFilter.branch)&&(!archiveFilter.type||f.type===archiveFilter.type)&&(!archiveFilter.from||f.day>=archiveFilter.from)&&(!archiveFilter.to||f.day<=archiveFilter.to)&&(!q||[archiveName(f),f.original,f.title,f.doc,...f.links].some(v=>v.toLowerCase().includes(q)));}
+function archiveResults(){const rangeOK=!archiveFilter.from||!archiveFilter.to||archiveFilter.from<=archiveFilter.to;const list=rangeOK?archiveFiles.filter(archiveMatch):[];main.querySelector('#ae-archive-count').textContent=rangeOK?`พบ ${list.length} ไฟล์ · วันที่กรองคือวันที่รับไฟล์ · ทุกสถานะเป็นข้อมูลตัวอย่าง`:'วันเริ่มต้นต้องไม่เกินวันสิ้นสุด';main.querySelector('#ae-archive-results').innerHTML=`<div class="tablebox"><table style="min-width:1100px"><thead><tr><th>วันที่รับ / เลขเอกสาร</th><th>ชื่อไฟล์ / รายละเอียด</th><th>บริษัท / สาขา</th><th>ประเภท</th><th>สำรองข้อมูล</th><th>ส่ง ERP</th><th>เปิดดู</th></tr></thead><tbody>${list.map(f=>`<tr><td>${ledgerDate(f.day)}<br><small>${esc(f.doc)}</small></td><td><strong style="font-weight:500">${esc(f.title)}</strong><br><small style="overflow-wrap:anywhere">${archiveName(f)}<br>${f.size} · รุ่น ${f.version}</small></td><td>${esc(orgCompany(f.company)?.name||f.company)}<br><small>${esc(orgBranch(f.branch)?.name||f.branch)}</small></td><td>${archiveTypes[f.type]}</td><td>${badge(f.backup,!f.backup.startsWith('สำรองแล้ว'))}</td><td>${badge(f.erp,true)}</td><td><button data-archive="detail" data-id="${f.id}">ดูแฟ้ม</button></td></tr>`).join('')||'<tr><td colspan="7">ไม่พบไฟล์ตามตัวกรอง</td></tr>'}</tbody></table></div>`;}
+function archiveView(){main.innerHTML=heading('คลังเอกสารและรูปย้อนหลัง','ค้นจากเลขคำขอ ชื่อไฟล์ หรือรายละเอียด · ข้อมูลตัวอย่าง ไม่มีไฟล์จริงในคลังนี้')+`<section class="panel"><div class="ledger-filter-grid"><label class="field ledger-search">ค้นหา<input type="search" id="ae-archive-q" value="${esc(archiveFilter.q)}" placeholder="เลข EXP / PV ชื่อไฟล์ หรือรายละเอียด"></label><label class="field">บริษัท<select id="ae-archive-company"><option value="">ทุกบริษัท</option>${orgOptions(orgCompanies,archiveFilter.company)}</select></label><label class="field">สาขา<select id="ae-archive-branch"><option value="">ทุกสาขา</option>${orgOptions(orgBranches.filter(b=>!archiveFilter.company||b.company===archiveFilter.company),archiveFilter.branch)}</select></label><label class="field">ประเภทเอกสาร<select id="ae-archive-type"><option value="">ทุกประเภท</option>${Object.entries(archiveTypes).map(([k,v])=>`<option value="${k}" ${archiveFilter.type===k?'selected':''}>${v}</option>`).join('')}</select></label></div><div class="ledger-date-row"><label class="field">รับไฟล์ตั้งแต่<input type="date" id="ae-archive-from" value="${archiveFilter.from}"></label><label class="field">ถึง<input type="date" id="ae-archive-to" value="${archiveFilter.to}"></label><button data-archive="reset">ดูย้อนหลังทั้งหมด</button></div></section><p class="sub" id="ae-archive-count" aria-live="polite"></p><section class="panel" id="ae-archive-results"></section><div id="ae-archive-detail"></div>`;for(const k of ['q','company','branch','type','from','to']){const n=main.querySelector('#ae-archive-'+k);n[k==='q'?'oninput':'onchange']=e=>{archiveFilter[k]=e.target.value;archiveSelected=null;if(k==='company'){archiveFilter.branch='';archiveView();}else{main.querySelector('#ae-archive-detail').innerHTML='';archiveResults();}};}archiveResults();if(archiveSelected)archiveDetail(archiveSelected);}
+function archiveDetail(id){const f=archiveFiles.find(f=>f.id===id);if(!f)return;archiveSelected=id;main.querySelector('#ae-archive-detail').innerHTML=`<section class="panel"><div class="row"><h3>${esc(f.title)}</h3><button data-archive="close">ปิดแฟ้ม</button></div><div class="notice">ตัวอย่างหน้าดูเอกสาร · ระบบจริงแสดงรูปหรือ PDF ตรงนี้หลังตรวจสิทธิ์</div><div class="grid"><div><small>ชื่อไฟล์ระบบ</small><p style="overflow-wrap:anywhere">${archiveName(f)}</p><small>แฟ้มจัดเก็บ</small><p style="overflow-wrap:anywhere">${archiveFolder(f)}</p><small>ชื่อไฟล์เดิม</small><p>${esc(f.original)}</p></div><div><small>วันที่ค่าใช้จ่าย / วันที่รับไฟล์</small><p>${ledgerDate(f.expenseDate)} / ${ledgerDate(f.day)}</p><small>คำขอที่เชื่อมโยง</small><p>${f.links.map(esc).join('<br>')}</p><small>รหัสไฟล์ถาวร</small><p>${f.id}</p></div></div><h3>ประวัติไฟล์</h3><table><thead><tr><th>รุ่น</th><th>วันที่</th><th>เหตุผล</th></tr></thead><tbody>${f.versions.map(v=>`<tr><td>v${String(v.v).padStart(2,'0')}</td><td>${ledgerDate(v.day)}</td><td>${esc(v.reason)}</td></tr>`).join('')}</tbody></table><div class="toolbar"><button data-archive="backup" data-id="${f.id}">ลองสำรองไฟล์นี้ (จำลอง)</button><button data-archive="restore" data-id="${f.id}">ทดลองกู้คืนสำเนา</button></div><small>ไฟล์ต้นฉบับไม่ถูกเขียนทับ · เอกสารลงนามแล้วเก็บรุ่นเดิมไว้ · การกู้คืนทดลองไม่เปลี่ยนเอกสารที่ใช้งาน</small></section>`;}
+let backupChecks=[];
+function backupView(){main.innerHTML=heading('สำรองและกู้คืนเอกสาร','แผนระบบสำรอง · ยังไม่ได้เปิดใช้บริการเก็บหรือสำรองไฟล์จริง')+`<section class="panel"><h3>ขอบเขตที่ต้องสำรองร่วมกัน</h3><div class="tablebox"><table><thead><tr><th>ชุดข้อมูล</th><th>สิ่งที่เก็บ</th><th>ความถี่ที่เสนอ</th></tr></thead><tbody><tr><td>ไฟล์ต้นฉบับและทุกรุ่น</td><td>รูป บิล PDF เอกสารลงนาม และสลิป</td><td>เข้าคิวหลังอัปโหลด · ตรวจคิวทุก 15 นาที</td></tr><tr><td>ทะเบียนและการเชื่อมโยง</td><td>ชื่อไฟล์ บริษัท สาขา ประเภท เลขคำขอ รุ่น และเลขไฟล์ ERP</td><td>จุดกู้คืนอย่างน้อยรายชั่วโมง</td></tr><tr><td>ชุดสำรองแยกสิทธิ์</td><td>ไฟล์ + ฐานข้อมูล + รายการตรวจความครบถ้วน</td><td>ทุกวัน · สำเนาแยกบัญชีหรือแยกผู้ให้บริการ</td></tr><tr><td>ทดสอบกู้คืน</td><td>สุ่มรูปและ PDF พร้อมเปิดคำขอที่อ้างอิง</td><td>ทุกเดือน · ทดสอบทั้งระบบทุกไตรมาส</td></tr></tbody></table></div></section><section class="panel"><h3>รายการที่ต้องติดตาม</h3>${archiveFiles.filter(f=>!f.backup.startsWith('สำรองแล้ว')).map(f=>`<div class="row line"><span>${f.id} · ${esc(f.title)}<br><small>${f.backup}</small></span><button data-archive="backup" data-id="${f.id}">ลองใหม่ (จำลอง)</button></div>`).join('')||'<p>ไม่มีคิวค้างในตัวอย่าง</p>'}<div class="toolbar"><button data-archive="restore-test">ทดลองขั้นตอนตรวจชุดกู้คืน</button></div><div id="ae-backup-checks">${backupChecks.map(s=>`<div class="notice">${esc(s)}</div>`).join('')}</div></section><section class="panel"><h3>กติกาการเก็บไฟล์</h3><p>ผู้ใช้งานทั่วไปไม่ลบถาวร · เปลี่ยนไฟล์เป็นรุ่นใหม่ · สำรองแยกสิทธิ์จากระบบใช้งาน · ระยะเก็บเอกสารรอกำหนดร่วมกับบริษัทและสำนักงานบัญชี</p><small>เป้าหมายเบื้องต้น: สูญเสียข้อมูลย้อนหลังไม่เกิน 1 ชั่วโมง และกู้ระบบภายใน 4 ชั่วโมง · ต้องทดสอบก่อนยืนยันใช้งานจริง</small></section>`;}
+function archiveAction(action,b){if(!['บัญชี','หัวหน้างาน'].includes(role))return;const f=archiveFiles.find(f=>f.id===b.dataset.id);if(action==='detail'&&f){archiveDetail(f.id);return;}if(action==='close'){archiveSelected=null;main.querySelector('#ae-archive-detail').innerHTML='';return;}if(action==='reset'){archiveFilter={q:'',company:'',branch:'',type:'',from:'',to:''};archiveSelected=null;archiveView();return;}if(action==='backup'&&f){if(role!=='บัญชี')return;f.backup='สำรองแล้ว (ตัวอย่าง)';render();toast('จำลองสำรองและตรวจไฟล์สำเร็จ · ไม่ได้คัดลอกไฟล์จริง');return;}if(action==='restore'&&f){toast('ตัวอย่าง: กู้สำเนา '+f.id+' ไปพื้นที่ทดสอบ → ตรวจไฟล์และความเชื่อมโยง → ผู้ดูแลตรวจรับ · ไม่มีการกู้ไฟล์จริง');return;}if(action==='restore-test'){if(role!=='บัญชี')return;backupChecks=['แบบทดสอบ: เลือกจุดกู้คืนไฟล์และทะเบียนที่สอดคล้องกัน','ตรวจจำนวนไฟล์และ checksum ของทุกรุ่นที่กู้คืน','เปิดรูป / PDF และตรวจว่าเชื่อมเลขคำขอ บริษัท สาขาถูกต้อง','บันทึกผลและเวลาที่ใช้ · ต้นแบบยังไม่ได้รันทดสอบกู้คืนจริง'];backupView();}}
+names.archive='คลังเอกสาร';names.backup='สำรอง / กู้คืน';allowed['บัญชี'].push('archive','backup');allowed['หัวหน้างาน'].push('archive');
+const beforeArchiveRender=render;render=function(){if(page==='archive'){nav();archiveView();}else if(page==='backup'){nav();backupView();}else beforeArchiveRender();};
+
+const commitBeforeArchive=requestCommit;requestCommit=function(){const ok=commitBeforeArchive();if(ok){const i=items[0];(i.attachments||[]).forEach((a,n)=>{const day=ledgerToday();archiveFiles.push({id:'ATT-'+i.id+'-'+(n+1),company:i.companyId,branch:i.branchId,type:'OTHER',day,expenseDate:i.date,doc:i.id,links:[i.id],title:i.title,original:a.name,seq:n+1,version:1,ext:a.name.includes('.')?a.name.split('.').pop().toLowerCase():'bin',size:Math.ceil((a.size||0)/1024)+' KB',backup:'ยังไม่มีไฟล์จริง (ต้นแบบ)',erp:'ยังไม่ส่ง',state:'ข้อมูลชื่อไฟล์เท่านั้น',versions:[{v:1,day,reason:'รับชื่อไฟล์จากคำขอจำลอง'}]});});}return ok;};
+
+const viewLocalFiles=new Map(),viewUrls=new Map();let viewRequestId=null,viewFileIndex=0;
+const viewFileKey=f=>`${f.name}:${f.size}:${f.type||''}`;
+function viewAttachments(i){const local=(i.attachments||[]).map((f,n)=>({...f,key:'upload-'+n,title:f.name,source:'แนบกับคำขอ',file:viewLocalFiles.get(viewFileKey(f))}));const registered=archiveFiles.filter(f=>f.company===i.companyId&&f.branch===i.branchId&&f.links.includes(i.id));for(const f of registered){if(local.some(a=>a.name===f.original))continue;local.push({key:f.id,name:f.original,title:archiveName(f),source:archiveTypes[f.type],type:f.ext==='pdf'?'application/pdf':'image/'+f.ext,file:null});}return local;}
+function viewEye(i){const n=viewAttachments(i).length;return `<button class="ae-eye" data-view-request="${i.id}" aria-label="ดูเอกสารแนบ ${i.id} จำนวน ${n} ไฟล์"><i data-lucide="eye" aria-hidden="true"></i><span>${n?`${n} ไฟล์`:'ไม่มีไฟล์'}</span></button>`;}
+const columnsBeforeViewer=ledgerColumns;ledgerColumns=function(){const cols=columnsBeforeViewer();cols.splice(1,0,['attachments','ดูเอกสาร',viewEye]);return cols;};
+const resultsBeforeViewer=ledgerResults;ledgerResults=function(){resultsBeforeViewer();if(globalThis.lucide){try{lucide.createIcons({attrs:{width:17,height:17}});}catch(_){}}};
+function viewRender(){const i=visible().find(i=>i.id===viewRequestId);if(!i)return;const files=viewAttachments(i);viewFileIndex=Math.min(viewFileIndex,Math.max(0,files.length-1));const f=files[viewFileIndex];let host=main.querySelector('#ae-ledger-viewer');if(!host){const result=main.querySelector('#ae-ledger-result');if(!result)return;const el=document.createElement('section');el.id='ae-ledger-viewer';el.className='panel ae-viewer';el.setAttribute('aria-label','เอกสารแนบของรายการ');result.parentNode.insertBefore(el,result);host=el;}
+let preview='<div class="notice">รายการนี้ยังไม่มีไฟล์แนบ</div>';
+if(f){if(f.file){let url=viewUrls.get(f.file);try{if(!url){url=URL.createObjectURL(f.file);viewUrls.set(f.file,url);}if(/^image\/(png|jpeg|jpg|webp|gif)$/.test(f.type))preview=`<img class="ae-file-image" loading="lazy" src="${url}" alt="${esc(f.name)}">`;else if(f.type==='application/pdf')preview=`<div class="notice">ไฟล์ PDF พร้อมเปิดแยกหน้าต่าง</div>`;else preview='<div class="notice">ไฟล์ชนิดนี้ยังแสดงในหน้านี้ไม่ได้ สามารถเปิดไฟล์ต้นฉบับด้านล่าง</div>';preview+=`<div class="toolbar"><a href="${url}" target="_blank" rel="noopener" download="${esc(f.name)}">เปิด / ดาวน์โหลดไฟล์ต้นฉบับ</a></div>`;}catch(_){preview='<div class="notice">อุปกรณ์นี้ไม่สามารถสร้างตัวอย่างไฟล์ในหน้าได้ กรุณาเปิดไฟล์ต้นฉบับ</div>';}}else preview='<div class="notice">ไฟล์ตัวอย่างนี้มีเฉพาะชื่อและข้อมูลอ้างอิง ยังไม่มีรูปหรือ PDF จริงให้เปิด<br>ทดลองแนบไฟล์ในคำขอใหม่ แล้วกลับมากดรูปดวงตาเพื่อดูได้ค่ะ</div>';}
+host.innerHTML=`<div class="row"><div><h3>เอกสารแนบ · ${esc(i.id)}</h3><small>${esc(i.title)} · ${files.length} ไฟล์</small></div><button data-view-close>ปิดเอกสาร</button></div>${files.length?`<div class="toolbar">${files.map((a,n)=>`<button data-view-file="${n}" class="${viewFileIndex===n?'primary':''}">${n+1}. ${esc(a.name)}</button>`).join('')}</div><p class="sub" style="overflow-wrap:anywhere">${esc(f.title)} · ${esc(f.source)}</p>`:''}${preview}`;
+}
+root.addEventListener('change',e=>{if(!e.target.hasAttribute('data-request-upload'))return;for(const f of Array.from(e.target.files||[]))viewLocalFiles.set(viewFileKey(f),f);});
+root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.viewRequest){if(page!=='inbox'||!visible().some(i=>i.id===b.dataset.viewRequest))return;viewRequestId=b.dataset.viewRequest;viewFileIndex=0;viewRender();}if(b.hasAttribute('data-view-file')&&viewRequestId){viewFileIndex=Number(b.dataset.viewFile);viewRender();}if(b.hasAttribute('data-view-close')){viewRequestId=null;main.querySelector('#ae-ledger-viewer')?.remove();}});
+globalThis.addEventListener?.('pagehide',()=>{for(const url of viewUrls.values())URL.revokeObjectURL(url);viewUrls.clear();});
+
+root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.archive){archiveAction(d.archive,b);return;}if(d.request){requestAction(d.request,b);return;}if(d.org){orgAction(d.org,b);return;}if(d.cycle){cycleAction(d.cycle,b);return;}if(d.page){page=d.page;detail=null;toast('');render();}if(d.group){group=d.group;detail=null;render();}if(d.detail)showDetail(d.detail);if('close'in d){detail=null;render();}if(d.ready||d.return){const id=d.ready||d.return;const note=main.querySelector('#ae-review').value.trim();if((d.return||items.find(i=>i.id===id).proof==='ไม่มีใบเสร็จ')&&!note){toast('โปรดระบุหมายเหตุการตรวจหรือเหตุผลก่อนดำเนินการ');return;}items.find(i=>i.id===id).status=d.ready?'พร้อมอนุมัติ':'รอแก้ไข';render();toast(d.ready?'รายการพร้อมเข้ารอบอนุมัติ':'จำลองส่งกลับผู้ขอ พร้อมหมายเหตุ');}if('build'in d){batch=items.filter(i=>selected.has(i.id)&&i.status==='พร้อมอนุมัติ'&&i.date<='2026-09-12');if(!batch.length){toast('เลือกรายการพร้อมอนุมัติอย่างน้อย 1 รายการ');return;}batch.forEach(i=>i.status='รออนุมัติ');render();toast('สร้างชุดแล้ว • เปลี่ยนมุมมองเป็นกรรมการเพื่อทดลองอนุมัติ');}if('approve'in d){approved=true;batch.forEach(i=>i.status='อนุมัติแล้ว');render();toast('จำลองลงนามสำเร็จ • ส่งเข้าคิวการเงิน · ERP รอยืนยันจ่าย');}if('reject'in d){batch.forEach(i=>i.status='รอแก้ไข');batch=[];selected.clear();render();toast('ส่งชุดกลับบัญชีเพื่อแก้ไขและเสนอใหม่');}if('preview'in d){main.querySelector('#ae-preview').innerHTML=`<div class="paper"><h3>สรุปขออนุมัติจ่าย · AP-20260912-01</h3>${['ทั่วไป','บิลบริษัท'].map(g=>`<p>${g} · ${batch.filter(i=>i.group===g).length} รายการ · ฿${money(total(batch.filter(i=>i.group===g)))}</p>`).join('')}<p>รวม ฿${money(total(batch))}</p><small>พื้นที่ลงนามกรรมการ __________________<br>ระบบจริงสร้าง PDF แยกแฟ้มตามกลุ่ม พร้อมหลักฐานและรหัสรุ่น</small></div>`;}if(d.doc){doc=d.doc;render();}if('vpreview'in d){main.querySelector('#ae-vdetail').innerHTML='<div class="notice">แฟ้มตัวอย่าง: คำขอ → หลักฐานค่าใช้จ่าย → รุ่นเอกสารอนุมัติ → สลิปโอน → ใบสำคัญจ่าย / เลข ERP</div>';}if('vfinal'in d){toast('ยังปิดเดือนไม่ได้: กันยายนยังไม่สิ้นเดือน • แสดงร่างสะสมได้ และตรวจรายการค้างก่อนออกเอกสารจริง');}});
+root.addEventListener('change',e=>{if(e.target.id==='ae-cycle-older'&&role==='บัญชี'&&cycleState==='draft'){cycleIncludeOlder=e.target.checked;if(cycleIncludeOlder){batch.push(...items.filter(cycleOlder).filter(i=>!batch.some(b=>b.id===i.id)).map(i=>({...i})));}else{batch=batch.filter(i=>Date.parse(i.submittedAt)>=Date.parse(cycleStart));}render();toast('อัปเดตตารางและยอดรวมแล้ว · กรุณาตรวจยืนยันก่อนส่ง');return;}if(e.target.dataset.select){e.target.checked?selected.add(e.target.dataset.select):selected.delete(e.target.dataset.select);main.querySelector('#ae-selected').textContent='เลือก '+selected.size+' รายการ · ฿'+money(total(items.filter(i=>selected.has(i.id))));}});
+root.querySelector('#ae-role').onchange=e=>{role=e.target.value;page=allowed[role][0];group='ทั้งหมด';detail=null;toast('');render();};render();
+
+})();
+</script>
+</div>
+
+
+<script src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script>
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) => {
+    lastPointerWasTouch =
+      event.type === "pointerdown" && event.pointerType === "touch";
+  };
+  const handleTouchClick = (event) => {
+    const isTouch = event.pointerType === "touch" || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch && activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() => {
+      if (activeTrigger === trigger && !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) => {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerdown", handlePointer);
+    document.removeEventListener("pointercancel", handlePointer);
+    document.removeEventListener("click", handleTouchClick);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerdown", handlePointer);
+  document.addEventListener("pointercancel", handlePointer);
+  document.addEventListener("click", handleTouchClick);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-tabs">
+(() => {
+  const selector = '.nav[role="tablist"] [role="tab"]';
+  const disabled = ':disabled,[aria-disabled="true"]';
+  const selectTab = (selected) => {
+    const panelId = selected.getAttribute("aria-controls");
+    for (const tab of selected.closest('[role="tablist"]').querySelectorAll('[role="tab"]')) {
+      const active = tab === selected;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+      const id = tab.getAttribute("aria-controls");
+      const panel = id && document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden && selected.id) {
+          panel.setAttribute("aria-labelledby", selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) => {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === "click") {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]'),
+    ).filter((candidate) => !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === "Home") {
+      next = 0;
+    } else if (event.key === "End") {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll('.nav[role="tablist"]')) {
+    const selected =
+      list.querySelector('[role="tab"][aria-selected="true"]') ??
+      list.querySelector('[role="tab"].active') ??
+      list.querySelector('[role="tab"]');
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener("click", interact);
+  document.addEventListener("keydown", interact);
+  window.addEventListener("pagehide", () => {
+    document.removeEventListener("click", interact);
+    document.removeEventListener("keydown", interact);
+  }, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script>
+(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+
+</body>
+</html>

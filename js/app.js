@@ -195,6 +195,13 @@ function buildNav() {
     });
   });
 
+  html += `
+    <div class="nav-section-label">รายจ่าย</div>
+    <a class="nav-item" href="expense/index.html" target="_blank" rel="noopener">
+      <i data-lucide="receipt-text" class="nav-icon"></i>
+      <span class="nav-label">บันทึกรายจ่าย</span>
+    </a>`;
+
   nav.innerHTML = html;
   lucide.createIcons();
 }
