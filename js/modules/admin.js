@@ -25,6 +25,9 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-positions" onclick="admSwitch('positions')">
         <i data-lucide="shield-check"></i>ตั้งค่าสิทธิ์เมนู
       </button>
+      <button class="tab-btn" id="adm-tab-erpsync" onclick="admSwitch('erpsync')">
+        <i data-lucide="upload-cloud"></i>สถานะซิงก์ ERP
+      </button>
     </div>
     <div id="adm-body"></div>
   </div>`;
@@ -52,6 +55,7 @@ function admRender() {
   else if (adminTab === 'users') admRenderUsers(body);
   else if (adminTab === 'import') admRenderImport(body);
   else if (adminTab === 'positions') admRenderPositions(body);
+  else if (adminTab === 'erpsync') admRenderErpSync(body);
   else admRenderLogs(body);
 }
 
@@ -838,4 +842,59 @@ async function admSavePermission(pageKey, canView, canEdit, pageLabel) {
     console.error(e);
     Toast.show('เกิดข้อผิดพลาด: ' + e.message, 'error');
   }
+}
+
+// ── สถานะซิงก์ ERP (เบิกใช้วัสดุ/โอนสต็อก) — ขั้นเตรียมการ ──────
+let admErpFilter = null;
+
+async function admRenderErpSync(body) {
+  body.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
+  const rows = await DB.listStockLogsErpSyncSupabase(admErpFilter);
+
+  const badge = (s) => {
+    const map = {
+      'รอส่ง': 'badge-waiting',
+      'ส่งสำเร็จ': 'badge-approved',
+      'ส่งไม่สำเร็จ': 'badge-rejected',
+      'ไม่ต้องส่ง': 'badge-waiting'
+    };
+    return `<span class="badge ${map[s]||''}">${s}</span>`;
+  };
+
+  body.innerHTML = `
+  <div class="alert-box alert-warning" style="margin-bottom:16px;">
+    <i data-lucide="info"></i>
+    <span>หน้านี้เป็นการเตรียมโครงสร้างไว้ก่อนครับ — ยังไม่ได้เชื่อมส่งข้อมูลเข้า ERP หลักจริง (รอ ERP หลักเปิดช่องทางรับข้อมูลก่อน) รายการทั้งหมดจึงยังขึ้นสถานะ "รอส่ง"</span>
+  </div>
+
+  <div class="glass-card" style="padding:0;overflow:hidden;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;display:flex;justify-content:space-between;align-items:center;">
+      <span class="section-title">รายการเบิกใช้/โอนสต็อกที่อนุมัติแล้ว (${rows.length} รายการ)</span>
+      <select class="form-select" style="width:auto;" onchange="admErpFilter=this.value||null;admRenderErpSync(document.getElementById('adm-body'))">
+        <option value="">ทุกสถานะ</option>
+        <option value="รอส่ง" ${admErpFilter==='รอส่ง'?'selected':''}>รอส่ง</option>
+        <option value="ส่งสำเร็จ" ${admErpFilter==='ส่งสำเร็จ'?'selected':''}>ส่งสำเร็จ</option>
+        <option value="ส่งไม่สำเร็จ" ${admErpFilter==='ส่งไม่สำเร็จ'?'selected':''}>ส่งไม่สำเร็จ</option>
+        <option value="ไม่ต้องส่ง" ${admErpFilter==='ไม่ต้องส่ง'?'selected':''}>ไม่ต้องส่ง</option>
+      </select>
+    </div>
+    <div class="table-wrap" style="border:none;border-radius:0;">
+      <table>
+        <thead><tr><th>วันที่</th><th>ประเภท</th><th>สาขา</th><th>สินค้า</th><th>จำนวน</th><th>สถานะ ERP</th><th>เลขที่เอกสาร ERP</th></tr></thead>
+        <tbody>
+          ${rows.length ? rows.map(r => `
+          <tr>
+            <td>${formatDate(r.log_date)}</td>
+            <td>${r.move_type === 'TRANSFER' ? 'โอนสาขา' : 'เบิกใช้'}</td>
+            <td>${r.branch_name||'-'}${r.to_branch_name?' → '+r.to_branch_name:''}</td>
+            <td>${r.product_name||r.product_code||'-'}</td>
+            <td>${r.qty||'-'}</td>
+            <td>${badge(r.erp_sync_status)}</td>
+            <td>${r.erp_ref||'—'}</td>
+          </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  lucide.createIcons();
 }

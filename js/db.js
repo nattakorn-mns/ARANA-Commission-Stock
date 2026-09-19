@@ -191,6 +191,11 @@ const DB = {
     await this._positionRpc('admin_set_user_position', { p_user_id: userId, p_position_name: positionName });
   },
 
+  async listStockLogsErpSyncSupabase(status) {
+    try { return await this._positionRpc('list_stock_logs_erp_sync', { p_status: status || null }); }
+    catch (error) { console.error('listStockLogsErpSyncSupabase error:', error); return []; }
+  },
+
   async adminListUsersWithPositionSupabase() {
     try { return await this._positionRpc('admin_list_users_with_position'); }
     catch (error) { console.error('adminListUsersWithPositionSupabase error:', error); return []; }
