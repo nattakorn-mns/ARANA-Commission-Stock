@@ -81,7 +81,7 @@ function depUpdateCommission() {
   const amount = Number(document.getElementById('dep-amount')?.value || 0);
   const pct = Number(document.getElementById('dep-commission-pct')?.value || 0);
   const out = document.getElementById('dep-commission-amount');
-  if (out) out.value = (amount * pct / 100).toFixed(2);
+  if (out) out.value = roundCommission(amount, pct).toFixed(2);
 }
 
 async function depHandleEvidence(event) {

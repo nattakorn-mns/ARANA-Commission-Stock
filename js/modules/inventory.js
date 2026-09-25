@@ -7,9 +7,20 @@ let invTab = 'out';
 let invRows = [];
 let invPhotos = [];
 let invProductsCache = [];
+// Kept across a failed attempt so pressing save again cannot create the same request twice.
+let invRequestId = null;
+
+function invNewRequestId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 async function renderInventory(container, defaultTab) {
   invTab = defaultTab || 'out';
+  invRequestId = null;
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
 
@@ -22,6 +33,7 @@ async function renderInventory(container, defaultTab) {
 
 function invSwitchTab(tab) {
   invTab = tab;
+  invRequestId = null;
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
   document.querySelectorAll('.inv-tab-btn').forEach(b => {
@@ -132,7 +144,7 @@ function invRenderRows() {
       </div>
       <div class="form-group">
         <label class="form-label">จำนวน</label>
-        <input type="number" class="form-input" value="${row.qty}" min="1" style="text-align:center;"
+        <input type="number" class="form-input" value="${row.qty}" min="0" step="any" inputmode="decimal" style="text-align:center;"
           oninput="invRowQty('${row.id}',this.value)" />
       </div>
       <div class="form-group">
@@ -164,7 +176,7 @@ function invRowProduct(id, code) {
   r.unit = p ? p.unit : '';
   invRenderRows();
 }
-function invRowQty(id, val) { const r = invRows.find(x => x.id === id); if (r) r.qty = parseInt(val)||1; }
+function invRowQty(id, val) { const r = invRows.find(x => x.id === id); if (r) r.qty = parseQty(val) ?? r.qty; }
 function invRowNote(id, val) { const r = invRows.find(x => x.id === id); if (r) r.note = val; }
 function invRemoveRow(id) { if (invRows.length <= 1) return; invRows = invRows.filter(x => x.id !== id); invRenderRows(); }
 
@@ -212,47 +224,38 @@ async function invSubmit() {
     if (!source) { Toast.show('กรุณาเลือกว่าเบิกใช้ในส่วนไหน (ห้องตรวจ/ทรีทเมนท์/ทั่วไป)', 'error'); return; }
   }
 
-  const directionByTab = { out: 'OUT', in: 'IN', transfer: 'OUT' };
   const typeByTab = { out: 'OUT', in: 'IN', transfer: 'TRANSFER' };
   const defaultNoteByTab = { out: 'เบิกใช้', in: 'รับเข้าสต๊อก', transfer: `โอนไปสาขา ${toBranch}` };
 
   const submitBtn = document.querySelector(`.btn-${{out:'orange',in:'blue',transfer:'purple'}[invTab]}`);
   if (submitBtn) submitBtn.disabled = true;
 
+  if (!invRequestId) invRequestId = invNewRequestId();
   try {
-    let firstLogId = null;
-    for (const r of validRows) {
-      const logId = await DB.saveStockLogSupabase({
-        branch: currentBranch,
-        toBranch,
-        productCode: r.productCode,
-        direction: directionByTab[invTab],
-        type: typeByTab[invTab],
-        qty: r.qty,
-        note: r.note || defaultNoteByTab[invTab],
-        createdBy: currentUser.id,
-        source
-      });
-      if (!firstLogId) firstLogId = logId;
-    }
-
-    if (firstLogId) {
-      for (const p of invPhotos) {
-        await DB.saveStockLogImageSupabase(firstLogId, p.data);
-      }
-    }
-
-    Toast.show(`บันทึกสำเร็จ — ${validRows.length} รายการ ⏳ รอ Audit อนุมัติ`, 'success', 4000);
+    const res = await DB.saveStockRequestSupabase({
+      requestId: invRequestId,
+      branch: currentBranch,
+      toBranch,
+      moveType: typeByTab[invTab],
+      source,
+      date,
+      lines: validRows.map(r => ({ product_code: r.productCode, qty: r.qty, note: r.note || defaultNoteByTab[invTab] })),
+      images: invPhotos.map(p => p.data)
+    });
+    Toast.show(res && res.duplicate
+      ? 'ใบนี้บันทึกเข้าระบบไปแล้วก่อนหน้านี้ ✓ ไม่ได้บันทึกซ้ำ'
+      : `บันทึกสำเร็จ — ${validRows.length} รายการ ⏳ รอบัญชีอนุมัติ (สต็อกจะถูกตัดเมื่ออนุมัติ)`, 'success', 5000);
     invReset();
   } catch (e) {
     console.error(e);
-    Toast.show('เกิดข้อผิดพลาดขณะบันทึก: ' + e.message, 'error');
+    Toast.show('บันทึกไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 6000);
   } finally {
     if (submitBtn) submitBtn.disabled = false;
   }
 }
 
 function invReset() {
+  invRequestId = null;
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
   invRender();

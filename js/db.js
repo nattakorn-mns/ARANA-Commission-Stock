@@ -3,6 +3,24 @@
  * db.js — Seed data from real APSX exports + employee list
  */
 
+// Commission = base × pct / 100, rounded to satang half-away-from-zero — the same rule as
+// Postgres round(numeric, 2) in create_deposit — computed in integers so 2999 × 1.5% gives
+// 44.99 on screen exactly as the database stores it (float math would show 44.98).
+function roundCommission(base, pct) {
+  const baseSatang = Math.round(Number(base || 0) * 100);
+  const pctUnits = Math.round(Number(pct || 0) * 10000);
+  const num = baseSatang * pctUnits, den = 1000000;
+  const sign = num < 0 ? -1 : 1, abs = Math.abs(num);
+  const q = Math.floor(abs / den), r = abs - q * den;
+  return sign * (q + (r * 2 >= den ? 1 : 0)) / 100;
+}
+
+// Parse a user-typed quantity keeping fractions (0.5 ยูนิต/ซีซี are real usage). Returns null when invalid.
+function parseQty(val) {
+  const n = Number(String(val ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) / 1000 : null;
+}
+
 const DB = {
 
   // ── Helpers ──────────────────────────────────────────────
@@ -273,8 +291,67 @@ const DB = {
   },
 
   async saveStockLogImageSupabase(logId, base64Data) {
-    try { await this._appRpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data }); }
-    catch (error) { console.error('saveStockLogImageSupabase error:', error); }
+    // Evidence is required for audit: let the caller see a failed upload instead of reporting success.
+    await this._appRpc('save_stock_log_image', { p_log_id: logId, p_data: base64Data });
+  },
+
+  // The old gateway answers UNKNOWN_ACTION until the 26/09 stock SQL has been run.
+  _isMissingAction(error) { return /UNKNOWN_ACTION/.test((error && error.message) || ''); },
+
+  stockErrorText(error) {
+    const msg = (error && (error.message || error.hint)) || String(error || '');
+    const map = {
+      EVIDENCE_REQUIRED: 'กรุณาแนบรูปอย่างน้อย 1 รูป', FUTURE_DATE: 'วันที่ต้องไม่เกินวันนี้',
+      INVALID_QTY: 'จำนวนต้องมากกว่า 0', UNKNOWN_PRODUCT: 'มีรหัสสินค้าที่ไม่พบในระบบ',
+      INVALID_TO_BRANCH: 'กรุณาเลือกสาขาปลายทางให้ถูกต้อง', FORBIDDEN_BRANCH: 'บันทึกได้เฉพาะสาขาของตัวเอง',
+      NOTE_REQUIRED: 'กรุณาระบุเหตุผล', OPD_REVERT_NOT_SUPPORTED: 'รายการเบิกจาก OPD ยังถอยการอนุมัติจากหน้านี้ไม่ได้',
+      LEGACY_TRANSFER_NEEDS_MANUAL_FIX: 'รายการโอนสาขารุ่นเก่า ต้องปรับสต็อกด้วยมือ',
+      REQUEST_ID_CONFLICT: 'เลขใบเบิกซ้ำ กรุณากดบันทึกใหม่อีกครั้ง', NOTHING_CHANGED: 'ไม่พบรายการที่ต้องทำ (อาจมีคนทำไปแล้ว) กรุณารีเฟรชหน้า'
+    };
+    const code = Object.keys(map).find(k => msg.includes(k));
+    return code ? map[code] : msg;
+  },
+
+  // One request = all lines + photos in one database transaction (all saved or none).
+  async saveStockRequestSupabase({ requestId, branch, toBranch, moveType, source, date, lines, images }) {
+    try {
+      return await this._appRpc('save_stock_request', {
+        p_request_id: requestId, p_branch_name: branch, p_to_branch_name: toBranch || null,
+        p_move_type: moveType, p_source: source || null, p_log_date: date,
+        p_lines: lines, p_images: images
+      });
+    } catch (error) {
+      if (!this._isMissingAction(error)) throw error;
+    }
+    // Fallback until the SQL is installed: old per-line save (not all-or-nothing, date set by the server).
+    const ids = [];
+    for (const l of lines) {
+      ids.push(await this.saveStockLogSupabase({ branch, toBranch, productCode: l.product_code,
+        direction: moveType === 'IN' ? 'IN' : 'OUT', type: moveType, qty: l.qty, note: l.note, source, requestId }));
+    }
+    for (const img of images) await this.saveStockLogImageSupabase(ids[0], img);
+    return { request_id: requestId, log_ids: ids, line_count: ids.length, duplicate: false, legacy: true };
+  },
+
+  _requireAffected(result) {
+    // New server functions report how many rows changed; the old ones return true.
+    if (result && typeof result === 'object' && Number(result.affected) === 0) throw new Error('NOTHING_CHANGED');
+    return result;
+  },
+
+  async revertStockRequestSupabase(requestId, note) {
+    return this._requireAffected(await this._appRpc('revert_stock_request', { p_request_id: requestId, p_note: note }));
+  },
+
+  // Weekly count lives in the central database. Returns null while the SQL is not installed yet.
+  async getWeeklyCountSupabase(branchName, weekStart) {
+    try { return await this._appRpc('get_weekly_count', { p_branch_name: branchName, p_week_start: weekStart }); }
+    catch (error) { if (this._isMissingAction(error)) return null; throw error; }
+  },
+
+  async saveWeeklyCountSupabase(branchName, weekStart, items) {
+    try { return await this._appRpc('save_weekly_count', { p_branch_name: branchName, p_week_start: weekStart, p_items: items }); }
+    catch (error) { if (this._isMissingAction(error)) return null; throw error; }
   },
 
   // ── OPD ผ่านฐานข้อมูลกลาง (Supabase) ────────────────────────
@@ -380,14 +457,29 @@ const DB = {
     return (data || []).map(r => ({ logId: r.stock_log_id, fileUrl: r.file_url, uploadedAt: r.uploaded_at }));
   },
 
-  async auditStockRequestSupabase(requestId, status, auditBy, note) { await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }); },
+  async auditStockRequestSupabase(requestId, status, auditBy, note) {
+    this._requireAffected(await this._appRpc('audit_stock_request', { p_request_id: requestId, p_status: status, p_note: note || null }));
+  },
 
   async auditStockLogSupabase(logId, status, auditBy, note) {
-    await this._appRpc('audit_stock_log', { p_log_id: logId, p_status: status, p_note: note || null });
+    this._requireAffected(await this._appRpc('audit_stock_log', { p_log_id: logId, p_status: status, p_note: note || null }));
   },
 
   // ── Stock Card ผ่านฐานข้อมูลกลาง (Supabase) ─────────────────
-  async getStockMovementSupabase(branchName) {
+  async getStockMovementSupabase(branchName, range = {}) {
+    try {
+      const rows = await this._appRpc('get_stock_movement_v2', {
+        p_branch_name: branchName, p_date_from: range.from || null, p_date_to: range.to || null });
+      return (rows || []).map(r => ({
+        id: r.id, requestId: r.request_id, date: r.log_date, createdAt: r.created_at, type: r.move_type,
+        direction: r.direction, isIncoming: !!r.is_incoming, otherBranch: r.other_branch,
+        productCode: r.product_code, productName: r.product_name, unit: r.unit, qty: Number(r.qty),
+        auditStatus: r.audit_status, createdByName: r.created_by_name, source: r.source, isOpd: !!r.is_opd,
+        appliesToBalance: !!r.applies_to_balance, balanceAfter: r.balance_after == null ? null : Number(r.balance_after)
+      }));
+    } catch (error) {
+      if (!this._isMissingAction(error)) { console.error('getStockMovementSupabase error:', error); return []; }
+    }
     try { var data = await this._appRpc('get_stock_movement', { p_branch_name: branchName }); }
     catch (error) { console.error('getStockMovementSupabase error:', error); return []; }
     return (data || []).map(r => ({
@@ -416,6 +508,8 @@ const DB = {
       if (out.saleType && !out.type) out.type = String(out.saleType).toLowerCase();
       if (out.type) out.type = String(out.type).toLowerCase();
       if (out.billId == null && out.bill_id != null) out.billId = out.bill_id;
+      // Screens filter on the snake_case flag; keep it after camel-casing so replaced lines stay hidden.
+      if (out.isSuperseded != null) out.is_superseded = out.isSuperseded;
       return out;
     };
     const arr = (v) => Array.isArray(v) ? v.map(norm) : [];
@@ -426,6 +520,12 @@ const DB = {
     };
     console.log('[arana_my_bills] raw:', data, 'normalized:', res);
     return res;
+  },
+
+  // Own deposit commissions for "สรุปยอดของฉัน". Empty until the get_my_deposits SQL has been run.
+  async getMyDepositsSupabase() {
+    try { return (await this._positionRpc('get_my_deposits')) || []; }
+    catch (error) { console.error('getMyDepositsSupabase error:', error); return []; }
   },
 
   addUser(user) {

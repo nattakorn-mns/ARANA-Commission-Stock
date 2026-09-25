@@ -558,15 +558,19 @@ function getUserName(userId) {
   return user ? `${user.nickname} (${user.name.split(' ')[0]})` : 'ไม่ทราบ';
 }
 
+// Business dates are Thai calendar days. toISOString() is UTC and shows yesterday before 07:00.
+function bangkokISO(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+}
+
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return bangkokISO();
 }
 
 function getWeekStart(date = new Date()) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
+  const d = new Date(bangkokISO(new Date(date)) + 'T00:00:00Z');
+  const day = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1));
   return d.toISOString().slice(0, 10);
 }
 

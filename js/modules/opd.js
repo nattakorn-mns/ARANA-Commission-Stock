@@ -790,7 +790,7 @@ function opdSaleBaseManual(id, val) {
 
 function opdCalcSale(s) {
   if (s.commissionBaseManual) {
-    s.commissionAmt = (s.commissionBase * s.commissionPct) / 100;
+    s.commissionAmt = roundCommission(s.commissionBase, s.commissionPct);
     return;
   }
   
@@ -810,7 +810,7 @@ function opdCalcSale(s) {
       s.commissionBase = s.amountPaid;
     }
   }
-  s.commissionAmt = (s.commissionBase * s.commissionPct) / 100;
+  s.commissionAmt = roundCommission(s.commissionBase, s.commissionPct);
 }
 
 function opdUpdateSaleResult(s) {
@@ -880,7 +880,7 @@ function opdRenderSupplies() {
       </div>
       <div>
         <label class="form-label">จำนวน</label>
-        <input type="number" class="form-input" value="${s.qty}" min="1"
+        <input type="number" class="form-input" value="${s.qty}" min="0" step="any" inputmode="decimal"
           oninput="opdSupplyQtyInput('${s.id}',this.value)" style="text-align:center;" />
       </div>
       <div>
@@ -941,7 +941,7 @@ function opdSupplyProduct(id, code) {
 
 function opdSupplyQtyInput(id, val) {
   const s = opdState.supplies.find(x => x.id === id);
-  if (s) s.qty = parseInt(val) || 1;
+  if (s) s.qty = parseQty(val) ?? s.qty;
 }
 
 function opdRemoveSupply(id) {
@@ -1025,7 +1025,13 @@ async function opdSubmit() {
   if (!customerName) { Toast.show('กรุณากรอกชื่อลูกค้า', 'error'); return; }
   if (!date)         { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
 
-  if (opdState.services.length === 0 && opdState.sales.length === 0) {
+  // Validate what will actually be sent, not the raw rows: blank rows are dropped below.
+  const serviceRows = opdState.services.filter(s => s.programCode || Number(s.price) || Number(s.commission));
+  if (serviceRows.some(s => !s.programCode)) {
+    Toast.show('มีรายการค่ามือที่ยังไม่ได้เลือกโปรแกรม — กรุณาเลือกโปรแกรมหรือลบแถวนั้น', 'error', 5000); return;
+  }
+  const saleRows = opdState.sales.filter(s => s.newProgram || Number(s.newPrice));
+  if (serviceRows.length === 0 && saleRows.length === 0) {
     Toast.show('กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', 'error'); return;
   }
 
@@ -1036,7 +1042,7 @@ async function opdSubmit() {
     return;
   }
 
-  const hasCommission = opdState.services.some(s => (s.commission || 0) > 0);
+  const hasCommission = serviceRows.some(s => (s.commission || 0) > 0);
   if (hasCommission && opdState.supplies.length === 0) {
     Toast.show('⚠️ มีรายการค่ามือ — กรุณาเพิ่มรายการเบิกยา/วัสดุอย่างน้อย 1 รายการ', 'error', 5000);
     const suppliesBody = document.getElementById('supplies-body');
@@ -1057,13 +1063,13 @@ async function opdSubmit() {
   const payload = {
     hn, customer_name: customerName, date, branch_name: branch, created_by: currentUser.id,
     linked_deposit_id: opdState.isShared ? null : opdState.linkedDepositId,
-    services: opdState.services
-      .filter(s => s.programCode || s.price)
+    services: serviceRows
       .map(s => ({ program_code: s.programCode, price: s.price, commission: s.commission })),
-    sales: opdState.sales
-      .filter(s => s.newProgram || s.newPrice)
+    sales: saleRows
       .map(s => ({
-        type: s.type, old_program: s.oldProgram, old_price: s.oldPrice, new_program: s.newProgram,
+        type: s.type, old_program: s.oldProgram, old_price: s.oldPrice, new_program: s.newProgram, new_price: s.newPrice,
+        pay_type: s.payType, installment_no: s.installmentNo || null,
+        commission_base_manual: !!s.commissionBaseManual, commission_note: s.commissionNote || '',
         amount_paid: s.amountPaid, commission_base: s.commissionBase, commission_pct: s.commissionPct, commission_amt: s.commissionAmt
       })),
     supplies: opdState.supplies

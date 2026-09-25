@@ -569,8 +569,44 @@ async function audRenderStock(body) {
   body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:.9rem;color:var(--gray-700);font-weight:700;">รายการสต๊อกรอตรวจทั้งหมด</span><span class="badge badge-pending" style="font-size:1rem;padding:4px 12px;">${rows.length} คำขอ</span><span style="font-size:.8rem;color:var(--gray-500);">OPD ${opdRequests?.length||0} ใบ · เบิก/รับทั่วไป ${grouped.length} คำขอ</span></div>
   <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่/เวลา</th><th>สาขา</th><th>ประเภท</th><th>ลูกค้า/รายการ</th><th>จำนวน</th><th>ผู้บันทึก</th><th>หลักฐาน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
   ${rows.length ? rows.map(r=>`<tr id="stock-audit-row-${r.rowType}-${r.rowType==='opd'?r.billId:r.requestId}"><td class="nowrap">${formatDate(r.date)}${r.createdAt?`<br><small>${new Date(r.createdAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</small>`:''}</td><td>${r.branch||'-'}</td><td>${r.rowType==='opd'?'<span class="badge badge-service">เบิกจาก OPD</span>':`<span class="badge badge-${r.type==='IN'?'in':'out'}">${r.type==='IN'?'รับของเข้า':r.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</span>`}</td><td style="font-weight:600;">${r.customerName||'-'}</td><td>${r.itemCount} รายการ</td><td>${r.createdByName||'-'}</td><td><button class="btn btn-ghost btn-sm" onclick="${r.rowType==='opd'?`audOpenStockRequest('${r.billId}')`:`audOpenStockRequestGroup('${r.requestId}')`}"><i data-lucide="eye"></i> ดูรายละเอียด</button></td><td>${statusBadge(r.auditStatus||'รอตรวจสอบ')}</td><td><button class="btn btn-success btn-sm" onclick="${r.rowType==='opd'?`audStockAction('${r.billId}','อนุมัติแล้ว')`:`audStockRequestAction('${r.requestId}','อนุมัติแล้ว')`}">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="${r.rowType==='opd'?`audStockReject('${r.billId}')`:`audStockRequestReject('${r.requestId}')`}">ตีกลับ</button></td></tr>`).join(''):`<tr><td colspan="9"><div class="empty-state">ไม่มีรายการสต๊อกรอตรวจ</div></td></tr>`}
-  </tbody></table></div></div>`;
+  </tbody></table></div></div>
+  <div class="glass-card" style="margin-top:12px;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-weight:700;color:var(--gray-700);">ใบเบิก/รับ/โอน ที่อนุมัติแล้ว</span>
+      <span style="font-size:.8rem;color:var(--gray-500);">ถ้าอนุมัติผิด กด "ถอยการอนุมัติ" ระบบจะคืนของเข้าคลังและเปลี่ยนเป็น "ตีกลับ"</span>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="audLoadApprovedStock()"><i data-lucide="history"></i> แสดงรายการ</button>
+    </div>
+    <div id="aud-approved-stock"></div>
+  </div>`;
   lucide.createIcons();
+}
+// Loaded only on demand to keep data transfer small.
+async function audLoadApprovedStock() {
+  const box = document.getElementById('aud-approved-stock');
+  if (!box) return;
+  box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => r.audit_status === 'อนุมัติแล้ว' && !r.is_opd);
+  const groups = Object.values(rows.reduce((a, r) => { const k = r.request_id || r.id; (a[k] ||= { ...r, requestId: k, items: [] }).items.push(r); return a; }, {}));
+  const typeName = t => t === 'IN' ? 'รับของเข้า' : t === 'TRANSFER' ? 'โอนข้ามสาขา' : 'เบิกใช้งาน';
+  box.innerHTML = groups.length ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ประเภท</th><th>รายการ</th><th>สถานะ ERP</th><th></th></tr></thead><tbody>${groups.map(g => `<tr><td class="nowrap">${formatDate(g.log_date)}</td><td>${g.branch_name || '-'}${g.to_branch_name ? ' → ' + g.to_branch_name : ''}</td><td>${typeName(g.move_type)}</td><td style="font-size:.82rem;">${g.items.map(i => (i.product_name || i.product_code) + ' × ' + i.qty).join('<br>')}</td><td>${g.erp_sync_status || '-'}</td><td><button class="btn btn-danger btn-sm" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length})">ถอยการอนุมัติ</button></td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="empty-state">ไม่มีรายการที่อนุมัติแล้ว</div>';
+  lucide.createIcons();
+}
+function audStockRevertPrompt(requestId, count) {
+  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ถอยการอนุมัติ</h3></div><div class="modal-body"><div class="alert-box alert-warning" style="margin-bottom:12px;"><i data-lucide="alert-triangle"></i><span>ระบบจะคืนของ ${count} รายการในใบนี้กลับเข้าคลัง และเปลี่ยนสถานะเป็น "ตีกลับ" ให้พนักงานส่งใบใหม่ที่ถูกต้อง ถ้าใบนี้ส่งเข้า ERP ไปแล้ว จะขึ้นเตือนให้ไปยกเลิกที่ ERP ด้วย</span></div><label class="form-label">เหตุผล <span class="required">*</span></label><textarea id="aud-stock-revert-note" class="form-textarea" rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRevert('${requestId}')">ยืนยันถอยการอนุมัติ</button></div></div>`);
+}
+async function audDoStockRevert(requestId) {
+  const note = document.getElementById('aud-stock-revert-note')?.value.trim();
+  if (!note) { Toast.show('กรุณาระบุเหตุผล', 'error'); return; }
+  try {
+    await DB.revertStockRequestSupabase(requestId, note);
+    closeModalDirect();
+    Toast.show('ถอยการอนุมัติแล้ว — คืนของเข้าคลังเรียบร้อย', 'success', 4000);
+    if (document.getElementById('aud-approved-stock')) audLoadApprovedStock();
+    else if (typeof admRenderErpSync === 'function' && document.getElementById('adm-body')) admRenderErpSync(document.getElementById('adm-body'));
+  } catch (e) {
+    Toast.show('ถอยการอนุมัติไม่สำเร็จ: ' + (/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ชุดวันที่ 26/09' : DB.stockErrorText(e)), 'error', 6000);
+  }
 }
 async function audStockAction(billId,status,note) {
   try { await DB.auditOpdStockRequestSupabase(billId,status,currentUser.id,note||''); Toast.show(status === 'อนุมัติแล้ว' ? 'อนุมัติตัดสต๊อกเรียบร้อย' : 'ตีกลับรายการตัดสต๊อกแล้ว',status === 'อนุมัติแล้ว' ? 'success' : 'error'); closeModalDirect(); audRender(); }
@@ -669,7 +705,7 @@ function audOpenStockRequestGroup(requestId){
   const photos=evidence.length ? evidence.map((url,index)=>`<img src="${String(url).replace(/"/g,'&quot;')}" alt="หลักฐานรายการ ${index+1}" style="width:100%;max-height:280px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:10px;">`).join('') : '<div style="min-height:220px;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--gray-500);background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:10px;">ยังไม่มีรูปหลักฐาน</div>';
   openModal(`<div class="modal" style="width:1100px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">รายละเอียดคำขอเบิก/รับ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body"><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(first.date)}</strong></div><div><small>สาขา</small><strong>${first.branch||'-'}</strong></div><div><small>ผู้บันทึก</small><strong>${first.createdByName||'-'}</strong></div><div><small>ประเภท</small><strong>${first.type==='IN'?'รับของเข้า':first.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</strong></div></div><div style="display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1.4fr);gap:18px;margin-top:18px;align-items:start;"><section><h4 style="margin:0 0 10px;">รูปหลักฐาน (${evidence.length})</h4>${photos}</section><section><h4 style="margin:0 0 10px;">รายการทั้งหมด (${items.length})</h4><div class="table-wrap"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>จำนวน</th><th>แหล่งที่มา</th><th>หมายเหตุ</th></tr></thead><tbody>${list}</tbody></table></div></section></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockRequestReject('${requestId}')">ตีกลับทั้งคำขอ</button><button class="btn btn-success" onclick="audStockRequestAction('${requestId}','อนุมัติแล้ว')">อนุมัติทั้งคำขอ</button></div></div>`);
 }
-function audStockRequestAction(id,status,note){DB.auditStockRequestSupabase(id,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติคำขอแล้ว':'ตีกลับคำขอแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+e.message,'error'));}
+function audStockRequestAction(id,status,note){DB.auditStockRequestSupabase(id,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติคำขอแล้ว':'ตีกลับคำขอแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+DB.stockErrorText(e),'error',5000));}
 function audStockRequestReject(id){openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับคำขอเบิก/รับ</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ</label><textarea id="aud-stock-request-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRequestReject('${id}')">ยืนยันตีกลับทั้งคำขอ</button></div></div>`);}
 function audDoStockRequestReject(id){const n=document.getElementById('aud-stock-request-note')?.value.trim();if(!n){Toast.show('กรุณาระบุเหตุผล','error');return;}audStockRequestAction(id,'ตีกลับ',n);}
 function audOpenStockLog(logId) {
@@ -677,7 +713,7 @@ function audOpenStockLog(logId) {
   openModal(`<div class="modal" style="width:980px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">ตรวจสอบรายการสต๊อก</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;"><div style="background:#111;min-height:260px;display:flex;align-items:center;justify-content:center;color:white;">ยังไม่มีรูปแนบ</div><div><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(log.date)}</strong></div><div><small>สาขา</small><strong>${log.branch||'-'}</strong></div><div><small>ประเภท</small><strong>${log.type==='IN'?'รับของเข้า':'เบิกใช้'}</strong></div><div><small>ผู้บันทึก</small><strong>${log.createdByName||'-'}</strong></div></div><h4 style="margin-top:18px;">รายการ</h4><div class="audit-item" style="display:flex;justify-content:space-between;padding:12px;background:var(--gray-50);border-radius:8px;"><span>${log.productCode||'-'} — ${log.productName||'-'}</span><strong>${log.qty} ${log.unit||''}</strong></div><p style="color:var(--gray-600);font-size:.85rem;">หมายเหตุ: ${log.note||'-'}</p></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockLogReject('${logId}')">ตีกลับ</button><button class="btn btn-success" onclick="audStockLogAction('${logId}','อนุมัติแล้ว')">อนุมัติ</button></div></div>`);
   lucide.createIcons();
 }
-function audStockLogAction(logId,status,note){ DB.auditStockLogSupabase(logId,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติรายการสต๊อกแล้ว':'ตีกลับรายการสต๊อกแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+e.message,'error')); }
+function audStockLogAction(logId,status,note){ DB.auditStockLogSupabase(logId,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติรายการสต๊อกแล้ว':'ตีกลับรายการสต๊อกแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+DB.stockErrorText(e),'error',5000)); }
 function audStockLogReject(logId){ openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับรายการสต๊อก</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ</label><textarea id="aud-stock-log-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockLogReject('${logId}')">ยืนยันตีกลับ</button></div></div>`); }
 function audDoStockLogReject(logId){const n=document.getElementById('aud-stock-log-note')?.value.trim();if(!n){Toast.show('กรุณาระบุเหตุผล','error');return;}audStockLogAction(logId,'ตีกลับ',n);}
 /* Legacy stock-log modal retained below for reference; the unified modal above is now used.

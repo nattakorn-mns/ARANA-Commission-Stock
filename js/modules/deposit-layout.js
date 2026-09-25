@@ -1,6 +1,13 @@
 // Approved deposit presentation adapter. The real Supabase save and calculation handlers remain active.
 const depositOriginalCreate=DB.createDepositSupabase;
-DB.createDepositSupabase=async payload=>{ payload.channel_account_name=document.getElementById('dep-account-name')?.value.trim()||''; return depositOriginalCreate(payload); };
+const DEPOSIT_AUTO_REF_TEXT='ระบบจะสร้างเลขอ้างอิงเมื่อบันทึก';
+DB.createDepositSupabase=async function(payload){
+  payload.channel_account_name=document.getElementById('dep-account-name')?.value.trim()||'';
+  // The on-screen reference is a read-only hint; the server issues deposit_no. Sending the hint
+  // text would make every deposit in a branch collide on the unique payment_reference index.
+  if(document.getElementById('dep-reference')?.readOnly||payload.payment_reference===DEPOSIT_AUTO_REF_TEXT)payload.payment_reference=null;
+  return depositOriginalCreate.call(DB,payload);
+};
 const depositOriginalRender=renderDeposits;
 renderDeposits=async function(container){
   await depositOriginalRender(container);
@@ -24,7 +31,7 @@ renderDeposits=async function(container){
   const reference=document.getElementById('dep-reference');
   if(reference){
     reference.closest('.form-group').querySelector('.form-label').textContent='เลขอ้างอิงอัตโนมัติ';
-    reference.readOnly=true;reference.value='ระบบจะสร้างเลขอ้างอิงเมื่อบันทึก';
+    reference.readOnly=true;reference.value=DEPOSIT_AUTO_REF_TEXT;
     reference.placeholder='ระบบสร้างให้อัตโนมัติ';reference.classList.add('deposit-auto-reference');
     
   }

@@ -318,15 +318,33 @@ function histGoPage(p) {
   histRender();
 }
 
-function histViewBill(billId) {
-  const bill = DB.getBillById(billId);
-  if (!bill) return;
+async function histViewBill(billId) {
+  if (!historyRemote) {
+    const bill = DB.getBillById(billId);
+    if (!bill) return;
+    const mine = s => s.createdBy === currentUser.id || currentUser.role !== 'Frontdesk';
+    histOpenBillModal(bill, DB.getBillServices(billId).filter(mine), DB.getBillSales(billId).filter(mine),
+      DB.getBillSupplies(billId).filter(mine), DB.getBillImages ? DB.getBillImages(billId) : []);
+    return;
+  }
+  // The summary already holds this user's own lines; fetch only the bill-level parts (photos, supplies).
+  const listed = historyRemote.bills.find(b => b.id === billId) || { id: billId };
+  // These lines are the viewer's own (arana_my_bills), so the recorder is the current user.
+  const me = s => ({ ...s, createdByName: s.createdByName || currentUser.nickname || currentUser.name || '-' });
+  const services = historyRemote.services.filter(s => s.billId === billId).map(me);
+  const sales = historyRemote.sales.filter(s => s.billId === billId).map(me);
+  openModal(`<div class="modal"><div class="modal-body" style="padding:32px;text-align:center;color:var(--gray-500);">กำลังโหลดรายละเอียดบิล...</div></div>`);
+  const detail = await DB.getBillDetailSupabase(billId);
+  const d = detail && detail.bill ? detail : null;
+  if (!d) Toast.show('โหลดรูปและรายการเบิกของบิลนี้ไม่สำเร็จ — แสดงเฉพาะยอดของคุณ', 'error', 4000);
+  const bill = d ? { ...listed, hn: d.bill.hn, customerName: d.bill.customer_name, date: d.bill.bill_date,
+    branch: d.bill.branch_name, status: d.bill.status || listed.status, auditNote: d.bill.audit_note || listed.auditNote } : listed;
+  const supplies = (d?.supplies || []).map(s => ({ productCode: s.product_code, productName: s.product_name, qty: s.qty, unit: s.unit }));
+  const images = (d?.images || []).map(im => ({ data: im.file_url })).filter(im => im.data);
+  histOpenBillModal(bill, services, sales, supplies, images);
+}
 
-  const services = DB.getBillServices(billId).filter(s => s.createdBy === currentUser.id || currentUser.role !== 'Frontdesk');
-  const sales = DB.getBillSales(billId).filter(s => s.createdBy === currentUser.id || currentUser.role !== 'Frontdesk');
-  const supplies = DB.getBillSupplies(billId).filter(s => s.createdBy === currentUser.id || currentUser.role !== 'Frontdesk');
-  const images = DB.getBillImages ? DB.getBillImages(billId) : [];
-
+function histOpenBillModal(bill, services, sales, supplies, images) {
   const totalService = services.filter(s=>!s.is_superseded).reduce((a,s)=>a+(s.commission||0),0);
   const totalCommission = sales.filter(s=>!s.is_superseded).reduce((a,s)=>a+(s.commissionAmt||0),0);
 
@@ -372,7 +390,7 @@ function histViewBill(billId) {
           ${services.map(s => `
             <div class="${s.is_superseded?'superseded':''}" style="display:flex;justify-content:space-between;padding:10px 12px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:6px;">
               <div style="display:flex; flex-direction:column; gap:2px;">
-                <div style="font-size:0.7rem;color:var(--gray-500);">ลงโดย: ${getUserName(s.createdBy)}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500);">ลงโดย: ${s.createdByName || getUserName(s.createdBy)}</div>
                 <div>
                   ${s.is_superseded?'<span class="badge badge-superseded" style="margin-right:6px;">แก้ไขแล้ว</span>':''}
                   <span style="font-size:0.86rem;font-weight:600;">${s.programName||s.programCode||'-'}</span>
@@ -390,7 +408,7 @@ function histViewBill(billId) {
           ${sales.map(s => `
             <div class="${s.is_superseded?'superseded':''}" style="padding:10px 12px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:6px;">
               <div style="margin-bottom:6px;">
-                <div style="font-size:0.7rem;color:var(--gray-500);margin-bottom:4px;">ลงโดย: ${getUserName(s.createdBy)}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500);margin-bottom:4px;">ลงโดย: ${s.createdByName || getUserName(s.createdBy)}</div>
                 <div style="display:flex; align-items:center;">
                   ${s.is_superseded?'<span class="badge badge-superseded" style="margin-right:6px;">แก้ไขแล้ว</span>':''}
                   ${typeBadge(s.type)}

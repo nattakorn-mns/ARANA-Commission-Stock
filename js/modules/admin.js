@@ -856,7 +856,8 @@ async function admRenderErpSync(body) {
       'รอส่ง': 'badge-waiting',
       'ส่งสำเร็จ': 'badge-approved',
       'ส่งไม่สำเร็จ': 'badge-rejected',
-      'ไม่ต้องส่ง': 'badge-waiting'
+      'ไม่ต้องส่ง': 'badge-waiting',
+      'ต้องยกเลิกที่ ERP': 'badge-rejected'
     };
     return `<span class="badge ${map[s]||''}">${s}</span>`;
   };
@@ -876,6 +877,7 @@ async function admRenderErpSync(body) {
         <option value="ส่งสำเร็จ" ${admErpFilter==='ส่งสำเร็จ'?'selected':''}>ส่งสำเร็จ</option>
         <option value="ส่งไม่สำเร็จ" ${admErpFilter==='ส่งไม่สำเร็จ'?'selected':''}>ส่งไม่สำเร็จ</option>
         <option value="ไม่ต้องส่ง" ${admErpFilter==='ไม่ต้องส่ง'?'selected':''}>ไม่ต้องส่ง</option>
+        <option value="ต้องยกเลิกที่ ERP" ${admErpFilter==='ต้องยกเลิกที่ ERP'?'selected':''}>ต้องยกเลิกที่ ERP</option>
       </select>
     </div>
     <div class="table-wrap" style="border:none;border-radius:0;">
@@ -891,7 +893,7 @@ async function admRenderErpSync(body) {
             <td>${r.qty||'-'}</td>
             <td>${badge(r.erp_sync_status)}${r.erp_sync_error?`<div style="font-size:0.72rem;color:var(--red-500,#dc2626);margin-top:2px;">${r.erp_sync_error}</div>`:''}</td>
             <td>${r.erp_ref||'—'}</td>
-            <td>${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)?`<button class="btn btn-ghost btn-sm" onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}</td>
+            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
           </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
         </tbody>
       </table>

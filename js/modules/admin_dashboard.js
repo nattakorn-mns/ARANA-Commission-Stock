@@ -10,8 +10,7 @@ let adminDashboardState = {
 function renderAdminDashboard(container) {
   // Set default filters if not set (e.g. today's date)
   if (!adminDashboardState.filters.dateFrom && !adminDashboardState.filters.dateTo) {
-    const today = new Date();
-    const isoDate = today.toISOString().split('T')[0];
+    const isoDate = todayISO();
     adminDashboardState.filters.dateFrom = isoDate;
     adminDashboardState.filters.dateTo = isoDate;
   }
