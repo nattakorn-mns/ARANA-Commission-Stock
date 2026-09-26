@@ -37,6 +37,7 @@ renderOPD = async function(container) {
   area.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openOPDCamera();}};
   area.querySelector('p').innerHTML='เปิดกล้องถ่ายภาพ OPD<br><span>ถ่ายใหม่เท่านั้น · แนบได้หลายภาพ</span>';
   document.getElementById('photo-input').remove();
+  if (opdState.editMode) opdApplyEditMode();
 };
 opdToggleSection=function(id){
  if(['customer-body','photos-body'].includes(id))return;

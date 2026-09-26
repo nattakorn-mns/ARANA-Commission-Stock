@@ -199,7 +199,7 @@ async function admRenderUsers(body) {
           <option value="CommissionAudit">ผู้ตรวจค่ามือ/คอมมิชชั่น</option>
           <option value="StockAudit">ผู้ตรวจตัดสต๊อก</option>
           <option value="OnlineSales">แอดมินขายออนไลน์</option>
-          <option value="Admin">Admin</option>
+          <option value="Admin">ผู้ดูแลระบบ</option>
         </select>
       </div>
       <div class="form-group">
@@ -239,7 +239,7 @@ async function admRenderUsers(body) {
             <td style="font-weight:600;">${u.name||'-'}</td>
             <td>${u.nickname||'-'}</td>
             <td><code style="font-size:0.8rem;background:var(--gray-100);padding:2px 8px;border-radius:4px;">${u.username||'-'}</code></td>
-            <td><span class="user-role role-${(u.role||'frontdesk').toLowerCase()}">${u.role||'-'}</span></td>
+            <td><span class="user-role role-${(u.role||'frontdesk').toLowerCase()}">${roleLabel(u.role)}</span></td>
             <td>
               <select class="form-select" style="padding:4px 8px;font-size:0.8rem;" onchange="admChangeUserPosition('${u.id}', this.value)">
                 <option value="">ยังไม่ตั้ง</option>

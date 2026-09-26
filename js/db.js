@@ -307,7 +307,11 @@ const DB = {
       INVALID_TO_BRANCH: 'กรุณาเลือกสาขาปลายทางให้ถูกต้อง', FORBIDDEN_BRANCH: 'บันทึกได้เฉพาะสาขาของตัวเอง',
       NOTE_REQUIRED: 'กรุณาระบุเหตุผล', OPD_REVERT_NOT_SUPPORTED: 'รายการเบิกจาก OPD ยังถอยการอนุมัติจากหน้านี้ไม่ได้',
       LEGACY_TRANSFER_NEEDS_MANUAL_FIX: 'รายการโอนสาขารุ่นเก่า ต้องปรับสต็อกด้วยมือ',
-      REQUEST_ID_CONFLICT: 'เลขใบเบิกซ้ำ กรุณากดบันทึกใหม่อีกครั้ง', NOTHING_CHANGED: 'ไม่พบรายการที่ต้องทำ (อาจมีคนทำไปแล้ว) กรุณารีเฟรชหน้า'
+      REQUEST_ID_CONFLICT: 'เลขใบเบิกซ้ำ กรุณากดบันทึกใหม่อีกครั้ง', NOTHING_CHANGED: 'ไม่พบรายการที่ต้องทำ (อาจมีคนทำไปแล้ว) กรุณารีเฟรชหน้า',
+      EDIT_REQUEST_REQUIRED: 'ส่วนที่อนุมัติแล้วต้องขอแก้ไขและรอแอดมิน/บัญชีอนุมัติก่อน', NOT_YOUR_BILL: 'แก้ไขได้เฉพาะรายการที่ตัวเองบันทึก',
+      REQUEST_ALREADY_OPEN: 'มีคำขอแก้ไขบิลนี้ค้างอยู่แล้ว', EDIT_WITHOUT_REQUEST: 'บิลนี้ยังไม่อนุมัติ กดแก้ไขได้เลยไม่ต้องขอ',
+      EMPTY_BILL: 'กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', UNKNOWN_PROGRAM: 'มีโปรแกรมที่ไม่พบหรือปิดใช้แล้ว',
+      INVALID_DATE: 'วันที่ไม่ถูกต้อง (ต้องไม่เกินวันนี้)', HN_AND_CUSTOMER_REQUIRED: 'กรุณากรอก HN และชื่อลูกค้า'
     };
     const code = Object.keys(map).find(k => msg.includes(k));
     return code ? map[code] : msg;
@@ -338,6 +342,27 @@ const DB = {
     // New server functions report how many rows changed; the old ones return true.
     if (result && typeof result === 'object' && Number(result.affected) === 0) throw new Error('NOTHING_CHANGED');
     return result;
+  },
+
+  // ── แก้ไขบิล OPD / คำขอแก้ไข (ต้องรัน SQL ไฟล์ 04) ─────────────
+  async editOpdBillSupabase(billId, payload) {
+    return await this._appRpc('edit_opd_bill', { p_bill_id: billId, p_payload: payload });
+  },
+
+  async requestBillEditSupabase(billId, reason) {
+    return await this._appRpc('request_bill_edit', { p_bill_id: billId, p_reason: reason });
+  },
+
+  async listBillEditRequestsSupabase(status) {
+    return (await this._appRpc('list_bill_edit_requests', { p_status: status || null })) || [];
+  },
+
+  async decideBillEditRequestSupabase(requestId, approve, note) {
+    return this._requireAffected(await this._appRpc('decide_bill_edit_request', { p_request_id: requestId, p_approve: !!approve, p_note: note || null }));
+  },
+
+  async revertOpdStockRequestSupabase(billId, note) {
+    return this._requireAffected(await this._appRpc('revert_opd_stock_request', { p_bill_id: billId, p_note: note }));
   },
 
   async revertStockRequestSupabase(requestId, note) {
@@ -437,9 +462,9 @@ const DB = {
   },
 
   async auditOpdStockRequestSupabase(billId, status, auditBy, note) {
-    await this._appRpc('audit_opd_stock_request', {
+    this._requireAffected(await this._appRpc('audit_opd_stock_request', {
       p_bill_id: billId, p_status: status, p_note: note || null
-    });
+    }));
   },
 
   async getPendingStockLogsSupabase() {

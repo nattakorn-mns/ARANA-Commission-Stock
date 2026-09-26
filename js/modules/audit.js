@@ -10,6 +10,7 @@ function renderAudit(container) {
     ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
     ${canDeposits ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
     ${canStock ? `<button class="tab-btn ${auditTab==='stock'?'active':''}" id="aud-tab-stock" onclick="audSwitch('stock')"><i data-lucide="package-check"></i>อนุมัติตัดสต๊อก</button>` : ''}
+    ${audCanAccessEditRequests() ? `<button class="tab-btn" id="aud-tab-edits" onclick="audSwitch('edits')"><i data-lucide="file-pen-line"></i>คำขอแก้ไขบิล</button>` : ''}
     ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิก APSX</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
   </div><div id="aud-body"></div></div>`;
   audRender(); lucide.createIcons();
@@ -18,6 +19,7 @@ function audSwitch(tab) {
   if (tab === 'commission' && !audCanAccessCommission()) return;
   if (tab === 'deposits' && !audCanAccessDeposits()) return;
   if (tab === 'stock' && !audCanAccessStock()) return;
+  if (tab === 'edits' && !audCanAccessEditRequests()) return;
   auditTab = tab; auditPage = 1;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById(`aud-tab-${tab}`); if (el) el.classList.add('active'); audRender();
@@ -27,6 +29,7 @@ function audRender() {
   if (auditTab === 'commission') audRenderOPD(body);
   else if (auditTab === 'deposits') audRenderDeposits(body);
   else if (auditTab === 'stock') audRenderStock(body);
+  else if (auditTab === 'edits') audRenderEditRequests(body);
   else if (auditTab === 'compare') audRenderCompare(body); else audRenderLog(body);
 }
 // ── TAB 1: Commission Audit ─────────────────────────────────────
@@ -300,196 +303,63 @@ function audNavImg(dir, total) {
   audUpdateTransform();
 }
 
-function audEditRequestRow(r) {
-  const b = DB.getBillById(r.billId) || {};
-  return `<tr id="aud-req-${r.id}" class="clickable" onclick="audOpenEditRequest('${r.id}')" style="background:var(--amber-50);">
-    <td class="nowrap">${formatDate(b.date || '')}</td>
-    <td><code style="font-size:0.75rem;background:var(--gray-100);padding:2px 5px;border-radius:4px;">${b.hn||'-'}</code></td>
-    <td style="font-weight:600;">${b.customerName||'-'}</td>
-    <td>${b.branch||'-'}</td>
-    <td style="font-size:0.8rem;">
-      <div style="display:flex;align-items:center;gap:4px;">
-        <i data-lucide="user" style="width:14px;height:14px;color:var(--gray-400);"></i>
-        <span>${getUserName(r.requestedBy)}</span>
-      </div>
-      <div style="margin-top:4px;color:var(--amber-700);font-size:0.75rem;"><i data-lucide="message-square" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> ${r.reason||'ขอแก้ไข'}</div>
-    </td>
-    <td id="aud-req-status-${r.id}"><span class="badge badge-waiting">คำขอแก้ไข</span></td>
-    <td style="text-align:center;" onclick="event.stopPropagation();">
-      <button class="btn btn-warning btn-sm" onclick="audOpenEditRequest('${r.id}')"><i data-lucide="search"></i> ตรวจสอบ</button>
-    </td>
-  </tr>`;
-}
+// ── คำขอแก้ไขบิล (แอดมิน/บัญชี อนุมัติ) ─────────────────────────
+function audCanAccessEditRequests() { return ['Admin', 'Audit', 'CommissionAudit', 'StockAudit'].includes(currentUser.role); }
+let audEditRequests = [];
+let audEditFilter = 'รออนุมัติ';
 
-function audOpenEditRequest(reqId) {
-  const req = DB.getEditRequests().find(r => r.id === reqId);
-  if (!req) return;
-  const billId = req.billId;
-  const bill = DB.getBillById(billId);
-  if (!bill) return;
-
-  const images = DB.getBillImages ? DB.getBillImages(billId) : [];
-  const services = DB.getBillServices(billId);
-  const sales = DB.getBillSales(billId);
-  const supplies = DB.getBillSupplies(billId);
-
-  let imgIdx = 0;
-  const imgSrc = images.length ? images[imgIdx]?.data || '' : '';
-
-  openModal(`
-  <div class="modal" style="width:1400px; max-width:98vw; height:90vh; max-height:900px; display:flex; flex-direction:column; border-radius:var(--radius-lg); box-shadow:var(--shadow-xl);">
-    <div class="modal-header" style="flex-shrink:0; background:var(--amber-50); border-bottom:1px solid var(--amber-200); z-index:10;">
-      <h3 class="modal-title" style="color:var(--amber-800);"><i data-lucide="pencil"></i>พิจารณาคำขอแก้ไขบิล — ${bill.hn||''} — ${bill.customerName}</h3>
-      <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button>
-    </div>
-    <div style="flex:1; overflow:hidden; display:flex; flex-wrap:wrap; background:var(--gray-100);">
-      <!-- Left: Image -->
-      <div class="split-left" style="flex:1;min-width:300px;display:flex;flex-direction:column;border-right:1px solid var(--gray-200);">
-        ${images.length ? `
-        <div class="split-img-wrap" id="audImgWrap" style="flex:1;position:relative;background:#111;cursor:grab;min-height:0;width:100%;">
-          <img id="aud-img" src="${imgSrc}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;transform-origin:center center;transition:transform 0.1s ease-out;pointer-events:none;" draggable="false" />
-        </div>
-        <div class="split-img-controls" style="display:flex;align-items:center;padding:8px 12px;background:var(--gray-900);gap:8px;flex-shrink:0;">
-          <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audZoom(-0.2)"><i data-lucide="zoom-out"></i></button>
-          <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audZoom(0.2)"><i data-lucide="zoom-in"></i></button>
-          <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audZoom(0,'reset')"><i data-lucide="maximize-2"></i></button>
-          <span class="split-img-counter" id="aud-img-counter" style="color:white;font-size:0.8rem;margin-left:8px;">${images.length > 1 ? `1/${images.length}` : ''}</span>
-          <div style="margin-left:auto;display:flex;gap:6px;">
-            ${images.length > 1 ? `
-            <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audNavImg(-1,${images.length})"><i data-lucide="chevron-left"></i></button>
-            <button class="btn btn-ghost btn-sm" style="color:white;" onclick="audNavImg(1,${images.length})"><i data-lucide="chevron-right"></i></button>` : ''}
-          </div>
-        </div>
-        <div style="background:var(--cream);padding:14px 16px;border-top:1px solid var(--gray-200);display:flex;justify-content:center;">
-          <span style="font-size:0.85rem;color:var(--gray-600);"><i data-lucide="info" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i>สามารถลากรูปหรือซูมดูรายละเอียดได้</span>
-        </div>` : `
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--gray-400);flex-direction:column;gap:12px;background:var(--gray-50);">
-          <i data-lucide="image-off" style="width:48px;height:48px;"></i><p>ไม่มีภาพ OPD</p>
-        </div>`}
-      </div>
-      <!-- Right: Data -->
-      <div class="split-right" style="flex:1;min-width:320px;display:flex;flex-direction:column;background:var(--white);">
-        <div class="split-right-body" style="flex:1;overflow-y:auto;padding:20px;">
-          <div class="alert-box alert-warning" style="margin-bottom:12px;">
-            <i data-lucide="info"></i>
-            <span><strong>เหตุผลที่ขอแก้ไข:</strong> ${req.reason}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;background:var(--gray-50);padding:12px;border-radius:var(--radius-md);border:1px solid var(--gray-100);">
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">HN</div><div style="font-weight:700;">${bill.hn||'-'}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">วันที่</div><div style="font-weight:600;">${formatDate(bill.date)}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">ลูกค้า</div><div style="font-weight:700;">${bill.customerName}</div></div>
-            <div><div style="font-size:0.75rem;color:var(--gray-500);">สาขา</div><div style="font-weight:600;">${bill.branch}</div></div>
-            <div style="grid-column:span 2;">
-              <div style="font-size:0.75rem;color:var(--gray-500);">ผู้บันทึก</div>
-              <div style="font-weight:700;display:flex;align-items:center;gap:6px;">
-                <i data-lucide="user" style="width:16px;height:16px;color:var(--burgundy-500);"></i>
-                ${getUserName(bill.createdBy)}
-              </div>
-            </div>
-          </div>
-          ${services.length ? `
-          <div class="section-header" style="margin-bottom:10px;"><span class="section-title">ค่ามือ</span></div>
-          ${services.map(s => `
-          <div class="audit-item ${s.is_superseded?'superseded':''}" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};">
-            <div style="font-weight:600;margin-bottom:4px;font-size:1.1rem;color:var(--burgundy-800);">${s.is_superseded?'<span class="badge badge-superseded">ยกเลิก</span> ':''}${(DB.getProgramByCode?DB.getProgramByCode(s.programCode)?.name:null)||s.programName||s.programCode||'-'}</div>
-            <div style="font-size:0.82rem;color:var(--gray-600);display:flex;justify-content:space-between;">
-              <span></span>
-              <span style="font-weight:700;color:var(--burgundy-700);">ค่ามือ ฿${formatCurrency(s.commission)}</span>
-            </div>
-            <div style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">ลงโดย: ${getUserName(s.createdBy)}</div>
-          </div>`).join('')}` : ''}
-          ${sales.length ? `
-          <div class="section-header" style="margin:16px 0 10px;"><span class="section-title">ค่าคอมมิชชั่น</span></div>
-          ${sales.map(s => `
-          <div class="audit-item ${s.is_superseded?'superseded':''}" style="padding:10px;border:1px solid var(--gray-100);border-radius:var(--radius-sm);margin-bottom:8px;background:${s.is_superseded?'var(--gray-50)':'var(--white)'};">
-            <div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-              ${s.is_superseded?'<span class="badge badge-superseded">ยกเลิก</span>':''}
-              ${typeBadge(s.type)}
-              <span style="font-weight:600;">${s.newProgram||'-'}</span>
-            </div>
-            ${s.oldProgram ? `<div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:6px;padding:6px;background:var(--gray-50);border-radius:4px;">
-              โปรแกรมเดิม: <strong>${s.oldProgram}</strong> (฿${formatCurrency(s.oldPrice)}) <i data-lucide="arrow-right" style="width:12px;display:inline-block;vertical-align:middle;margin:0 4px;"></i> อัพเป็น: <strong>${s.newProgram}</strong> (฿${formatCurrency(s.newPrice)})
-            </div>` : ''}
-            <div style="font-size:0.82rem;color:var(--gray-600);display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span>ยอดเต็ม/ส่วนต่าง: ฿${formatCurrency(s.commissionBase)} × ${s.commissionPct}%</span>
-              <span style="font-weight:700;color:var(--burgundy-700);">คอม: ฿${formatCurrency(s.commissionAmt)}</span>
-            </div>
-          </div>`).join('')}` : ''}
-        </div>
-        <div class="split-right-footer" style="padding:16px;border-top:1px solid var(--gray-200);display:flex;gap:12px;background:var(--white);">
-          <button class="btn btn-danger" style="flex:1;padding:12px;" onclick="audPromptRejectEdit('${req.id}', '${billId}')">
-            <i data-lucide="x-circle"></i> ไม่อนุมัติให้แก้
-          </button>
-          <button class="btn btn-success" style="flex:1;padding:12px;" onclick="audApproveEdit('${req.id}','${billId}')">
-            <i data-lucide="check-circle"></i> อนุมัติให้แก้
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>`);
-
-  document.querySelector('.modal-overlay').onclick = null;
-  window._audImages = images;
-  window._audImgIdx = 0;
-  window._audScale = 1;
-  window._audPanX = 0;
-  window._audPanY = 0;
+async function audRenderEditRequests(body) {
+  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+  try { audEditRequests = await DB.listBillEditRequestsSupabase(audEditFilter || null); }
+  catch (e) {
+    body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>โหลดคำขอแก้ไขไม่สำเร็จ</h4><p>${/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ไฟล์ 04' : DB.stockErrorText(e)}</p></div>`;
+    lucide.createIcons(); return;
+  }
+  const esc = v => String(v ?? '-').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const parts = r => [r.commission_status === 'อนุมัติแล้ว' ? 'ค่ามือ/ค่าคอม' : '', r.supplies_approved ? 'รายการเบิก' : ''].filter(Boolean).join(', ') || '-';
+  body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-weight:700;color:var(--gray-700);">คำขอแก้ไขบิลที่อนุมัติแล้ว</span>
+      <span style="font-size:.8rem;color:var(--gray-500);">อนุมัติคำขอ = อนุญาตให้พนักงานแก้ ส่วนที่แก้จะกลับมารอตรวจใหม่ ส่วนที่ไม่แก้คงสถานะเดิม</span>
+      <select class="filter-select" style="margin-left:auto;width:auto;" onchange="audEditFilter=this.value;audRenderEditRequests(document.getElementById('aud-body'))">
+        ${['รออนุมัติ', 'อนุมัติแล้ว', 'ใช้แล้ว', 'ไม่อนุมัติ', ''].map(s => `<option value="${s}" ${s === audEditFilter ? 'selected' : ''}>${s || 'ทั้งหมด'}</option>`).join('')}
+      </select></div>
+    <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่ขอ</th><th>บิล</th><th>สาขา</th><th>ผู้ขอ</th><th>ส่วนที่อนุมัติไปแล้ว</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead><tbody>
+    ${audEditRequests.length ? audEditRequests.map(r => `<tr>
+      <td class="nowrap">${formatDate(r.created_at)}</td>
+      <td><strong>${esc(r.hn)}</strong> — ${esc(r.customer_name)}<br><small>${formatDate(r.bill_date)}</small></td>
+      <td>${esc(r.branch_name)}</td><td>${esc(r.requested_by_name)}</td><td>${parts(r)}</td>
+      <td style="max-width:260px;font-size:.82rem;">${esc(r.reason)}${r.decision_note ? `<br><small style="color:var(--gray-500);">ผล: ${esc(r.decision_note)}</small>` : ''}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td class="nowrap"><button class="btn btn-ghost btn-sm" data-view-ok onclick="audViewEditRequestBill('${r.bill_id}')"><i data-lucide="eye"></i></button>
+        ${r.status === 'รออนุมัติ' ? `<button class="btn btn-success btn-sm" onclick="audDecideEdit('${r.id}', true)">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="audPromptDeclineEdit('${r.id}')">ไม่อนุมัติ</button>` : ''}</td>
+    </tr>`).join('') : '<tr><td colspan="8"><div class="empty-state">ไม่มีคำขอแก้ไข</div></td></tr>'}
+    </tbody></table></div></div>`;
   lucide.createIcons();
-
-  // Attach Drag/Pan Events
-  setTimeout(() => {
-    const wrap = document.getElementById('audImgWrap');
-    if (!wrap) return;
-    let isDragging = false;
-    let startX, startY;
-    wrap.addEventListener('mousedown', e => { isDragging = true; startX = e.clientX - _audPanX; startY = e.clientY - _audPanY; wrap.style.cursor = 'grabbing'; });
-    window.addEventListener('mousemove', e => { if (!isDragging) return; _audPanX = e.clientX - startX; _audPanY = e.clientY - startY; audApplyTransform(); });
-    window.addEventListener('mouseup', () => { isDragging = false; wrap.style.cursor = 'grab'; });
-    wrap.addEventListener('wheel', e => { e.preventDefault(); audZoom(e.deltaY > 0 ? -0.1 : 0.1); });
-  }, 100);
 }
 
-function audApproveEdit(reqId, billId) {
-  if (DB.updateEditRequest) DB.updateEditRequest(reqId, 'อนุมัติแล้ว', currentUser.id);
-  if (DB.updateBillStatus) DB.updateBillStatus(billId, 'รอแก้ไข', currentUser.id, 'อนุมัติให้แก้ไขได้');
-  closeModalDirect();
-  Toast.show('อนุมัติคำขอแก้ไขแล้ว', 'success');
-  audRender();
+function audViewEditRequestBill(billId) {
+  if (audCanAccessCommission()) audOpenBill(billId); else audOpenStockRequest(billId);
 }
-function audPromptRejectEdit(reqId, billId) {
-  closeModalDirect();
-  setTimeout(() => {
-    openModal(`
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title"><i data-lucide="x-circle"></i>ไม่อนุมัติคำขอแก้ไข</h3>
-        <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">เหตุผลที่ไม่อนุมัติ <span class="required">*</span></label>
-          <textarea id="aud-edit-reject-note" class="form-textarea" rows="4" placeholder="ระบุเหตุผลที่ไม่อนุมัติให้แก้ไขบิล..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button>
-        <button class="btn btn-danger" onclick="audDoRejectEdit('${reqId}', '${billId}')"><i data-lucide="x-circle"></i> ยืนยันไม่อนุมัติ</button>
-      </div>
-    </div>`);
-    lucide.createIcons();
-  }, 300);
+
+async function audDecideEdit(requestId, approve, note) {
+  try {
+    await DB.decideBillEditRequestSupabase(requestId, approve, note || null);
+    closeModalDirect();
+    Toast.show(approve ? 'อนุมัติคำขอแก้ไขแล้ว — พนักงานแก้บิลได้' : 'ไม่อนุมัติคำขอแก้ไขแล้ว', approve ? 'success' : 'error');
+    audRenderEditRequests(document.getElementById('aud-body'));
+  } catch (e) { Toast.show('ทำรายการไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
 }
-function audDoRejectEdit(reqId, billId) {
-  const note = document.getElementById('aud-edit-reject-note')?.value.trim();
+
+function audPromptDeclineEdit(requestId) {
+  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ไม่อนุมัติคำขอแก้ไข</h3></div><div class="modal-body"><label class="form-label">เหตุผล <span class="required">*</span></label><textarea id="aud-edit-decline-note" class="form-textarea" rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoDeclineEdit('${requestId}')">ยืนยันไม่อนุมัติ</button></div></div>`);
+}
+
+function audDoDeclineEdit(requestId) {
+  const note = document.getElementById('aud-edit-decline-note')?.value.trim();
   if (!note) { Toast.show('กรุณาระบุเหตุผล', 'error'); return; }
-  if (DB.updateEditRequest) DB.updateEditRequest(reqId, 'ไม่อนุมัติ', currentUser.id, note);
-  if (DB.updateBillStatus) DB.updateBillStatus(billId, 'อนุมัติแล้ว', currentUser.id, 'ไม่อนุมัติให้แก้ไข: ' + note);
-  closeModalDirect();
-  Toast.show('ปฏิเสธคำขอแก้ไขแล้ว', 'warning');
-  audRender();
+  audDecideEdit(requestId, false, note);
 }
 
-// ── TAB: Deposit payment verification ─────────────────────
 async function audRenderDeposits(body) {
   body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดยอดมัดจำ...</div>`;
   const rows = await DB.getPendingDepositsSupabase();

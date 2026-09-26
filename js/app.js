@@ -126,7 +126,7 @@ async function showApp() {
 
   // Set user info
   document.getElementById('user-name').textContent = `${currentUser.nickname} (${currentUser.name.split(' ')[0]})`;
-  document.getElementById('user-role-badge').textContent = currentUser.role;
+  document.getElementById('user-role-badge').textContent = roleLabel(currentUser.role);
   document.getElementById('user-role-badge').className = 'user-role role-' + currentUser.role.toLowerCase();
   document.getElementById('user-avatar').textContent = (currentUser.nickname || currentUser.name)[0];
 
@@ -172,6 +172,10 @@ const ROUTES = {
   admin_dashboard: { label: 'ระบบ Admin Dashboard', icon: 'layout-dashboard', roles: ['Admin'], render: () => renderAdminDashboard(getPage()) },
   systemlogs: { label: 'System Logs', icon: 'activity', roles: ['Admin'], render: () => renderSystemLogs(getPage()) },
 };
+
+// Names shown on screen, matched to the main ERP. The stored role value stays the same.
+const ROLE_LABELS = { Admin: 'ผู้ดูแลระบบ' };
+function roleLabel(role) { return ROLE_LABELS[role] || role || '-'; }
 
 function canAccess(route) {
   if (!currentUser) return false;

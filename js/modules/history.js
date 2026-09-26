@@ -446,6 +446,7 @@ function histOpenBillModal(bill, services, sales, supplies, images) {
       <div style="display:flex;align-items:center;gap:8px;flex:1;">
         <span style="font-size:0.85rem;color:var(--gray-600);">รวมที่ได้จากบิลนี้ (เฉพาะที่คุณลง): <strong style="color:var(--burgundy-700);font-size:1.1rem;margin-left:4px;">฿${formatCurrency(totalService+totalCommission)}</strong></span>
       </div>
+      ${histEditActions(bill)}
       <button class="btn btn-ghost" onclick="closeModalDirect()">ปิดหน้าต่าง</button>
     </div>
   </div>`);
@@ -463,7 +464,7 @@ function histRequestEdit(billId) {
     <div class="modal-body">
       <div class="alert-box alert-info" style="margin-bottom:16px;">
         <i data-lucide="info"></i>
-        <span>คำขอแก้ไขจะถูกส่งให้ Audit พิจารณา — บิลจะสามารถแก้ไขได้เมื่อได้รับการอนุมัติ</span>
+        <span>คำขอแก้ไขจะถูกส่งให้แอดมิน/บัญชีพิจารณา — เมื่ออนุมัติแล้ว กด "แก้ไขบิล" ได้ ส่วนที่แก้จะกลับไปรอตรวจใหม่</span>
       </div>
       <div class="form-group">
         <label class="form-label">เหตุผลที่ขอแก้ไข <span class="required">*</span></label>
@@ -479,9 +480,32 @@ function histRequestEdit(billId) {
   </div>`);
 }
 
-function histSubmitEditRequest(billId) {
+// Edit buttons for the viewer's own lines. ค่ามือ/ค่าคอม and รายการเบิก are separate parts:
+// a part not yet approved can be edited straight away; an approved part needs an approved edit request.
+function histEditActions(bill) {
+  const es = historyRemote && bill && bill.editState;
+  if (!es || !es.has_own_lines) return '';
+  const statusText = s => s || '—';
+  let html = `<span style="font-size:.78rem;color:var(--gray-500);margin-right:6px;">ค่ามือ/ค่าคอม: ${statusText(bill.commissionStatus || bill.status)} · รายการเบิก: ${statusText(bill.stockStatus)}</span>`;
+  if (es.request_status === 'รออนุมัติ') html += '<span class="badge badge-pending" style="margin-right:6px;">รออนุมัติคำขอแก้ไข</span>';
+  else if (es.last_request && es.last_request.status === 'ไม่อนุมัติ') html += `<span class="badge badge-rejected" style="margin-right:6px;" title="${String(es.last_request.decision_note || '').replace(/"/g, '&quot;')}">คำขอแก้ไขไม่อนุมัติ</span>`;
+  const canEditNow = !es.commission_locked || !es.supplies_locked || es.request_status === 'อนุมัติแล้ว';
+  if (canEditNow) html += `<button class="btn btn-primary" onclick="histDoEditBill('${bill.id}')"><i data-lucide="pencil"></i> แก้ไขบิล</button>`;
+  if ((es.commission_locked || es.supplies_locked) && !es.request_status) html += `<button class="btn btn-primary" onclick="histRequestEdit('${bill.id}')"><i data-lucide="send"></i> ขอแก้ไขส่วนที่อนุมัติแล้ว</button>`;
+  return html;
+}
+
+async function histSubmitEditRequest(billId) {
   const reason = document.getElementById('edit-reason')?.value.trim();
   if (!reason) { Toast.show('กรุณากรอกเหตุผลที่ขอแก้ไข', 'error'); return; }
+  if (historyRemote) {
+    try { await DB.requestBillEditSupabase(billId, reason); }
+    catch (e) { Toast.show('ส่งคำขอไม่สำเร็จ: ' + (/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ไฟล์ 04' : DB.stockErrorText(e)), 'error', 6000); return; }
+    closeModalDirect();
+    Toast.show('ส่งคำขอแก้ไขแล้ว — รอแอดมิน/บัญชีอนุมัติ 📨', 'success', 4000);
+    histLoadRemote();
+    return;
+  }
   DB.saveEditRequest({ billId, requestedBy: currentUser.id, reason, status: 'รอการอนุมัติ' });
   closeModalDirect();
   Toast.show('ส่งคำขอแก้ไขเรียบร้อย — รอ Audit พิจารณา 📨', 'success', 4000);

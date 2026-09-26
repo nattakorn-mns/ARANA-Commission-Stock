@@ -1035,7 +1035,7 @@ async function opdSubmit() {
     Toast.show('กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', 'error'); return;
   }
 
-  if (!opdState.isShared && opdState.photos.length === 0) {
+  if (!opdState.isShared && !opdState.editMode && opdState.photos.length === 0) {
     Toast.show('⚠️ กรุณาแนบรูป OPD อย่างน้อย 1 รูปก่อนบันทึก', 'error', 5000);
     const photosBody = document.getElementById('photos-body');
     if (photosBody) photosBody.classList.remove('collapsed');
@@ -1063,32 +1063,67 @@ async function opdSubmit() {
   const payload = {
     hn, customer_name: customerName, date, branch_name: branch, created_by: currentUser.id,
     linked_deposit_id: opdState.isShared ? null : opdState.linkedDepositId,
-    services: serviceRows
-      .map(s => ({ program_code: s.programCode, price: s.price, commission: s.commission })),
-    sales: saleRows
-      .map(s => ({
-        type: s.type, old_program: s.oldProgram, old_price: s.oldPrice, new_program: s.newProgram, new_price: s.newPrice,
-        pay_type: s.payType, installment_no: s.installmentNo || null,
-        commission_base_manual: !!s.commissionBaseManual, commission_note: s.commissionNote || '',
-        amount_paid: s.amountPaid, commission_base: s.commissionBase, commission_pct: s.commissionPct, commission_amt: s.commissionAmt
-      })),
-    supplies: opdState.supplies
-      .filter(s => s.productCode)
-      .map(s => ({ product_code: s.productCode, qty: s.qty, program_code: s.programCode || null })),
+    ...opdLinesPayload(),
     images: opdState.photos.map(p => ({ data: p.data, name: p.name }))
   };
 
   try {
+    if (opdState.editMode) { await opdSubmitEdit(payload); return; }
     if (opdState.isShared) await DB.appendOpdBillSupabase(opdState.sharedBillId, payload);
     else await DB.createOpdBillSupabase(payload);
     Toast.show(opdState.isShared ? 'พ่วงรายการกับ OPD เดิมเรียบร้อย ✓' : 'บันทึก OPD เรียบร้อย ✓ — รออนุมัติ', 'success', 4000);
     opdReset();
   } catch (e) {
     console.error(e);
-    Toast.show('เกิดข้อผิดพลาดขณะบันทึก: ' + e.message, 'error');
+    Toast.show('เกิดข้อผิดพลาดขณะบันทึก: ' + DB.stockErrorText(e), 'error', 6000);
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
+}
+
+// The lines exactly as they are sent (blank rows dropped, numbers normalised) — also used to detect what was edited.
+function opdLinesPayload() {
+  const num = v => Number(v) || 0;
+  return {
+    services: opdState.services
+      .filter(s => s.programCode || num(s.price) || num(s.commission))
+      .map(s => ({ program_code: s.programCode, price: num(s.price), commission: num(s.commission) })),
+    sales: opdState.sales
+      .filter(s => s.newProgram || num(s.newPrice))
+      .map(s => ({
+        type: s.type, old_program: s.oldProgram || '', old_price: num(s.oldPrice), new_program: s.newProgram || '', new_price: num(s.newPrice),
+        pay_type: s.payType || '', installment_no: s.installmentNo || null,
+        commission_base_manual: !!s.commissionBaseManual, commission_note: s.commissionNote || '',
+        amount_paid: num(s.amountPaid), commission_base: num(s.commissionBase), commission_pct: num(s.commissionPct), commission_amt: num(s.commissionAmt)
+      })),
+    supplies: opdState.supplies
+      .filter(s => s.productCode)
+      .map(s => ({ product_code: s.productCode, qty: num(s.qty), program_code: s.programCode || null }))
+  };
+}
+
+function opdEditSnapshot(hn, customerName, date) {
+  const lines = opdLinesPayload();
+  return { commission: JSON.stringify([hn, customerName, date, lines.services, lines.sales]), supplies: JSON.stringify(lines.supplies) };
+}
+
+// Edit: each part (ค่ามือ/ค่าคอม, รายการเบิก) is sent only if it changed; the server puts that part back to "รอตรวจสอบ".
+async function opdSubmitEdit(payload) {
+  const em = opdState.editMode;
+  const now = opdEditSnapshot(payload.hn, payload.customer_name, payload.date);
+  const editCommission = now.commission !== em.snapshot.commission;
+  const editSupplies = now.supplies !== em.snapshot.supplies;
+  if (!editCommission && !editSupplies && !payload.images.length) { Toast.show('ยังไม่ได้แก้ไขอะไร', 'warning'); return; }
+  const locked = (editCommission && em.commissionLocked) || (editSupplies && em.suppliesLocked);
+  if (locked && em.requestStatus !== 'อนุมัติแล้ว') {
+    Toast.show('ส่วนที่อนุมัติแล้วต้องกด "ขอแก้ไข" จากหน้าสรุปยอดของฉัน และรอแอดมิน/บัญชีอนุมัติก่อน', 'error', 6000);
+    return;
+  }
+  await DB.editOpdBillSupabase(em.billId, { ...payload, edit_commission: editCommission, edit_supplies: editSupplies });
+  const parts = [editCommission ? 'ค่ามือ/ค่าคอม' : '', editSupplies ? 'รายการเบิก' : ''].filter(Boolean).join(' และ ');
+  Toast.show(parts ? `บันทึกการแก้ไขแล้ว ✓ — ${parts} กลับเข้าคิวรอตรวจ` : 'เพิ่มรูปแล้ว ✓', 'success', 5000);
+  opdState.editMode = null;
+  navigate('history');
 }
 
 function opdSaveDraft() {
@@ -1193,62 +1228,55 @@ function opdReset() {
 }
 
 // ── Edit Bill Mode ──────────────────────────────────────────
-function opdEditBill(billId) {
-  Toast.show('ฟีเจอร์แก้ไขบิลกำลังปรับปรุงให้ใช้กับฐานข้อมูลใหม่ ยังไม่พร้อมใช้งานตอนนี้ค่ะ', 'error', 5000);
-  return;
-  // eslint-disable-next-line no-unreachable
-  const bill = DB.getBillById(billId);
-  if (!bill) return;
-
-  if (typeof appSwitchTab === 'function') appSwitchTab('opd');
-
-  const oldSvcs = DB.getBillServices(bill.id).filter(s => !s.is_superseded).map(s => ({...s, id: 's_'+Date.now()+Math.random()}));
-  const oldSales = DB.getBillSales(bill.id).filter(s => !s.is_superseded).map(s => ({...s, id: 'sl_'+Date.now()+Math.random()}));
-  const oldSups = DB.getBillSupplies(bill.id).filter(s => !s.is_superseded).map(s => ({...s, id: 'sp_'+Date.now()+Math.random()}));
-  const oldPhotos = (DB.getBillImages ? DB.getBillImages(bill.id) : []).map(p => ({...p, id: 'ph_'+Date.now()+Math.random()}));
-
+// Open a saved bill in the OPD form. Only the viewer's own lines are loaded; the server enforces the same rule.
+async function opdEditBill(billId) {
+  const detail = await DB.getBillDetailSupabase(billId);
+  if (!detail || !detail.bill) { Toast.show('โหลดบิลไม่สำเร็จ กรุณาลองใหม่', 'error'); return; }
+  const mine = x => !x.created_by || x.created_by === currentUser.id;
+  const listed = ((typeof historyRemote !== 'undefined' && historyRemote && historyRemote.bills) || []).find(b => b.id === billId) || {};
+  const es = listed.editState || {};
+  const uid = p => p + Date.now() + Math.random().toString(36).slice(2, 7);
+  const services = (detail.services || []).filter(mine).map(s => ({ id: uid('s_'), programCode: s.program_code || '', programName: s.program_name || '', price: Number(s.price) || 0, commission: Number(s.commission) || 0 }));
+  const firstProgram = services[0] ? services[0].programCode : '';
   window._editingOpdState = {
-    billId: bill.id,
-    isShared: false,
-    sharedBillId: null,
-    sharedBillServices: [],
-    linkedDepositId: null,
-    photos: oldPhotos,
-    services: oldSvcs.length ? oldSvcs : [{ id: 's_'+Date.now(), programCode: '', programName: '', price: 0, commission: 0 }],
-    sales: oldSales,
-    supplies: oldSups
+    billId: null, isShared: false, sharedBillId: null, linkedDepositId: null, photos: [],
+    // Programs recorded by others on this bill can still be chosen for supplies.
+    sharedBillServices: (detail.services || []).filter(s => !mine(s)).map(s => ({ programCode: s.program_code, programName: s.program_name, price: s.price })),
+    services,
+    sales: (detail.sales || []).filter(mine).map(s => ({
+      id: uid('sale_'), type: String(s.sale_type || '').toLowerCase(), oldProgram: s.old_program_name || '', oldProgramManual: false, oldPrice: Number(s.old_price) || 0,
+      newProgram: s.new_program_name || '', newPrice: Number(s.new_price) || 0, payType: s.pay_type || 'จ่ายเต็ม', installmentNo: s.installment_no || '',
+      amountPaid: Number(s.amount_paid) || 0, commissionBase: Number(s.commission_base) || 0, commissionBaseManual: !!s.commission_base_manual,
+      commissionNote: s.commission_note || '', commissionPct: Number(s.commission_pct) || 0, commissionAmt: Number(s.commission_amt) || 0 })),
+    supplies: (detail.supplies || []).filter(mine).map(s => ({ id: uid('sup_'), programCode: s.program_code || firstProgram, programName: s.program_name || '',
+      productCode: s.product_code, productName: s.product_name, qty: Number(s.qty) || 0, unit: s.unit || '' })),
+    editMode: { billId, isOwner: detail.bill.created_by === currentUser.id, commissionLocked: !!es.commission_locked, suppliesLocked: !!es.supplies_locked,
+      requestStatus: es.request_status || null, existingPhotos: (detail.images || []).length,
+      header: { hn: detail.bill.hn || '', customerName: detail.bill.customer_name || '', date: String(detail.bill.bill_date || '').slice(0, 10) } }
   };
+  navigate('opd');
+}
 
-  if (typeof navigate === 'function') {
-    navigate('opd');
-  } else {
-    renderOPD(document.getElementById('page-content'));
-  }
-
-  setTimeout(() => {
-    document.getElementById('opd-hn').value = bill.hn || '';
-    document.getElementById('opd-customer').value = bill.customerName || '';
-    document.getElementById('opd-date').value = bill.date ? bill.date.split('T')[0] : todayISO();
-    
-    // Lock bill mode radios
-    const radios = document.querySelectorAll('input[name="bill-mode"]');
-    radios.forEach(r => r.disabled = true);
-    
-    // Add edit banner
-    const form = document.getElementById('opd-form');
-    if (form) {
-      const banner = document.createElement('div');
-      banner.className = 'alert-box alert-warning';
-      banner.style.marginBottom = '16px';
-      banner.innerHTML = `<i data-lucide="pencil"></i><span>กำลังแก้ไขบิล <strong>${bill.hn || ''}</strong> — ${bill.customerName} (บันทึกเพื่อส่งให้ Audit ตรวจใหม่)</span>`;
-      form.insertBefore(banner, form.firstChild);
-    }
-    
-    opdRenderServices();
-    opdRenderSales();
-    opdRenderSupplies();
-    opdRenderPhotos();
-    lucide.createIcons();
-  }, 100);
+// Called at the end of rendering the OPD page when a bill is being edited.
+function opdApplyEditMode() {
+  const em = opdState.editMode; if (!em) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) { el.value = v; if (!em.isOwner) el.disabled = true; } };
+  set('opd-hn', em.header.hn); set('opd-customer', em.header.customerName); set('opd-date', em.header.date);
+  document.querySelectorAll('input[name="bill-mode"]').forEach(r => { r.disabled = true; r.closest('label')?.style.setProperty('display', 'none'); });
+  document.getElementById('opd-draft-btn')?.remove();
+  const btn = document.getElementById('opd-submit-btn'); if (btn) btn.innerHTML = '<i data-lucide="save"></i> บันทึกการแก้ไข';
+  const partText = (locked) => locked
+    ? (em.requestStatus === 'อนุมัติแล้ว' ? '<b style="color:var(--green-600);">อนุมัติแล้ว — ได้รับอนุญาตให้แก้</b>' : '<b>อนุมัติแล้ว — ต้องขอแก้ไขก่อน</b>')
+    : 'ยังไม่อนุมัติ — แก้ได้เลย';
+  const banner = document.createElement('div');
+  banner.className = 'alert-box alert-warning'; banner.style.marginBottom = '16px';
+  banner.innerHTML = `<i data-lucide="pencil"></i><span>กำลังแก้ไขบิล <strong>${em.header.hn}</strong> — ${em.header.customerName}<br>
+    ค่ามือ/ค่าคอม: ${partText(em.commissionLocked)} · รายการเบิก: ${partText(em.suppliesLocked)}<br>
+    ส่วนที่แก้จะกลับไปรอตรวจใหม่ ส่วนที่ไม่แก้คงสถานะเดิม · รูปเดิม ${em.existingPhotos} รูปยังอยู่ ถ่ายเพิ่มได้
+    <br><button class="btn btn-ghost btn-sm" data-view-ok style="margin-top:6px;" onclick="opdReset();navigate('history')">ยกเลิกการแก้ไข</button></span>`;
+  const form = document.getElementById('opd-form'); if (form) form.insertBefore(banner, form.firstChild);
+  ['services', 'sales', 'supplies'].forEach(id => document.getElementById(id + '-body')?.classList.remove('collapsed'));
+  em.snapshot = opdEditSnapshot(em.header.hn, em.header.customerName, em.header.date);
+  lucide.createIcons();
 }
 
