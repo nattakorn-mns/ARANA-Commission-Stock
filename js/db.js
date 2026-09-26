@@ -523,6 +523,22 @@ const DB = {
     return res;
   },
 
+  // Deposit receiving accounts. Returns null until the 26/09 SQL file 03 has been run.
+  async listDepositAccountsSupabase() {
+    try { return await this._positionRpc('list_deposit_accounts'); }
+    catch (error) {
+      if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''))) return null;
+      throw error;
+    }
+  },
+
+  async saveDepositAccountSupabase(a) {
+    return await this._positionRpc('admin_save_deposit_account', {
+      p_id: a.id || null, p_bank_name: a.bank_name, p_account_no: a.account_no, p_account_name: a.account_name,
+      p_note: a.note || null, p_is_active: a.is_active !== false, p_sort_order: Number(a.sort_order || 0)
+    });
+  },
+
   // Own deposit commissions for "สรุปยอดของฉัน". Empty until the get_my_deposits SQL has been run.
   async getMyDepositsSupabase() {
     try { return (await this._positionRpc('get_my_deposits')) || []; }
