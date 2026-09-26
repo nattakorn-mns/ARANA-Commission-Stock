@@ -1611,3 +1611,12 @@ tbody tr:hover {
   .table-wrap { border: none; box-shadow: none; }
   body { background: white; }
 }
+
+/* ── โหมดดูอย่างเดียว (ตำแหน่งมีสิทธิ์ "ดูได้" แต่ไม่มี "แก้ไขได้") ── */
+body.readonly-mode :is(#page-content, #modal-wrap) :is(.btn-primary, .btn-success, .btn-danger, .btn-orange, .btn-blue, .btn-purple, [data-write], .photo-upload-area, .photo-thumb-del):not([data-view-ok]) {
+  display: none !important;
+}
+.readonly-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
+  font-size: .8rem; font-weight: 600; color: var(--gray-700); background: var(--gray-100); border: 1px solid var(--gray-200);
+}

@@ -225,6 +225,13 @@ function buildNav() {
   lucide.createIcons();
 }
 
+// "ดูอย่างเดียว" = position has can_view but not can_edit for this menu.
+// The page opens normally; buttons that save / approve / reject / delete are hidden (see .readonly-mode in style.css).
+function canEditRoute(route) {
+  const perm = menuPermissions[route];
+  return !perm || perm.can_edit !== false;
+}
+
 function navigate(route) {
   if (!canAccess(route)) {
     Toast.show('คุณไม่มีสิทธิ์เข้าถึงเมนูนี้', 'error');
@@ -267,6 +274,10 @@ function navigate(route) {
   }
 
   currentRoute = route;
+  const readOnly = !canEditRoute(route);
+  document.body.classList.toggle('readonly-mode', readOnly);
+  const headerActions = document.getElementById('apsx-header-actions');
+  if (headerActions && readOnly) headerActions.innerHTML = '<span class="readonly-pill"><i data-lucide="eye" style="width:14px;height:14px;"></i> ดูอย่างเดียว</span>';
 
   // Render
   try {
@@ -435,7 +446,7 @@ function openChangePasswordModal() {
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModalDirect()">ยกเลิก</button>
-        <button class="btn btn-primary" id="cp-submit-btn" onclick="submitChangePassword()">บันทึกรหัสผ่านใหม่</button>
+        <button class="btn btn-primary" data-view-ok id="cp-submit-btn" onclick="submitChangePassword()">บันทึกรหัสผ่านใหม่</button>
       </div>
     </div>
   `);

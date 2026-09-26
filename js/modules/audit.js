@@ -82,7 +82,7 @@ function audOPDRow(b) {
     </td>
     <td id="aud-status-${b.id}">${statusBadge(b.status)}</td>
     <td style="text-align:center;" onclick="event.stopPropagation();">
-      <button class="btn btn-primary btn-sm" onclick="audOpenBill('${b.id}')"><i data-lucide="search"></i> ตรวจสอบ</button>
+      <button class="btn btn-primary btn-sm" data-view-ok onclick="audOpenBill('${b.id}')"><i data-lucide="search"></i> ตรวจสอบ</button>
     </td>
   </tr>`;
 }
@@ -826,7 +826,7 @@ function audRenderCompare(body) {
         <i data-lucide="upload"></i> นำเข้าไฟล์ APSX (.csv)
         <input type="file" accept=".csv" style="display:none;" onchange="audLoadCSV(event)" />
       </label>
-      <button class="btn btn-primary" id="aud-compare-btn" onclick="audRunCompare()" disabled>
+      <button class="btn btn-primary" data-view-ok id="aud-compare-btn" onclick="audRunCompare()" disabled>
         <i data-lucide="git-compare"></i> ตรวจสอบ
       </button>
     </div>

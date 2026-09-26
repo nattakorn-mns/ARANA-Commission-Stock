@@ -61,6 +61,10 @@ function invRender() {
   <div class="glass-card bg-pastel-${info.color}" style="margin-bottom:16px;border-top:3px solid var(--${info.color}-500); padding:20px;">
     <div class="section-header" style="margin-bottom:12px;">
       <span class="section-title ${info.color}"><i data-lucide="${info.icon}" style="width:16px;height:16px;display:inline;margin-right:4px;"></i>${info.title}</span>
+      ${invTab !== 'in' ? `<span style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
+        <button class="btn btn-ghost btn-sm" onclick="erpExcelTemplate()" title="แบบฟอร์มเปล่าสำหรับกรอกมือ แล้วนำเข้า ERP"><i data-lucide="file-spreadsheet"></i> แบบฟอร์มเปล่า (.xlsx)</button>
+        ${['Audit','StockAudit','Admin'].includes(currentUser.role) ? `<button class="btn btn-ghost btn-sm" onclick="erpExcelExport('${invTab === 'transfer' ? 'TRANSFER' : 'OUT'}')" title="รายการที่อนุมัติแล้วแต่ยังไม่เข้า ERP"><i data-lucide="download"></i> Export เข้า ERP (.xlsx)</button>` : ''}
+      </span>` : ''}
     </div>
 
     <div class="form-row" style="margin-bottom:16px;">

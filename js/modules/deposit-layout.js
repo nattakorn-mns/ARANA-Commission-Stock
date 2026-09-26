@@ -31,7 +31,7 @@ async function depLoadAccounts(){
   lucide.createIcons();
 }
 function depManageAccounts(){
-  const row=a=>`<tr><td>${depEsc(a.bank_name)}</td><td>${depEsc(a.account_no)}</td><td>${depEsc(a.account_name)}</td><td>${a.is_active?'<span class="badge badge-approved">ใช้งาน</span>':'<span class="badge badge-waiting">ปิดใช้</span>'}</td><td class="nowrap"><button class="btn btn-ghost btn-sm" onclick="depEditAccount('${a.id}')">แก้ไข</button> <button class="btn btn-ghost btn-sm" onclick="depToggleAccount('${a.id}')">${a.is_active?'ปิดใช้':'เปิดใช้'}</button></td></tr>`;
+  const row=a=>`<tr><td>${depEsc(a.bank_name)}</td><td>${depEsc(a.account_no)}</td><td>${depEsc(a.account_name)}</td><td>${a.is_active?'<span class="badge badge-approved">ใช้งาน</span>':'<span class="badge badge-waiting">ปิดใช้</span>'}</td><td class="nowrap"><button class="btn btn-ghost btn-sm" data-write onclick="depEditAccount('${a.id}')">แก้ไข</button> <button class="btn btn-ghost btn-sm" data-write onclick="depToggleAccount('${a.id}')">${a.is_active?'ปิดใช้':'เปิดใช้'}</button></td></tr>`;
   openModal(`<div class="modal" style="max-width:760px;width:95%;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="landmark"></i>บัญชีรับเงินมัดจำ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
   <div class="modal-body"><p style="font-size:.82rem;color:var(--gray-500);margin:0 0 10px;">บัญชีที่ "ปิดใช้" จะไม่ขึ้นให้พนักงานเลือก แต่ยอดมัดจำเก่ายังแสดงชื่อบัญชีเดิมอยู่</p>
   <div class="table-wrap"><table><thead><tr><th>ธนาคาร</th><th>เลขบัญชี</th><th>ชื่อบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody>${depAccounts.length?depAccounts.map(row).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:16px;">ยังไม่มีบัญชี</td></tr>'}</tbody></table></div>
@@ -80,7 +80,7 @@ renderDeposits=async function(container){
   const payment=document.getElementById('dep-payment-method');
   if(payment){
     const label=payment.closest('.form-group').querySelector('.form-label');
-    label.innerHTML='บัญชีที่รับโอน <span class="required">*</span><button type="button" id="dep-account-manage" class="btn btn-ghost btn-sm" style="display:none;margin-left:6px;padding:0 8px;font-size:.75rem;" onclick="depManageAccounts()"><i data-lucide="settings-2" style="width:13px;height:13px;"></i> จัดการบัญชี</button>';
+    label.innerHTML='บัญชีที่รับโอน <span class="required">*</span><button type="button" data-write id="dep-account-manage" class="btn btn-ghost btn-sm" style="display:none;margin-left:6px;padding:0 8px;font-size:.75rem;" onclick="depManageAccounts()"><i data-lucide="settings-2" style="width:13px;height:13px;"></i> จัดการบัญชี</button>';
     payment.innerHTML='<option value="">กำลังโหลดบัญชี...</option>';
     depLoadAccounts();
   }

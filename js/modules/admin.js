@@ -893,7 +893,7 @@ async function admRenderErpSync(body) {
             <td>${r.qty||'-'}</td>
             <td>${badge(r.erp_sync_status)}${r.erp_sync_error?`<div style="font-size:0.72rem;color:var(--red-500,#dc2626);margin-top:2px;">${r.erp_sync_error}</div>`:''}</td>
             <td>${r.erp_ref||'—'}</td>
-            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
+            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" data-write onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
           </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
         </tbody>
       </table>

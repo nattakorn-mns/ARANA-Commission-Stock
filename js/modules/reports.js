@@ -129,7 +129,7 @@ async function rptLoad() {
   } catch (error) {
     if (request !== reportRequest || !wrap.isConnected) return;
     reportLoading = false;
-    wrap.innerHTML = '<div class="empty-state">โหลดรายงานไม่สำเร็จ กรุณาลองใหม่หรือล็อกอินใหม่ <button class="btn btn-primary" onclick="rptLoad()">ลองอีกครั้ง</button></div>';
+    wrap.innerHTML = '<div class="empty-state">โหลดรายงานไม่สำเร็จ กรุณาลองใหม่หรือล็อกอินใหม่ <button data-view-ok class="btn btn-primary" onclick="rptLoad()">ลองอีกครั้ง</button></div>';
     console.error('Report load failed:', error);
   }
 }
