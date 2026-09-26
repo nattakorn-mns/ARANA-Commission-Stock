@@ -103,6 +103,20 @@ h1, h2, h3,
 .branch-select:focus { border-color: var(--burgundy-400); }
 .branch-select option { background: #ffffff; color: var(--charcoal); }
 
+/* Group headings on the white sidebar (the base style is white text for the old dark sidebar). */
+.nav-section-label {
+  color: var(--burgundy-700);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 16px 20px 6px;
+  margin-top: 6px;
+  border-top: 1px solid var(--gray-100);
+  flex-shrink: 0;
+  line-height: 1.4;
+  overflow: visible;
+}
+.nav-section-label:first-child { border-top: none; margin-top: 0; }
 .nav-item {
   color: #75606b;
   border-radius: var(--radius-lg);
