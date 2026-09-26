@@ -225,8 +225,9 @@ const DB = {
       product_code: row.product_code,
       qty: row.qty,
       note: row.note || '',
-      approved_by_name: approvedByName || currentUser?.name || '',
-      approved_at: new Date().toISOString(),
+      // The accountant who approved and when (from the server), not whoever presses "send".
+      approved_by_name: row.approved_by_name || approvedByName || currentUser?.name || '',
+      approved_at: row.approved_at || new Date().toISOString(),
       photo_urls: []
     };
     if (row.move_type === 'TRANSFER') payload.to_branch_name = row.to_branch_name;

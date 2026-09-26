@@ -65,6 +65,26 @@ end $$;
 alter table public.stock_logs add constraint stock_logs_erp_sync_status_check
   check (erp_sync_status in ('รอส่ง','ส่งสำเร็จ','ส่งไม่สำเร็จ','ไม่ต้องส่ง','ต้องยกเลิกที่ ERP'));
 
+-- ERP หลักรับเฉพาะ "เบิกใช้" กับ "โอนสาขา" — รายการเบิกจาก OPD และรับเข้า ไม่ต้องส่ง
+update public.stock_logs set erp_sync_status = 'ไม่ต้องส่ง'
+where erp_sync_status = 'รอส่ง' and (opd_bill_id is not null or move_type not in ('OUT', 'TRANSFER'));
+
+create or replace function private.stock_logs_erp_scope()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $$
+begin
+  if new.opd_bill_id is not null or new.move_type not in ('OUT', 'TRANSFER') then
+    new.erp_sync_status := 'ไม่ต้องส่ง';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists stock_logs_erp_scope on public.stock_logs;
+create trigger stock_logs_erp_scope before insert on public.stock_logs
+  for each row execute function private.stock_logs_erp_scope();
+
 -- ยอดคงเหลือต้องเก็บทศนิยมได้ (ซีซี/ยูนิต)
 do $$
 begin
@@ -587,9 +607,10 @@ begin
   from (
     select sl.id, coalesce(sl.request_id, sl.id) as request_id, sl.log_date, sl.created_at, sl.move_type,
            br.name as branch_name, tbr.name as to_branch_name, p.code as product_code, p.name as product_name,
-           sl.qty, sl.source, sl.audit_status, sl.erp_sync_status, sl.erp_ref, sl.erp_synced_at, sl.erp_sync_error,
-           sl.opd_bill_id is not null as is_opd
+           sl.qty, sl.source, sl.note, sl.audit_status, sl.erp_sync_status, sl.erp_ref, sl.erp_synced_at, sl.erp_sync_error,
+           sl.opd_bill_id is not null as is_opd, sl.audited_at as approved_at, au.name as approved_by_name
     from public.stock_logs sl
+    left join public.users au on au.id = sl.audited_by
     left join public.branches br on br.id = sl.branch_id
     left join public.branches tbr on tbr.id = sl.to_branch_id
     left join public.products p on p.id = sl.product_id
