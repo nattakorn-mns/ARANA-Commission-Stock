@@ -4,6 +4,6 @@
   },
   "scripts": {
     "test": "node tests/data-flow-audit.test.cjs . && node tests/security-session.test.js",
-    "test:replica": "node tests/replica/notify.test.mjs"
+    "test:replica": "node tests/replica/notify.test.mjs && node tests/replica/receiving.test.mjs"
   }
 }

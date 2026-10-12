@@ -320,18 +320,19 @@ const DB = {
       EDIT_REQUEST_REQUIRED: 'ส่วนที่อนุมัติแล้วต้องขอแก้ไขและรอแอดมิน/บัญชีอนุมัติก่อน', NOT_YOUR_BILL: 'แก้ไขได้เฉพาะรายการที่ตัวเองบันทึก',
       REQUEST_ALREADY_OPEN: 'มีคำขอแก้ไขบิลนี้ค้างอยู่แล้ว', EDIT_WITHOUT_REQUEST: 'บิลนี้ยังไม่อนุมัติ กดแก้ไขได้เลยไม่ต้องขอ',
       EMPTY_BILL: 'กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', UNKNOWN_PROGRAM: 'มีโปรแกรมที่ไม่พบหรือปิดใช้แล้ว',
-      INVALID_DATE: 'วันที่ไม่ถูกต้อง (ต้องไม่เกินวันนี้)', HN_AND_CUSTOMER_REQUIRED: 'กรุณากรอก HN และชื่อลูกค้า'
+      INVALID_DATE: 'วันที่ไม่ถูกต้อง (ต้องไม่เกินวันนี้)', EXPIRED_ON_RECEIPT: 'วันหมดอายุต้องไม่ก่อนวันที่รับของ', HN_AND_CUSTOMER_REQUIRED: 'กรุณากรอก HN และชื่อลูกค้า'
     };
     const code = Object.keys(map).find(k => msg.includes(k));
     return code ? map[code] : msg;
   },
 
   // One request = all lines + photos in one database transaction (all saved or none).
-  async saveStockRequestSupabase({ requestId, branch, toBranch, moveType, source, date, lines, images }) {
+  async saveStockRequestSupabase({ requestId, branch, toBranch, moveType, source, date, lines, images, poNo, supplier }) {
     try {
       return await this._appRpc('save_stock_request', {
         p_request_id: requestId, p_branch_name: branch, p_to_branch_name: toBranch || null,
         p_move_type: moveType, p_source: source || null, p_log_date: date,
+        p_po_no: poNo || null, p_supplier_name: supplier || null,
         p_lines: lines, p_images: images
       });
     } catch (error) {
@@ -482,7 +483,8 @@ const DB = {
     return (data || []).map(r => ({
       id: r.id, requestId: r.request_id || r.id, createdAt: r.created_at, date: r.log_date, branch: r.branch_name, toBranch: r.to_branch_name, type: r.move_type,
       productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
-      createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note, source: r.source
+      createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note, source: r.source,
+      poNo: r.po_no || '', supplierName: r.supplier_name || '', lotNo: r.lot_no || '', expireDate: r.expire_date || ''
     }));
   },
 

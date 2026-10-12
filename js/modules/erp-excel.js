@@ -18,7 +18,12 @@
     { key: 'source_department', th: 'ใช้ที่ส่วนไหน', hint: 'เฉพาะเบิกใช้: ห้องตรวจ / ห้องทรีทเมนท์ / ทั่วไป', width: 16 },
     { key: 'approved_by_name', th: 'ผู้อนุมัติ', hint: 'ชื่อบัญชีที่อนุมัติ', width: 18 },
     { key: 'approved_at', th: 'เวลาอนุมัติ', hint: 'เช่น 2026-09-26 14:30', width: 20 },
-    { key: 'photo_urls', th: 'ลิงก์รูปหลักฐาน', hint: 'ไม่บังคับ ถ้ามีหลายลิงก์ให้คั่นด้วยเครื่องหมาย ,', width: 30 }
+    { key: 'photo_urls', th: 'ลิงก์รูปหลักฐาน', hint: 'ไม่บังคับ ถ้ามีหลายลิงก์ให้คั่นด้วยเครื่องหมาย ,', width: 30 },
+    // รับของเข้า (IN) เท่านั้น — ERP รับของผูกกับ PO และสินค้าคุมล็อตต้องมีล็อต/วันหมดอายุ
+    { key: 'po_no', th: 'เลขที่ PO (ERP)', hint: 'เฉพาะรับของเข้า ถ้าไม่มี PO เว้นว่าง (ERP ลงเป็นใบปรับสต็อก)', width: 18 },
+    { key: 'supplier_name', th: 'ผู้ขาย', hint: 'เฉพาะรับของเข้า', width: 20 },
+    { key: 'lot_no', th: 'เลขล็อต', hint: 'เฉพาะรับของเข้า สินค้าคุมล็อตต้องกรอก', width: 14 },
+    { key: 'expire_date', th: 'วันหมดอายุ', hint: 'เฉพาะรับของเข้า รูปแบบ ปี-เดือน-วัน ค.ศ.', width: 13 }
   ];
   const DEPARTMENTS = ['ห้องตรวจ', 'ห้องทรีทเมนท์', 'ทั่วไป'];
   const BLANK_ROWS = 300;
@@ -30,6 +35,8 @@
       from_branch_name: r.branch_name || '', to_branch_name: r.move_type === 'TRANSFER' ? (r.to_branch_name || '') : '',
       product_code: r.product_code || '', qty: r.qty == null ? '' : Number(r.qty), note: r.note || '',
       source_department: r.move_type === 'OUT' ? (r.source || '') : '', approved_by_name: r.approved_by_name || '',
+      po_no: r.move_type === 'IN' ? (r.po_no || '') : '', supplier_name: r.move_type === 'IN' ? (r.supplier_name || '') : '',
+      lot_no: r.move_type === 'IN' ? (r.lot_no || '') : '', expire_date: r.move_type === 'IN' ? (r.expire_date || '') : '',
       approved_at: approvedAt, photo_urls: ''
     };
   }
@@ -44,7 +51,7 @@
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7A2842' } };
     ERP_COLUMNS.forEach((c, i) => { ws.getRow(1).getCell(i + 1).note = c.th + ' — ' + c.hint; });
     // Dates and IDs stay as text so Excel does not turn them into serial numbers or scientific notation.
-    ['source_ref_id', 'move_date', 'product_code', 'approved_at'].forEach(k => { ws.getColumn(k).numFmt = '@'; });
+    ['source_ref_id', 'move_date', 'product_code', 'approved_at', 'po_no', 'lot_no', 'expire_date'].forEach(k => { ws.getColumn(k).numFmt = '@'; });
     rows.map(toRow).forEach(r => ws.addRow(r));
 
     const pl = wb.addWorksheet('รายการสินค้า');
@@ -60,7 +67,7 @@
     const listRef = (col, n) => `'ตัวเลือก'!$${col}$2:$${col}$${n + 1}`;
     for (let i = 2; i <= last; i++) {
       const row = ws.getRow(i);
-      row.getCell('move_type').dataValidation = { type: 'list', allowBlank: true, formulae: ['"OUT,TRANSFER"'], showErrorMessage: true, errorTitle: 'ประเภทไม่ถูกต้อง', error: 'เลือก OUT (เบิกใช้) หรือ TRANSFER (โอนสาขา)' };
+      row.getCell('move_type').dataValidation = { type: 'list', allowBlank: true, formulae: ['"OUT,TRANSFER,IN"'], showErrorMessage: true, errorTitle: 'ประเภทไม่ถูกต้อง', error: 'เลือก OUT (เบิกใช้) / TRANSFER (โอนสาขา) / IN (รับของเข้า)' };
       if (branches.length) {
         const v = { type: 'list', allowBlank: true, formulae: [listRef('A', branches.length)], showErrorMessage: true, error: 'เลือกสาขาจากรายการ' };
         row.getCell('from_branch_name').dataValidation = v;
@@ -130,7 +137,7 @@ async function erpExcelExport(moveType) {
     const rows = (all || []).filter(r => r.audit_status === 'อนุมัติแล้ว' && r.move_type === moveType && !r.is_opd
       && ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status));
     if (!rows.length) { Toast.show('ไม่มีรายการที่อนุมัติแล้วและยังไม่ได้ส่งเข้า ERP', 'warning'); return; }
-    const name = (moveType === 'TRANSFER' ? 'โอนสาขา' : 'เบิกใช้') + '-อนุมัติแล้ว-รอเข้าERP-' + todayISO() + '.xlsx';
+    const name = ({ TRANSFER: 'โอนสาขา', IN: 'รับของเข้า' }[moveType] || 'เบิกใช้') + '-อนุมัติแล้ว-รอเข้าERP-' + todayISO() + '.xlsx';
     await erpExcelDownload(ErpExcel.build(ExcelJS, { rows, products, branches: ERP_EXCEL_BRANCHES }), name);
     Toast.show(`ออกไฟล์ ${rows.length} รายการแล้ว`, 'success');
   } catch (e) { Toast.show(e.message || String(e), 'error', 5000); }

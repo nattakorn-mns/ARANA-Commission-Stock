@@ -61,10 +61,10 @@ function invRender() {
   <div class="glass-card bg-pastel-${info.color}" style="margin-bottom:16px;border-top:3px solid var(--${info.color}-500); padding:20px;">
     <div class="section-header" style="margin-bottom:12px;">
       <span class="section-title ${info.color}"><i data-lucide="${info.icon}" style="width:16px;height:16px;display:inline;margin-right:4px;"></i>${info.title}</span>
-      ${invTab !== 'in' ? `<span style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
+      <span style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
         <button class="btn btn-ghost btn-sm" onclick="erpExcelTemplate()" title="แบบฟอร์มเปล่าสำหรับกรอกมือ แล้วนำเข้า ERP"><i data-lucide="file-spreadsheet"></i> แบบฟอร์มเปล่า (.xlsx)</button>
-        ${['Audit','StockAudit','Admin'].includes(currentUser.role) ? `<button class="btn btn-ghost btn-sm" onclick="erpExcelExport('${invTab === 'transfer' ? 'TRANSFER' : 'OUT'}')" title="รายการที่อนุมัติแล้วแต่ยังไม่เข้า ERP"><i data-lucide="download"></i> Export เข้า ERP (.xlsx)</button>` : ''}
-      </span>` : ''}
+        ${['Audit','StockAudit','Admin'].includes(currentUser.role) ? `<button class="btn btn-ghost btn-sm" onclick="erpExcelExport('${{ out: 'OUT', in: 'IN', transfer: 'TRANSFER' }[invTab]}')" title="รายการที่อนุมัติแล้วแต่ยังไม่เข้า ERP"><i data-lucide="download"></i> Export เข้า ERP (.xlsx)</button>` : ''}
+      </span>
     </div>
 
     <div class="form-row" style="margin-bottom:16px;">
@@ -86,6 +86,19 @@ function invRender() {
         ${branches.map(b => `<option value="${b}">${b}</option>`).join('')}
       </select>
     </div>` : ''}
+
+    ${invTab === 'in' ? `
+    <div class="form-row" style="margin-bottom:16px;">
+      <div class="form-group">
+        <label class="form-label">เลขที่ใบสั่งซื้อ (PO) ของ ERP</label>
+        <input id="inv-po-no" class="form-input" placeholder="เช่น PO-20261012-01 (ถ้าไม่มี PO เว้นว่าง)" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">ผู้ขาย / ส่งมาจาก</label>
+        <input id="inv-supplier" class="form-input" placeholder="ชื่อบริษัท หรือ ของแถม/ยืมคืน" autocomplete="off" />
+      </div>
+    </div>
+    <p style="font-size:0.75rem;color:var(--gray-400);margin:-8px 0 14px;">ถ้าสินค้าคุมล็อต ให้กรอกเลขล็อตและวันหมดอายุที่ข้างกล่องในแต่ละรายการ</p>` : ''}
 
     ${invTab === 'out' ? `
     <div class="form-group" style="margin-bottom:16px;">
@@ -141,7 +154,7 @@ function invRenderRows() {
     const prodItems = products.map(p => ({ code: p.code, name: p.name, extra: p.code }));
     
     return `
-    <div class="inv-row" style="display:grid;grid-template-columns:2fr 100px 80px 2fr auto;gap:10px;align-items:flex-end;margin-bottom:10px;padding:12px;background:var(--gray-50);border-radius:var(--radius-md);border:1px solid var(--gray-100);">
+    <div class="inv-row" style="display:grid;grid-template-columns:2fr 100px 80px ${invTab === 'in' ? '130px 140px ' : ''}2fr auto;gap:10px;align-items:flex-end;margin-bottom:10px;padding:12px;background:var(--gray-50);border-radius:var(--radius-md);border:1px solid var(--gray-100);">
       <div class="form-group">
         <label class="form-label">รายการ${i===0?'<span class="required">*</span>':''}</label>
         ${buildSS(prodUID, prodItems, row.productCode, 'ssInvProd_' + row.id, '-- ค้นหาสินค้า --')}
@@ -155,6 +168,17 @@ function invRenderRows() {
         <label class="form-label">หน่วย</label>
         <input type="text" class="form-input" value="${row.unit}" readonly placeholder="-" style="width:100%;" />
       </div>
+      ${invTab === 'in' ? `
+      <div class="form-group">
+        <label class="form-label">เลขล็อต</label>
+        <input type="text" class="form-input" value="${row.lotNo||''}" placeholder="Lot" autocomplete="off"
+          oninput="invRowField('${row.id}','lotNo',this.value)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">วันหมดอายุ</label>
+        <input type="date" class="form-input" value="${row.expireDate||''}"
+          onchange="invRowField('${row.id}','expireDate',this.value)" />
+      </div>` : ''}
       <div class="form-group">
         <label class="form-label">หมายเหตุ</label>
         <input type="text" class="form-input" value="${row.note||''}" placeholder="ระบุเหตุผล/เคส..."
@@ -180,6 +204,7 @@ function invRowProduct(id, code) {
   r.unit = p ? p.unit : '';
   invRenderRows();
 }
+function invRowField(id, key, val) { const r = invRows.find(x => x.id === id); if (r) r[key] = String(val || '').trim(); }
 function invRowQty(id, val) { const r = invRows.find(x => x.id === id); if (r) r.qty = parseQty(val) ?? r.qty; }
 function invRowNote(id, val) { const r = invRows.find(x => x.id === id); if (r) r.note = val; }
 function invRemoveRow(id) { if (invRows.length <= 1) return; invRows = invRows.filter(x => x.id !== id); invRenderRows(); }
@@ -243,7 +268,10 @@ async function invSubmit() {
       moveType: typeByTab[invTab],
       source,
       date,
-      lines: validRows.map(r => ({ product_code: r.productCode, qty: r.qty, note: r.note || defaultNoteByTab[invTab] })),
+      poNo: invTab === 'in' ? document.getElementById('inv-po-no')?.value.trim() : null,
+      supplier: invTab === 'in' ? document.getElementById('inv-supplier')?.value.trim() : null,
+      lines: validRows.map(r => ({ product_code: r.productCode, qty: r.qty, note: r.note || defaultNoteByTab[invTab],
+        lot_no: invTab === 'in' ? (r.lotNo || null) : null, expire_date: invTab === 'in' ? (r.expireDate || null) : null })),
       images: invPhotos.map(p => p.data)
     });
     Toast.show(res && res.duplicate
