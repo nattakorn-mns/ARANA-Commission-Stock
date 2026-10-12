@@ -3,20 +3,15 @@
 -- ที่มา: อ่านจากตาราง stock_items ของ ERP โดยตรง (อ่านอย่างเดียว) 461 รายการ
 --
 -- กติกา: รหัส (code) = SKU ของ ERP · รหัสที่ ERP ไม่มีแล้วจะถูก "ปิดใช้" (ไม่ลบ ประวัติเก่ายังอ้างได้)
---        ชื่อ/หน่วย/หมวด ยึดตาม ERP · รันซ้ำได้
+--        ชื่อ/หน่วย/หมวด ยึดตาม ERP · รันซ้ำได้ · ทุกอย่างอยู่ในคำสั่งเดียว ไม่ใช้ตารางพัก
 -- ============================================================
-begin;
-
 alter table public.products
   add column if not exists erp_legacy_sku text,
   add column if not exists lot_controlled boolean not null default false,
   add column if not exists expiry_controlled boolean not null default false,
   add column if not exists erp_synced_at timestamptz;
 
--- ตารางพักข้อมูล (ไม่ใช้ temp table เพราะ SQL Editor ของ Supabase แยกการเชื่อมต่อทุกคำสั่ง)
-drop table if exists private.erp_items_sync;
-create table private.erp_items_sync(code text primary key, name text, unit text, category text, legacy_sku text, lot_controlled boolean, expiry_controlled boolean);
-insert into private.erp_items_sync values
+with erp_items(code, name, unit, category, legacy_sku, lot_controlled, expiry_controlled) as (values
 ('00034','สเปรย์ปรับอากาศ','ขวด (L)','อุปกรณ์',null,true,false),
 ('00036','สบู่เหลวล้างมือ','ขวด (L)','อุปกรณ์',null,true,false),
 ('00037','ครีมอาบน้ำ','ขวด (L)','อุปกรณ์',null,true,false),
@@ -477,31 +472,30 @@ insert into private.erp_items_sync values
 ('STA01041','Botox Metatox 100 unit','ยูนิต','BOTOX',null,true,true),
 ('STA01042','ยาฉีดสิว THAINOCORT','ขวด (M)','ยา',null,true,true),
 ('STA01043','ยาความดัน cesoline','แผง','ยา',null,true,true),
-('STA01044','ยาพาราไทลินอล(แผง)','แผง','ยา',null,true,true);
-
+('STA01044','ยาพาราไทลินอล(แผง)','แผง','ยา',null,true,true)
+),
 -- 1) อัปเดตรายการที่มีอยู่แล้ว (จับคู่ด้วยรหัส)
-update public.products p
-set name = e.name, unit = e.unit, category = e.category, erp_legacy_sku = e.legacy_sku,
-    lot_controlled = e.lot_controlled, expiry_controlled = e.expiry_controlled, is_active = true, erp_synced_at = now()
-from private.erp_items_sync e where e.code = p.code;
-
+upd as (
+  update public.products p
+  set name = e.name, unit = e.unit, category = e.category, erp_legacy_sku = e.legacy_sku,
+      lot_controlled = e.lot_controlled, expiry_controlled = e.expiry_controlled, is_active = true, erp_synced_at = now()
+  from erp_items e where e.code = p.code
+  returning 1
+),
 -- 2) เพิ่มรายการใหม่ (type: 2 = อุปกรณ์/ของใช้, 1 = ยา/เวชภัณฑ์ — ตามหมวดของ ERP)
-insert into public.products (code, name, unit, category, type, is_active, erp_legacy_sku, lot_controlled, expiry_controlled, erp_synced_at)
-select e.code, e.name, e.unit, e.category,
-       case when e.category in ('อุปกรณ์', 'วิตามิน Mn (อุปกรณ์)', 'น้ำหอม', 'อื่นๆ') then 2 else 1 end,
-       true, e.legacy_sku, e.lot_controlled, e.expiry_controlled, now()
-from private.erp_items_sync e
-where not exists (select 1 from public.products p where p.code = e.code);
-
+ins as (
+  insert into public.products (code, name, unit, category, type, is_active, erp_legacy_sku, lot_controlled, expiry_controlled, erp_synced_at)
+  select e.code, e.name, e.unit, e.category,
+         case when e.category in ('อุปกรณ์', 'วิตามิน Mn (อุปกรณ์)', 'น้ำหอม', 'อื่นๆ') then 2 else 1 end,
+         true, e.legacy_sku, e.lot_controlled, e.expiry_controlled, now()
+  from erp_items e
+  where not exists (select 1 from public.products p where p.code = e.code)
+  returning 1
+),
 -- 3) ปิดใช้รหัสที่ ERP ไม่มี (ยังเลือกไม่ได้ในฟอร์ม แต่ประวัติยังแสดงชื่อได้)
-update public.products p set is_active = false
-where p.is_active and not exists (select 1 from private.erp_items_sync e where e.code = p.code);
-
-drop table private.erp_items_sync;
-
-commit;
-
--- ตรวจผล
-select (select count(*) from public.products where is_active) as "เปิดใช้",
-       (select count(*) from public.products where not is_active) as "ปิดใช้ (ไม่มีใน ERP)",
-       (select count(*) from public.products where erp_synced_at is not null) as "ตรงกับ ERP";
+deact as (
+  update public.products p set is_active = false
+  where p.is_active and not exists (select 1 from erp_items e where e.code = p.code)
+  returning 1
+)
+select (select count(*) from upd) as "อัปเดตแล้ว", (select count(*) from ins) as "เพิ่มใหม่", (select count(*) from deact) as "ปิดใช้ (ไม่มีใน ERP)";
