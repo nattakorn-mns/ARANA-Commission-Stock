@@ -851,9 +851,32 @@ async function admSavePermission(pageKey, canView, canEdit, pageLabel) {
 // ── สถานะซิงก์ ERP (เบิกใช้วัสดุ/โอนสต็อก) — ขั้นเตรียมการ ──────
 let admErpFilter = null;
 
+// การ์ด "ดึงข้อมูลจาก ERP" (พนักงาน / สินค้า / ข้อมูลไว้ตรวจเทียบ) — อ่านอย่างเดียว ทุกเช้า 05:00
+const ERP_DATASET_LABELS = { employees: 'ทะเบียนพนักงาน → บัญชีผู้ใช้', stock_items: 'รายชื่อสินค้า', stock_balance: 'ยอดคงเหลือ (ไว้เทียบ)',
+  open_purchase_orders: 'PO รอรับของ', service_commissions: 'ค่ามือ/ค่าคอมหน้าร้าน (ไว้ตรวจเทียบ)', deposits: 'มัดจำ (ไว้ตรวจเทียบ)' };
+async function admErpPullCard() {
+  let st;
+  try { st = await DB.adminErpSyncStatusSupabase(); }
+  catch (e) { return `<div class="alert-box alert-warning" style="margin-bottom:16px;"><i data-lucide="info"></i><span>ยังไม่ได้ติดตั้งการดึงข้อมูลจาก ERP (SQL ไฟล์ 09)</span></div>`; }
+  const rows = (st.datasets || []).map(d => `<tr><td>${ERP_DATASET_LABELS[d.dataset] || d.dataset}</td><td class="nowrap">${d.last_run_at ? formatDateTime(d.last_run_at) : '—'}</td><td>${d.last_count ?? '—'}</td><td style="color:var(--red-500,#dc2626);font-size:.8rem;">${d.last_error || ''}</td></tr>`).join('');
+  return `<div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span class="section-title">ดึงข้อมูลจาก ERP (อ่านอย่างเดียว · ทุกเช้า 05:00)</span>
+      <span style="font-size:.8rem;color:var(--gray-500);">บัญชีที่ผูก ERP ${st.users_linked} · สินค้าที่ตรง ERP ${st.products_linked}</span>
+      ${currentUser.role === 'Admin' ? `<button class="btn btn-ghost btn-sm" data-write onclick="admErpPullNow()" ${st.configured ? '' : 'disabled title="ยังไม่ได้ตั้งค่า URL/คีย์ ตามไฟล์อ่านก่อน"'}><i data-lucide="refresh-cw"></i> ดึงจาก ERP ตอนนี้</button>` : ''}
+    </div>
+    ${st.configured ? '' : '<div style="padding:10px 16px;font-size:.82rem;color:var(--amber-700,#b45309);">ยังไม่ได้ตั้งค่าตัวดึงข้อมูล (Edge Function + คีย์) ทำตามไฟล์ อ่านก่อน-ตั้งค่าดึงข้อมูลจากERP.md</div>'}
+    <div class="table-wrap" style="border:none;border-radius:0;"><table><thead><tr><th>ชุดข้อมูล</th><th>ดึงล่าสุด</th><th>จำนวนแถวรอบล่าสุด</th><th>ข้อผิดพลาด</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--gray-400);padding:14px;">ยังไม่เคยดึง</td></tr>'}</tbody></table></div></div>`;
+}
+async function admErpPullNow() {
+  try { await DB.adminErpSyncNowSupabase(); Toast.show('เริ่มดึงข้อมูลจาก ERP แล้ว ใช้เวลาประมาณ 1 นาที แล้วกดรีเฟรชแท็บนี้', 'success', 6000); }
+  catch (e) { Toast.show('สั่งดึงไม่สำเร็จ: ' + (e.message || e), 'error', 5000); }
+}
+
 async function admRenderErpSync(body) {
   body.innerHTML = `<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>`;
-  const rows = await DB.listStockLogsErpSyncSupabase(admErpFilter);
+  const [rows, pullCard] = await Promise.all([DB.listStockLogsErpSyncSupabase(admErpFilter), admErpPullCard()]);
 
   const badge = (s) => {
     const map = {
@@ -866,7 +889,7 @@ async function admRenderErpSync(body) {
     return `<span class="badge ${map[s]||''}">${s}</span>`;
   };
 
-  body.innerHTML = `
+  body.innerHTML = pullCard + `
   <div class="alert-box alert-warning" style="margin-bottom:16px;">
     <i data-lucide="info"></i>
     <span>หน้านี้เป็นการเตรียมโครงสร้างไว้ก่อนครับ — ยังไม่ได้เชื่อมส่งข้อมูลเข้า ERP หลักจริง (รอ ERP หลักเปิดช่องทางรับข้อมูลก่อน) รายการทั้งหมดจึงยังขึ้นสถานะ "รอส่ง"</span>

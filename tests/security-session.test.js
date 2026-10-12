@@ -61,7 +61,7 @@ const DB = context.__DB;
     'get_menu_permissions_for_me', 'admin_list_positions', 'admin_create_position', 'admin_list_menu_permissions',
     'admin_set_menu_permission', 'admin_set_user_position', 'admin_list_users_with_position',
     'list_stock_logs_erp_sync', 'set_stock_log_erp_sync_result', 'get_my_deposits',
-    'admin_notify_channels', 'admin_notify_set_channel', 'admin_notify_queue', 'admin_notify_test', 'admin_notify_build',
+    'admin_erp_sync_status', 'admin_erp_sync_now', 'admin_notify_channels', 'admin_notify_set_channel', 'admin_notify_queue', 'admin_notify_test', 'admin_notify_build',
     'list_deposit_accounts', 'admin_save_deposit_account'
   ]);
   const positionRpcNames = [...source.matchAll(/_positionRpc\('([^']+)'/g)].map(match => match[1]);

@@ -260,6 +260,10 @@ const DB = {
   async adminNotifyTestSupabase(key) { return await this._positionRpc('admin_notify_test', { p_key: key }); },
   async adminNotifyBuildSupabase(kind, date) { return Number(await this._positionRpc('admin_notify_build', { p_kind: kind, p_date: date || null })) || 0; },
 
+  // ดึงข้อมูลจาก ERP (SQL ไฟล์ 09)
+  async adminErpSyncStatusSupabase() { return await this._positionRpc('admin_erp_sync_status'); },
+  async adminErpSyncNowSupabase() { return await this._positionRpc('admin_erp_sync_now'); },
+
   async setStockLogErpSyncResultSupabase(logId, status, ref, error) {
     await this._positionRpc('set_stock_log_erp_sync_result', { p_log_id: logId, p_status: status, p_ref: ref || null, p_error: error || null });
   },
