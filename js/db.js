@@ -251,6 +251,15 @@ const DB = {
     return { ok: false, payload, reason: 'NOT_CONFIGURED_YET' };
   },
 
+  // ── แจ้งเตือน Telegram/LINE (SQL ไฟล์ 05 รอบ 12/10) ──────────────
+  async adminNotifyChannelsSupabase() { return (await this._positionRpc('admin_notify_channels')) || []; },
+  async adminNotifySetChannelSupabase(key, targetId, isActive) {
+    await this._positionRpc('admin_notify_set_channel', { p_key: key, p_target_id: targetId || null, p_is_active: !!isActive });
+  },
+  async adminNotifyQueueSupabase(limit) { return (await this._positionRpc('admin_notify_queue', { p_limit: limit || 100 })) || []; },
+  async adminNotifyTestSupabase(key) { return await this._positionRpc('admin_notify_test', { p_key: key }); },
+  async adminNotifyBuildSupabase(kind, date) { return Number(await this._positionRpc('admin_notify_build', { p_kind: kind, p_date: date || null })) || 0; },
+
   async adminListUsersWithPositionSupabase() {
     try { return await this._positionRpc('admin_list_users_with_position'); }
     catch (error) { console.error('adminListUsersWithPositionSupabase error:', error); return []; }

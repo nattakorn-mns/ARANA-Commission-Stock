@@ -28,6 +28,9 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-erpsync" onclick="admSwitch('erpsync')">
         <i data-lucide="upload-cloud"></i>สถานะซิงก์ ERP
       </button>
+      <button class="tab-btn" id="adm-tab-notify" onclick="admSwitch('notify')">
+        <i data-lucide="bell"></i>แจ้งเตือน
+      </button>
     </div>
     <div id="adm-body"></div>
   </div>`;
@@ -56,6 +59,7 @@ function admRender() {
   else if (adminTab === 'import') admRenderImport(body);
   else if (adminTab === 'positions') admRenderPositions(body);
   else if (adminTab === 'erpsync') admRenderErpSync(body);
+  else if (adminTab === 'notify') admRenderNotify(body);
   else admRenderLogs(body);
 }
 
@@ -910,4 +914,75 @@ async function admSyncStockLog(logId) {
   if (result.ok) Toast.show('ส่งเข้า ERP สำเร็จ', 'success');
   else Toast.show('ยังส่งไม่ได้: ' + (result.reason === 'NOT_CONFIGURED_YET' ? 'รอเชื่อมช่องทางกับ ERP หลักก่อน' : result.reason), 'error');
   admRenderErpSync(document.getElementById('adm-body'));
+}
+
+// ── แท็บ แจ้งเตือน (Telegram / LINE) ─────────────────────────
+async function admRenderNotify(body) {
+  body.innerHTML = '<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+  let channels, queue;
+  try { [channels, queue] = await Promise.all([DB.adminNotifyChannelsSupabase(), DB.adminNotifyQueueSupabase(100)]); }
+  catch (e) {
+    body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>ยังไม่ได้ติดตั้งระบบแจ้งเตือน</h4><p>รัน SQL ไฟล์ 05 (รอบ 12/10) ก่อน — ${DB.stockErrorText(e)}</p></div>`;
+    lucide.createIcons(); return;
+  }
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const quota = c => c.monthly_quota ? `${c.used_this_month}/${c.monthly_quota} ข้อความเดือนนี้` : `${c.used_this_month} ข้อความเดือนนี้`;
+  const quotaColor = c => !c.monthly_quota ? 'var(--gray-500)' : c.used_this_month >= c.monthly_quota * 0.8 ? 'var(--red-500,#dc2626)' : 'var(--green-600)';
+  const badge = s => `<span class="badge ${{ 'ส่งแล้ว': 'badge-approved', 'รอส่ง': 'badge-waiting', 'ส่งไม่สำเร็จ': 'badge-rejected', 'ข้าม': 'badge-waiting' }[s] || ''}">${esc(s)}</span>`;
+  body.innerHTML = `
+  <div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
+    <span>คีย์ของบอทเก็บไว้ฝั่งเซิร์ฟเวอร์ (Secrets ของ Edge Function) หน้านี้ใส่ได้เฉพาะ "ไอดีห้อง" — Telegram: chat id ของกลุ่ม (ขึ้นต้นด้วย -100) · LINE: group id (ขึ้นต้นด้วย C)
+    <br>เวลาส่งสรุป: สต็อก 23:00 · ค่ามือ/ค่าคอม 23:59 · ฉบับเพิ่มเติม (ส่งช้า/แก้ไข) 06:00 · ข้อความทันทีส่งภายใน 2 นาที</span></div>
+  <div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;"><span class="section-title">ห้องแจ้งเตือน</span></div>
+    <div class="table-wrap" style="border:none;border-radius:0;"><table>
+      <thead><tr><th>ห้อง</th><th>ช่องทาง</th><th>ไอดีห้อง</th><th>ใช้ไป</th><th>รอส่ง / ไม่สำเร็จ</th><th>เปิดใช้</th><th></th></tr></thead>
+      <tbody>${channels.map(c => `<tr>
+        <td><strong>${esc(c.label)}</strong><br><small style="color:var(--gray-500);">secret: ${esc(c.secret_name)}</small></td>
+        <td>${c.provider === 'telegram' ? 'Telegram' : 'LINE'}</td>
+        <td><input class="form-input" id="ntf-target-${esc(c.key)}" value="${esc(c.target_id || '')}" placeholder="${c.provider === 'telegram' ? '-1001234567890' : 'Cxxxxxxxx'}" style="min-width:200px;font-family:monospace;"></td>
+        <td style="color:${quotaColor(c)};font-weight:600;">${quota(c)}</td>
+        <td>${c.pending} / <span style="color:${c.failed ? 'var(--red-500,#dc2626)' : 'inherit'}">${c.failed}</span></td>
+        <td><input type="checkbox" id="ntf-active-${esc(c.key)}" ${c.is_active ? 'checked' : ''}></td>
+        <td class="nowrap"><button class="btn btn-primary btn-sm" onclick="admNotifySave('${esc(c.key)}')">บันทึก</button> <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyTest('${esc(c.key)}')">ทดสอบส่ง</button></td>
+      </tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="glass-card" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <span style="font-weight:700;color:var(--gray-700);">สร้างสรุปตอนนี้:</span>
+    <input type="date" class="filter-input" id="ntf-build-date" value="${todayISO()}">
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('stock_daily')">สรุปสต็อก (LINE)</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_daily')">สรุปค่ามือ/ค่าคอม (Telegram)</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_addendum')">ฉบับเพิ่มเติม</button>
+    <span style="font-size:.78rem;color:var(--gray-500);">สรุปวันเดียวกันสร้างซ้ำไม่ได้ (กันส่งซ้ำ)</span>
+  </div>
+  <div class="glass-card" style="padding:0;overflow:hidden;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;display:flex;justify-content:space-between;align-items:center;">
+      <span class="section-title">ข้อความล่าสุด (${queue.length})</span>
+      <button class="btn btn-ghost btn-sm" data-view-ok onclick="admRenderNotify(document.getElementById('adm-body'))"><i data-lucide="refresh-cw"></i> รีเฟรช</button></div>
+    <div class="table-wrap" style="border:none;border-radius:0;"><table>
+      <thead><tr><th>เวลา</th><th>ห้อง</th><th>ประเภท</th><th>ข้อความ</th><th>สถานะ</th><th>ครั้งที่</th><th>ข้อผิดพลาด</th></tr></thead>
+      <tbody>${queue.length ? queue.map(q => `<tr>
+        <td class="nowrap">${formatDateTime(q.created_at)}</td><td>${esc(q.channel_key)}</td><td>${esc(q.kind)}</td>
+        <td style="max-width:360px;font-size:.8rem;white-space:pre-wrap;">${esc(q.preview)}</td>
+        <td>${badge(q.status)}</td><td>${q.attempts}</td><td style="font-size:.78rem;color:var(--red-500,#dc2626);">${esc(q.last_error || '')}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:18px;">ยังไม่มีข้อความ</td></tr>'}</tbody></table></div>
+  </div>`;
+  lucide.createIcons();
+}
+async function admNotifySave(key) {
+  try {
+    await DB.adminNotifySetChannelSupabase(key, document.getElementById('ntf-target-' + key)?.value, document.getElementById('ntf-active-' + key)?.checked);
+    Toast.show('บันทึกห้องแล้ว ✓', 'success');
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+}
+async function admNotifyTest(key) {
+  try { await DB.adminNotifyTestSupabase(key); Toast.show('ใส่ข้อความทดสอบในคิวแล้ว จะส่งภายใน 2 นาที — ดูสถานะในตารางด้านล่าง', 'success', 5000); admRenderNotify(document.getElementById('adm-body')); }
+  catch (e) { Toast.show('ทดสอบไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+}
+async function admNotifyBuild(kind) {
+  try {
+    const n = await DB.adminNotifyBuildSupabase(kind, document.getElementById('ntf-build-date')?.value || null);
+    Toast.show(n ? `สร้างสรุป ${n} ข้อความ เข้าคิวส่งแล้ว` : 'ไม่มีรายการในวันนั้น หรือสร้างไปแล้ว', n ? 'success' : 'warning', 4000);
+    admRenderNotify(document.getElementById('adm-body'));
+  } catch (e) { Toast.show('สร้างสรุปไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
 }
