@@ -29,27 +29,31 @@ alter table public.products
   add column if not exists expiry_controlled boolean not null default false,
   add column if not exists erp_synced_at timestamptz;
 
-create temp table erp_items(code text primary key, name text, unit text, category text, legacy_sku text, lot_controlled boolean, expiry_controlled boolean) on commit drop;
-insert into erp_items values
+-- ตารางพักข้อมูล (ไม่ใช้ temp table เพราะ SQL Editor ของ Supabase แยกการเชื่อมต่อทุกคำสั่ง)
+drop table if exists private.erp_items_sync;
+create table private.erp_items_sync(code text primary key, name text, unit text, category text, legacy_sku text, lot_controlled boolean, expiry_controlled boolean);
+insert into private.erp_items_sync values
 ${vals};
 
 -- 1) อัปเดตรายการที่มีอยู่แล้ว (จับคู่ด้วยรหัส)
 update public.products p
 set name = e.name, unit = e.unit, category = e.category, erp_legacy_sku = e.legacy_sku,
     lot_controlled = e.lot_controlled, expiry_controlled = e.expiry_controlled, is_active = true, erp_synced_at = now()
-from erp_items e where e.code = p.code;
+from private.erp_items_sync e where e.code = p.code;
 
 -- 2) เพิ่มรายการใหม่ (type: 2 = อุปกรณ์/ของใช้, 1 = ยา/เวชภัณฑ์ — ตามหมวดของ ERP)
 insert into public.products (code, name, unit, category, type, is_active, erp_legacy_sku, lot_controlled, expiry_controlled, erp_synced_at)
 select e.code, e.name, e.unit, e.category,
        case when e.category in (${equip.map(q).join(', ')}) then 2 else 1 end,
        true, e.legacy_sku, e.lot_controlled, e.expiry_controlled, now()
-from erp_items e
+from private.erp_items_sync e
 where not exists (select 1 from public.products p where p.code = e.code);
 
 -- 3) ปิดใช้รหัสที่ ERP ไม่มี (ยังเลือกไม่ได้ในฟอร์ม แต่ประวัติยังแสดงชื่อได้)
 update public.products p set is_active = false
-where p.is_active and not exists (select 1 from erp_items e where e.code = p.code);
+where p.is_active and not exists (select 1 from private.erp_items_sync e where e.code = p.code);
+
+drop table private.erp_items_sync;
 
 commit;
 
