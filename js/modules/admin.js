@@ -897,13 +897,27 @@ async function admRenderErpSync(body) {
             <td>${r.qty||'-'}</td>
             <td>${badge(r.erp_sync_status)}${r.erp_sync_error?`<div style="font-size:0.72rem;color:var(--red-500,#dc2626);margin-top:2px;">${r.erp_sync_error}</div>`:''}</td>
             <td>${r.erp_ref||'—'}</td>
-            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" data-write onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
+            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" data-write onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="บัญชีคีย์รายการนี้เข้า ERP ด้วยมือแล้ว" onclick="admMarkKeyedInErp('${r.id}','${r.request_id||''}')">คีย์เข้า ERP แล้ว</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
           </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
         </tbody>
       </table>
     </div>
   </div>`;
   lucide.createIcons();
+}
+
+// ช่วงที่ยังไม่มีซิงก์อัตโนมัติ: บัญชีคีย์ตามใน ERP แล้วมากดปิดรายการ (ทั้งใบ) พร้อมเลขเอกสาร ERP
+async function admMarkKeyedInErp(logId, requestId) {
+  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => (requestId ? r.request_id === requestId : r.id === logId) && ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status));
+  if (!rows.length) { Toast.show('ไม่พบรายการที่รอส่ง (อาจปิดไปแล้ว)', 'warning'); admRenderErpSync(document.getElementById('adm-body')); return; }
+  const ref = prompt(`เลขที่เอกสารใน ERP (เช่น RQ-20261014-01 / GR-... / TF-...)\nจะปิดรายการ ${rows.length} บรรทัดของใบนี้`);
+  if (ref === null) return;
+  if (!ref.trim()) { Toast.show('กรุณาใส่เลขที่เอกสาร ERP', 'error'); return; }
+  try {
+    for (const r of rows) await DB.setStockLogErpSyncResultSupabase(r.id, 'ส่งสำเร็จ', ref.trim(), null);
+    Toast.show(`บันทึกแล้ว: ${rows.length} บรรทัด อ้างอิง ${ref.trim()}`, 'success');
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + (e.message || e), 'error', 5000); }
+  admRenderErpSync(document.getElementById('adm-body'));
 }
 
 async function admSyncStockLog(logId) {
