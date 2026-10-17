@@ -47,7 +47,9 @@ async function pullDataset(dataset: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.headers.get("authorization") !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
+  // Shared token between the database (private.app_config erp_pull_key) and this function (Secret ERP_PULL_TOKEN).
+  const token = Deno.env.get("ERP_PULL_TOKEN") || "";
+  if (!token || req.headers.get("authorization") !== `Bearer ${token}`) {
     return new Response("forbidden", { status: 403 });
   }
   if (!ERP_ANON || !ERP_KEY) return new Response(JSON.stringify({ error: "ยังไม่ได้ตั้ง Secrets ERP_ANON_KEY / ERP_EXT_READ_KEY" }), { status: 500 });

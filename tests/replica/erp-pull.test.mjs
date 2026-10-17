@@ -61,7 +61,8 @@ await check('admin status + sync-now; cron job scheduled', async () => {
   const st = (await q1(`select public.admin_erp_sync_status('acct') v`)).v;
   assert.equal(st.configured, false); assert.ok(st.datasets.length >= 5);
   await assert.rejects(db.query(`select public.admin_erp_sync_now('front')`), /FORBIDDEN_ROLE/);
-  await db.query(`insert into private.app_config values ('erp_pull_url','https://x/functions/v1/erp-pull'),('erp_pull_key','k') on conflict do nothing`);
+  await db.query(`insert into private.app_config values ('erp_pull_url','https://x/functions/v1/erp-pull') on conflict do nothing`);
+  assert.equal((await q1(`select length(value) l from private.app_config where key='erp_pull_key'`)).l, 48);
   await db.query(`select public.admin_erp_sync_now('acct')`);
   assert.equal((await q1(`select count(*)::int n from net.calls where url like '%erp-pull'`)).n, 1);
   assert.equal((await q1(`select count(*)::int n from cron.job where jobname='erp_pull_daily'`)).n, 1);

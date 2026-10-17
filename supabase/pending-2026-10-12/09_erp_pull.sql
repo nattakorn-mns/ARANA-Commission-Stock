@@ -55,6 +55,14 @@ alter table public.erp_service_commissions enable row level security;
 alter table public.erp_deposits enable row level security;
 revoke all on public.erp_stock_balance, public.erp_open_purchase_orders, public.erp_service_commissions, public.erp_deposits from public, anon, authenticated;
 
+-- เรียกด้วยสิทธิ์ service_role หรือไม่ (รองรับทั้งคีย์รูปแบบเก่า/ใหม่ของ Supabase)
+create or replace function private.is_service_call()
+returns boolean language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''),
+                  (nullif(current_setting('request.jwt.claims', true), '')::jsonb) ->> 'role') = 'service_role'
+         or session_user = 'postgres'
+$$;
+
 -- ชื่อสาขา ERP → ส่วนขยาย (ตัด "สาขา", Back Office/ไม่ระบุ → พิษณุโลก)
 create or replace function private.erp_branch_name(p text)
 returns text language sql immutable as $$
@@ -97,7 +105,7 @@ as $$
 declare
   r jsonb; n integer := 0; v_role record; v_branch uuid; v_last jsonb;
 begin
-  if current_setting('request.jwt.claim.role', true) is distinct from 'service_role' and session_user <> 'postgres' then
+  if not private.is_service_call() then
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;
 
@@ -218,7 +226,7 @@ set search_path = pg_catalog, public, private
 as $$
 declare v jsonb;
 begin
-  if current_setting('request.jwt.claim.role', true) is distinct from 'service_role' and session_user <> 'postgres' then
+  if not private.is_service_call() then
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;
   select jsonb_build_object('since', since, 'after_id', after_id) into v from private.erp_sync_state where dataset = p_dataset;
@@ -278,4 +286,9 @@ exception when others then null; end $$;
 -- 05:00 เวลาไทย = 22:00 UTC ของวันก่อน
 select cron.schedule('erp_pull_daily', '0 22 * * *', $cmd$select private.erp_pull_call()$cmd$);
 
-select jobname, schedule from cron.job where jobname = 'erp_pull_daily';
+-- รหัสลับระหว่างฐานข้อมูลกับตัวดึง (แทนคีย์ service_role) — สุ่มใหม่เฉพาะครั้งแรก รันซ้ำได้รหัสเดิม
+insert into private.app_config (key, value) values ('erp_pull_key', encode(extensions.gen_random_bytes(24), 'hex'))
+on conflict (key) do update set value = case when length(private.app_config.value) = 48 then private.app_config.value else excluded.value end;
+
+select (select schedule from cron.job where jobname = 'erp_pull_daily') as "ตั้งเวลา",
+       (select value from private.app_config where key = 'erp_pull_key') as "ERP_PULL_TOKEN (ก็อปไปใส่ Secret ของ erp-pull)";

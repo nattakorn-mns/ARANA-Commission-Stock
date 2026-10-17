@@ -22,6 +22,7 @@ export async function makeDb() {
 create extension if not exists pgcrypto schema public;
 create schema if not exists extensions;
 create or replace function extensions.digest(text, text) returns bytea language sql as $$ select public.digest($1,$2) $$;
+create or replace function extensions.gen_random_bytes(int) returns bytea language sql as $$ select public.gen_random_bytes($1) $$;
 do $$ begin create role anon; exception when others then null; end $$;
 do $$ begin create role authenticated; exception when others then null; end $$;
 do $$ begin create role service_role; exception when others then null; end $$;
