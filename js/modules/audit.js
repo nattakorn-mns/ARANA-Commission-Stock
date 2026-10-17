@@ -474,7 +474,7 @@ async function audRenderStock(body, kind) {
   const typeBadge = r => r.rowType === 'opd' ? '<span class="badge badge-service">เบิกจาก OPD</span>'
     : `<span class="badge badge-${r.type === 'IN' ? 'in' : 'out'}">${AUD_KIND_NAME[r.kind]}</span>`;
   const label = r => r.rowType === 'opd' ? (r.customerName || '-')
-    : (r.items || []).slice(0, 3).map(i => i.productName || i.productCode).join(', ') + ((r.items || []).length > 3 ? ` และอีก ${r.items.length - 3}` : '');
+    : (r.kind === 'in' && r.poNo ? r.poNo + ' · ' : '') + (r.items || []).slice(0, 3).map(i => i.productName || i.productCode).join(', ') + ((r.items || []).length > 3 ? ` และอีก ${r.items.length - 3}` : '');
   const where = r => (r.branch || '-') + (r.toBranch ? ' → ' + r.toBranch : '');
   const note = isOpd
     ? 'ตรวจกับรูปใบ OPD แล้วกดอนุมัติ — รายการที่อนุมัติแล้วจะไปรอเทียบกับรายงานจ่ายยา/อุปกรณ์ของ ERP ในแท็บ "เทียบเบิกระบบ ARANA" (ไม่ต้องนำส่ง ERP เพราะ ERP ตัดสต็อกเองตอนใช้บริการ)'
@@ -483,6 +483,7 @@ async function audRenderStock(body, kind) {
   <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่/เวลา</th><th>สาขา</th><th>ประเภท</th><th>${isOpd ? 'ลูกค้า' : 'รายการ'}</th><th>จำนวน</th><th>ผู้บันทึก</th><th>หลักฐาน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
   ${rows.length ? rows.map(r => `<tr id="stock-audit-row-${r.rowType}-${r.rowType === 'opd' ? r.billId : r.requestId}"><td class="nowrap">${formatDate(r.date)}${r.createdAt ? `<br><small>${new Date(r.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</small>` : ''}</td><td>${where(r)}</td><td>${typeBadge(r)}</td><td style="font-weight:600;">${label(r)}</td><td>${r.itemCount} รายการ</td><td>${r.createdByName || '-'}</td><td><button class="btn btn-ghost btn-sm" onclick="${r.rowType === 'opd' ? `audOpenStockRequest('${r.billId}')` : `audOpenStockRequestGroup('${r.requestId}')`}"><i data-lucide="eye"></i> ดูรายละเอียด</button></td><td>${statusBadge(r.auditStatus || 'รอตรวจสอบ')}</td><td class="nowrap"><button class="btn btn-success btn-sm" onclick="${r.rowType === 'opd' ? `audStockAction('${r.billId}','อนุมัติแล้ว')` : `audStockRequestAction('${r.requestId}','อนุมัติแล้ว')`}">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="${r.rowType === 'opd' ? `audStockReject('${r.billId}')` : `audStockRequestReject('${r.requestId}')`}">ตีกลับ</button></td></tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">ไม่มี${AUD_KIND_NAME[kind]}รอตรวจ</div></td></tr>`}
   </tbody></table></div></div>
+  ${kind === 'in' ? '<div id="aud-others"></div>' : ''}
   ${isOpd ? '' : `<div class="glass-card" style="margin-top:12px;padding:14px 16px;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-weight:700;color:var(--gray-700);">ตรวจแล้ว รอนำส่ง ERP</span>
@@ -494,6 +495,7 @@ async function audRenderStock(body, kind) {
   </div>`}`;
   lucide.createIcons();
   if (!isOpd) audLoadApprovedStock(kind);
+  if (kind === 'in') audLoadOthers();
 }
 
 async function audLoadApprovedStock(kind) {
@@ -502,49 +504,81 @@ async function audLoadApprovedStock(kind) {
   box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
   const showAll = document.getElementById('aud-approved-all')?.checked;
   const move = AUD_KIND_MOVE[kind];
-  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => r.audit_status === 'อนุมัติแล้ว' && !r.is_opd && r.move_type === move
-    && (showAll || ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status)));
+  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => !r.is_opd && r.move_type === move
+    && (r.erp_sync_status === 'ต้องยกเลิกที่ ERP'
+        || (r.audit_status === 'อนุมัติแล้ว' && (showAll || ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status)))));
   const groups = Object.values(rows.reduce((a, r) => { const k = r.request_id || r.id; (a[k] ||= { ...r, requestId: k, items: [] }).items.push(r); return a; }, {}));
   const waiting = g => g.items.some(i => ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(i.erp_sync_status));
+  const toCancel = g => g.items.some(i => i.erp_sync_status === 'ต้องยกเลิกที่ ERP');
   const erpCell = g => {
-    const s = waiting(g) ? (g.items.some(i => i.erp_sync_status === 'ส่งไม่สำเร็จ') ? 'ส่งไม่สำเร็จ' : 'รอส่ง') : g.items[0].erp_sync_status;
-    const cls = s === 'ส่งสำเร็จ' ? 'badge-approved' : s === 'ส่งไม่สำเร็จ' ? 'badge-rejected' : 'badge-waiting';
+    const s = toCancel(g) ? 'ต้องยกเลิกที่ ERP' : waiting(g) ? (g.items.some(i => i.erp_sync_status === 'ส่งไม่สำเร็จ') ? 'ส่งไม่สำเร็จ' : 'รอส่ง') : g.items[0].erp_sync_status;
+    const cls = s === 'ส่งสำเร็จ' ? 'badge-approved' : ['ส่งไม่สำเร็จ', 'ต้องยกเลิกที่ ERP'].includes(s) ? 'badge-rejected' : 'badge-waiting';
     const ref = g.items.find(i => i.erp_ref)?.erp_ref;
-    return `<span class="badge ${cls}">${s}</span>${ref ? `<div style="font-size:.72rem;color:var(--gray-500);margin-top:2px;">${ref}</div>` : ''}`;
+    const err = g.items.find(i => i.erp_sync_error)?.erp_sync_error;
+    return `<span class="badge ${cls}">${s}</span>${ref ? `<div style="font-size:.72rem;color:var(--gray-500);margin-top:2px;">${ref}</div>` : ''}${err && s !== 'ส่งสำเร็จ' ? `<div style="font-size:.72rem;color:var(--red-500,#dc2626);margin-top:2px;max-width:260px;">${err}</div>` : ''}`;
   };
-  box.innerHTML = groups.length ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>รายการ</th>${kind === 'in' ? '<th>PO / ผู้ขาย</th>' : ''}<th>สถานะ ERP</th><th></th></tr></thead><tbody>${groups.map(g => `<tr><td class="nowrap">${formatDate(g.log_date)}</td><td>${g.branch_name || '-'}${g.to_branch_name ? ' → ' + g.to_branch_name : ''}</td><td style="font-size:.82rem;">${g.items.map(i => (i.product_name || i.product_code) + ' × ' + i.qty).join('<br>')}</td>${kind === 'in' ? `<td style="font-size:.82rem;">${g.po_no || '-'}${g.supplier_name ? '<br>' + g.supplier_name : ''}</td>` : ''}<td>${erpCell(g)}</td><td class="nowrap">${waiting(g) ? `<button class="btn btn-primary btn-sm" data-write onclick="audSendToErp('${g.requestId}','${kind}')"><i data-lucide="send"></i> นำส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="นำเข้า/คีย์ใบนี้ใน ERP แล้ว ใส่เลขเอกสาร ERP เพื่อปิดรายการ" onclick="admMarkKeyedInErp('${g.items[0].id}','${g.request_id || ''}')">คีย์เข้า ERP แล้ว</button> ` : ''}<button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length})">ถอยการอนุมัติ</button></td></tr>`).join('')}</tbody></table></div>`
+  const sent = g => g.items.every(i => i.erp_sync_status === 'ส่งสำเร็จ');
+  const actions = g => {
+    if (toCancel(g)) return kind === 'transfer'
+      ? '<span style="font-size:.75rem;color:var(--gray-500);">ทำใบโอนกลับใน ERP</span>'
+      : `<button class="btn btn-danger btn-sm" data-write onclick="audErpReverse('${g.requestId}','${kind}')">ยกเลิกใน ERP</button>`;
+    let h = '';
+    if (waiting(g)) h += `<button class="btn btn-primary btn-sm" data-write onclick="audSendToErp('${g.requestId}','${kind}', this)"><i data-lucide="send"></i> นำส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="คีย์ใบนี้ใน ERP ด้วยมือแล้ว ใส่เลขเอกสาร ERP เพื่อปิดรายการ" onclick="admMarkKeyedInErp('${g.items[0].id}','${g.request_id || ''}')">คีย์เข้า ERP แล้ว</button> `;
+    // โอนที่ส่งเข้า ERP แล้ว สาขาปลายทางรับไปแล้ว ถอยไม่ได้ ต้องทำใบโอนกลับ
+    if (!(kind === 'transfer' && sent(g))) h += `<button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length}, ${sent(g)})">ถอยการอนุมัติ</button>`;
+    return h;
+  };
+  const itemCell = g => g.items.map(i => {
+    const exp = kind === 'in' && i.po_qty_expected != null ? Number(i.po_qty_expected) : null;
+    const flag = exp == null ? '' : Number(i.qty) > exp ? ` <span style="color:var(--red-600);font-weight:700;">(สั่ง ${exp} · รับเกิน)</span>` : Number(i.qty) < exp ? ` <span style="color:var(--gray-500);">(ค้างรับ ${exp})</span>` : ' <span style="color:var(--green-600);">✓</span>';
+    return (i.product_name || i.product_code) + ' × ' + i.qty + flag;
+  }).join('<br>');
+  box.innerHTML = groups.length ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>รายการ</th>${kind === 'in' ? '<th>PO / ผู้ขาย</th>' : ''}<th>สถานะ ERP</th><th></th></tr></thead><tbody>${groups.map(g => `<tr><td class="nowrap">${formatDate(g.log_date)}</td><td>${g.branch_name || '-'}${g.to_branch_name ? ' → ' + g.to_branch_name : ''}</td><td style="font-size:.82rem;">${itemCell(g)}</td>${kind === 'in' ? `<td style="font-size:.82rem;">${g.po_no || '-'}${g.supplier_name ? '<br>' + g.supplier_name : ''}</td>` : ''}<td>${erpCell(g)}</td><td class="nowrap">${actions(g)}</td></tr>`).join('')}</tbody></table></div>`
     : `<div class="empty-state">${showAll ? 'ไม่มีรายการที่อนุมัติแล้ว' : 'ไม่มีใบที่รอนำส่ง ERP'}</div>`;
   lucide.createIcons();
 }
 
-// ERP has no inbound channel yet → hand the accountant this one document as the ERP import Excel.
-// When ERP's ext_write_post is live this becomes the automatic send; the button stays the same.
-async function audSendToErp(requestId, kind) {
+// ส่งใบที่อนุมัติแล้วเข้า ERP (ผ่าน Edge Function — คีย์ ERP ไม่อยู่ในเบราว์เซอร์)
+async function audSendToErp(requestId, kind, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังส่ง...'; }
   try {
-    const [ExcelJS, products, all] = await Promise.all([erpExcelLoadLib(), erpExcelProducts(), DB.listStockLogsErpSyncSupabase(null)]);
-    const rows = (all || []).filter(r => (r.request_id || r.id) === requestId && r.audit_status === 'อนุมัติแล้ว' && !r.is_opd
-      && ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status));
-    if (!rows.length) { Toast.show('ใบนี้ไม่มีรายการที่รอนำส่งแล้ว', 'warning'); audLoadApprovedStock(kind); return; }
-    const name = AUD_KIND_NAME[kind] + '-' + (rows[0].branch_name || '') + '-' + rows[0].log_date + '-นำเข้าERP.xlsx';
-    await erpExcelDownload(ErpExcel.build(ExcelJS, { rows, products, branches: ERP_EXCEL_BRANCHES }), name);
-    Toast.show('ERP ยังไม่เปิดช่องรับอัตโนมัติ — ดาวน์โหลดไฟล์ให้นำเข้า ERP แล้ว นำเข้าเสร็จกด "คีย์เข้า ERP แล้ว"', 'info', 6000);
-  } catch (e) { Toast.show(e.message || String(e), 'error', 5000); }
+    const res = await DB.erpPushSupabase(requestId, 'send');
+    Toast.show('นำส่งเข้า ERP สำเร็จ' + (res.erp_doc_no ? ' — เลขเอกสาร ' + res.erp_doc_no : ''), 'success', 5000);
+  } catch (e) {
+    Toast.show('ERP ไม่รับใบนี้: ' + (e.message || e), 'error', 9000);
+  }
+  audLoadApprovedStock(kind);
 }
-function audStockRevertPrompt(requestId, count) {
-  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ถอยการอนุมัติ</h3></div><div class="modal-body"><div class="alert-box alert-warning" style="margin-bottom:12px;"><i data-lucide="alert-triangle"></i><span>ระบบจะคืนของ ${count} รายการในใบนี้กลับเข้าคลัง และเปลี่ยนสถานะเป็น "ตีกลับ" ให้พนักงานส่งใบใหม่ที่ถูกต้อง ถ้าใบนี้ส่งเข้า ERP ไปแล้ว จะขึ้นเตือนให้ไปยกเลิกที่ ERP ด้วย</span></div><label class="form-label">เหตุผล <span class="required">*</span></label><textarea id="aud-stock-revert-note" class="form-textarea" rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRevert('${requestId}')">ยืนยันถอยการอนุมัติ</button></div></div>`);
+async function audErpReverse(requestId, kind) {
+  try {
+    await DB.erpPushSupabase(requestId, 'reverse');
+    Toast.show('ยกเลิกใบนี้ใน ERP แล้ว', 'success', 4000);
+  } catch (e) {
+    Toast.show('ยกเลิกใน ERP ไม่สำเร็จ: ' + (e.message || e), 'error', 9000);
+  }
+  audLoadApprovedStock(kind);
 }
-async function audDoStockRevert(requestId) {
+function audStockRevertPrompt(requestId, count, sentToErp) {
+  const erpNote = sentToErp ? 'ใบนี้ส่งเข้า ERP แล้ว ระบบจะยกเลิกใบนี้ใน ERP ให้ด้วย' : 'ใบนี้ยังไม่ได้ส่งเข้า ERP';
+  openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ถอยการอนุมัติ</h3></div><div class="modal-body"><div class="alert-box alert-warning" style="margin-bottom:12px;"><i data-lucide="alert-triangle"></i><span>ระบบจะคืนของ ${count} รายการในใบนี้กลับเข้าคลัง และเปลี่ยนสถานะเป็น "ตีกลับ" ให้พนักงานส่งใบใหม่ที่ถูกต้อง — ${erpNote}</span></div><label class="form-label">เหตุผล <span class="required">*</span></label><textarea id="aud-stock-revert-note" class="form-textarea" rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRevert('${requestId}', ${!!sentToErp})">ยืนยันถอยการอนุมัติ</button></div></div>`);
+}
+async function audDoStockRevert(requestId, sentToErp) {
   const note = document.getElementById('aud-stock-revert-note')?.value.trim();
   if (!note) { Toast.show('กรุณาระบุเหตุผล', 'error'); return; }
   try {
     await DB.revertStockRequestSupabase(requestId, note);
     closeModalDirect();
     Toast.show('ถอยการอนุมัติแล้ว — คืนของเข้าคลังเรียบร้อย', 'success', 4000);
-    if (document.getElementById('aud-approved-stock')) audRender();
-    else if (typeof admRenderErpSync === 'function' && document.getElementById('adm-body')) admRenderErpSync(document.getElementById('adm-body'));
   } catch (e) {
     Toast.show('ถอยการอนุมัติไม่สำเร็จ: ' + (/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ชุดวันที่ 26/09' : DB.stockErrorText(e)), 'error', 6000);
+    return;
   }
+  if (sentToErp) {
+    try { await DB.erpPushSupabase(requestId, 'reverse'); Toast.show('ยกเลิกใบนี้ใน ERP แล้ว', 'success', 4000); }
+    catch (e) { Toast.show('คืนของในระบบนี้แล้ว แต่ยกเลิกใน ERP ไม่สำเร็จ: ' + (e.message || e) + ' — กด "ยกเลิกใน ERP" อีกครั้งในรายการ', 'error', 10000); }
+  }
+  if (document.getElementById('aud-approved-stock')) audRender();
+  else if (typeof admRenderErpSync === 'function' && document.getElementById('adm-body')) admRenderErpSync(document.getElementById('adm-body'));
 }
 async function audStockAction(billId,status,note) {
   try { await DB.auditOpdStockRequestSupabase(billId,status,currentUser.id,note||''); Toast.show(status === 'อนุมัติแล้ว' ? 'อนุมัติตัดสต๊อกเรียบร้อย' : 'ตีกลับรายการตัดสต๊อกแล้ว',status === 'อนุมัติแล้ว' ? 'success' : 'error'); closeModalDirect(); audRender(); }
@@ -639,11 +673,12 @@ function audOpenStockRequestGroup(requestId){
   if(!items.length){Toast.show('ไม่พบคำขอ','error');return;}
   const first=items[0];
   const isIn=first.type==='IN';
-  const list=items.map(i=>`<tr><td>${i.productCode||'-'}</td><td>${i.productName||'-'}</td><td>${i.qty} ${i.unit||''}</td>${isIn?`<td>${i.lotNo||'-'}</td><td>${i.expireDate?formatDate(i.expireDate):'-'}</td>`:`<td>${i.source||'-'}</td>`}<td>${i.note||'-'}</td></tr>`).join('');
+  const cmp=i=>{if(!isIn||i.poQtyExpected==null)return '';const e=Number(i.poQtyExpected),q=Number(i.qty);return q>e?'<span class="badge badge-rejected">รับเกิน '+(q-e)+'</span>':q<e?'<span class="badge badge-waiting">รับบางส่วน (ค้าง '+(e-q)+')</span>':'<span class="badge badge-approved">ตรง</span>';};
+  const list=items.map(i=>`<tr style="${isIn&&i.poQtyExpected!=null&&Number(i.qty)>Number(i.poQtyExpected)?'background:var(--red-100)':''}"><td>${i.productCode||'-'}</td><td>${i.productName||'-'}</td><td>${i.qty} ${i.unit||''}</td>${isIn?`<td>${i.poQtyExpected==null?'-':i.poQtyExpected}</td><td>${cmp(i)}</td><td>${i.expireDate?formatDate(i.expireDate):'-'}</td>`:`<td>${i.source||'-'}</td>`}<td>${i.note||'-'}</td></tr>`).join('');
   const poInfo=isIn?`<div><small>เลขที่ PO (ERP)</small><strong>${first.poNo||'-'}</strong></div><div><small>ผู้ขาย</small><strong>${first.supplierName||'-'}</strong></div>`:'';
   const evidence=[...new Set(items.flatMap(i=>i.images||[]))].filter(url=>/^data:image\/|^https:\/\//.test(String(url)));
   const photos=evidence.length ? evidence.map((url,index)=>`<img src="${String(url).replace(/"/g,'&quot;')}" alt="หลักฐานรายการ ${index+1}" style="width:100%;max-height:280px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:10px;">`).join('') : '<div style="min-height:220px;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--gray-500);background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:10px;">ยังไม่มีรูปหลักฐาน</div>';
-  openModal(`<div class="modal" style="width:1100px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">รายละเอียดคำขอเบิก/รับ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body"><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(first.date)}</strong></div><div><small>สาขา</small><strong>${first.branch||'-'}</strong></div><div><small>ผู้บันทึก</small><strong>${first.createdByName||'-'}</strong></div>${poInfo}<div><small>ประเภท</small><strong>${first.type==='IN'?'รับของเข้า':first.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</strong></div></div><div style="display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1.4fr);gap:18px;margin-top:18px;align-items:start;"><section><h4 style="margin:0 0 10px;">รูปหลักฐาน (${evidence.length})</h4>${photos}</section><section><h4 style="margin:0 0 10px;">รายการทั้งหมด (${items.length})</h4><div class="table-wrap"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>จำนวน</th>${isIn?'<th>เลขล็อต</th><th>วันหมดอายุ</th>':'<th>แหล่งที่มา</th>'}<th>หมายเหตุ</th></tr></thead><tbody>${list}</tbody></table></div></section></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockRequestReject('${requestId}')">ตีกลับทั้งคำขอ</button><button class="btn btn-success" onclick="audStockRequestAction('${requestId}','อนุมัติแล้ว')">อนุมัติทั้งคำขอ</button></div></div>`);
+  openModal(`<div class="modal" style="width:1100px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">รายละเอียดคำขอเบิก/รับ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body"><div class="detail-grid"><div><small>วันที่</small><strong>${formatDate(first.date)}</strong></div><div><small>สาขา</small><strong>${first.branch||'-'}</strong></div><div><small>ผู้บันทึก</small><strong>${first.createdByName||'-'}</strong></div>${poInfo}<div><small>ประเภท</small><strong>${first.type==='IN'?'รับของเข้า':first.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</strong></div></div><div style="display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1.4fr);gap:18px;margin-top:18px;align-items:start;"><section><h4 style="margin:0 0 10px;">รูปหลักฐาน (${evidence.length})</h4>${photos}</section><section><h4 style="margin:0 0 10px;">รายการทั้งหมด (${items.length})</h4><div class="table-wrap"><table><thead><tr><th>รหัส</th><th>รายการ</th><th>${isIn?'รับจริง':'จำนวน'}</th>${isIn?'<th>ค้างรับใน PO</th><th>ผล</th><th>วันหมดอายุ</th>':'<th>แหล่งที่มา</th>'}<th>หมายเหตุ</th></tr></thead><tbody>${list}</tbody></table></div></section></div></div><div class="modal-footer"><button class="btn btn-danger" onclick="audStockRequestReject('${requestId}')">ตีกลับทั้งคำขอ</button><button class="btn btn-success" onclick="audStockRequestAction('${requestId}','อนุมัติแล้ว')">อนุมัติทั้งคำขอ</button></div></div>`);
 }
 function audStockRequestAction(id,status,note){DB.auditStockRequestSupabase(id,status,currentUser.id,note||'').then(()=>{Toast.show(status==='อนุมัติแล้ว'?'อนุมัติคำขอแล้ว':'ตีกลับคำขอแล้ว',status==='อนุมัติแล้ว'?'success':'error');closeModalDirect();audRender();}).catch(e=>Toast.show('เกิดข้อผิดพลาด: '+DB.stockErrorText(e),'error',5000));}
 function audStockRequestReject(id){openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ตีกลับคำขอเบิก/รับ</h3></div><div class="modal-body"><label class="form-label">เหตุผลที่ตีกลับ</label><textarea id="aud-stock-request-note" class="form-textarea" rows="4"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRequestReject('${id}')">ยืนยันตีกลับทั้งคำขอ</button></div></div>`);}
@@ -752,110 +787,102 @@ function audQuickStockApprove(logId) { audStockAction(logId, 'อนุมัต
 function audQuickStockReject(logId) { closeModalDirect(); audStockReject(logId); }
 */
 
-// ── TAB 3: APSX Compare ──────────────────────────────────
+// ── ของใช้อื่นๆ (ของที่มาถึงแต่ไม่อยู่ใน PO) — บัญชีตัดสิน ไม่เข้าสต็อก ไม่ส่ง ERP ──
+function audEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+async function audLoadOthers() {
+  const box = document.getElementById('aud-others');
+  if (!box) return;
+  let rows;
+  try { rows = await DB.listReceiveOtherItemsSupabase(true); }
+  catch (e) { box.innerHTML = ''; console.error(e); return; }
+  window._audOthers = rows;
+  if (!rows.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="glass-card" style="margin-top:12px;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-weight:700;color:var(--gray-700);">ของใช้อื่นๆ รอตรวจ</span><span class="badge badge-pending">${rows.length} รายการ</span>
+    <span style="font-size:.78rem;color:var(--gray-500);flex-basis:100%;">ของที่มาถึงแต่ไม่อยู่ใน PO — ไม่เข้าคลัง (ของใช้ทั่วไป/บริษัทสั่งให้) หรือ ต้องเปิด PO ใน ERP ก่อนแล้วค่อยรับเข้าตาม PO</span></div>
+    <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ของ</th><th>จำนวน</th><th>ผู้บันทึก</th><th>มากับ PO</th><th>หลักฐาน</th><th></th></tr></thead><tbody>
+    ${rows.map(o => `<tr><td class="nowrap">${formatDate(o.log_date)}</td><td>${audEsc(o.branch_name || '-')}</td><td style="font-weight:600;">${audEsc(o.item_name)}${o.note ? `<div style="font-size:.75rem;color:var(--gray-500);font-weight:400;">${audEsc(o.note)}</div>` : ''}</td><td>${o.qty} ${audEsc(o.unit || '')}</td><td>${audEsc(o.created_by_name || '-')}</td><td>${audEsc(o.po_no || '-')}</td><td>${(o.images || []).length ? `<button class="btn btn-ghost btn-sm" onclick="audOtherImages('${o.id}')"><i data-lucide="image"></i> ดูรูป</button>` : (o.po_no ? '<span style="font-size:.75rem;color:var(--gray-500);">รูปอยู่กับใบ PO</span>' : '-')}</td>
+      <td class="nowrap"><button class="btn btn-ghost btn-sm" data-write onclick="audDecideOther('${o.id}','ไม่เข้าคลัง')">ไม่เข้าคลัง</button> <button class="btn btn-ghost btn-sm" data-write onclick="audDecideOther('${o.id}','ต้องเปิด PO')">ต้องเปิด PO</button></td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  lucide.createIcons();
+}
+function audOtherImages(id) {
+  const o = (window._audOthers || []).find(x => x.id === id);
+  const imgs = (o?.images || []).filter(u => /^data:image\/|^https:\/\//.test(String(u)));
+  openModal(`<div class="modal" style="width:900px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">หลักฐาน — ${audEsc(o?.item_name || '')}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body">${imgs.map((u, i) => `<img src="${String(u).replace(/"/g, '&quot;')}" alt="หลักฐาน ${i + 1}" style="width:100%;max-height:70vh;object-fit:contain;margin-bottom:10px;border-radius:10px;border:1px solid var(--gray-200);">`).join('') || 'ไม่มีรูป'}</div></div>`);
+}
+async function audDecideOther(id, decision) {
+  try {
+    await DB.decideReceiveOtherItemSupabase(id, decision, null);
+    Toast.show(decision === 'ต้องเปิด PO' ? 'บันทึกแล้ว — เปิด PO ใน ERP แล้วให้สาขารับเข้าตาม PO' : 'บันทึกแล้ว — ไม่เข้าคลัง', 'success', 4000);
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+  audLoadOthers();
+}
+
+// ── TAB 3: เทียบเบิกระบบ ARANA — OPD ที่บัญชีอนุมัติแล้ว vs รายงานจ่ายยา/อุปกรณ์ (หน้าร้าน) ของ ERP ──
+const AUD_CMP_STYLE = {
+  'ตรง': 'badge-approved', 'จำนวนไม่ตรง': 'badge-rejected', 'มีใน ERP แต่ไม่ได้บันทึก': 'badge-rejected',
+  'บันทึกแต่ไม่มีใน ERP': 'badge-waiting', 'รอบัญชีตรวจ': 'badge-pending', 'ยอดรวมรายวัน (ไม่มี HN)': 'badge-waiting'
+};
 function audRenderCompare(body) {
+  const to = todayISO();
+  const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
   body.innerHTML = `
   <div class="glass-card">
-    <div class="section-header" style="margin-bottom:14px;"><span class="section-title">เทียบเบิก APSX vs ระบบ</span></div>
-    <div class="alert-box alert-info" style="margin-bottom:16px;">
-      <i data-lucide="info"></i>
-      <span>นำเข้าไฟล์ CSV จาก APSX เพื่อเทียบกับรายการเบิกในระบบของสาขา ${currentBranch}</span>
+    <div class="section-header" style="margin-bottom:10px;"><span class="section-title">เทียบเบิกระบบ ARANA</span></div>
+    <div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
+      <span>เทียบของที่พนักงานบันทึกพ่วงบิล OPD (เฉพาะที่บัญชีอนุมัติแล้ว) กับรายงานสรุปการจ่ายยา/อุปกรณ์ (หน้าร้าน) ของ ERP ต่อ วันที่ + สาขา + HN + สินค้า · ข้อมูล ERP อัปเดตทุกเช้า 05:00</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="form-group"><label class="form-label">ตั้งแต่</label><input type="date" id="cmp-from" class="form-input" value="${from}" max="${to}"></div>
+      <div class="form-group"><label class="form-label">ถึง</label><input type="date" id="cmp-to" class="form-input" value="${to}" max="${to}"></div>
+      <div class="form-group"><label class="form-label">สาขา</label><select id="cmp-branch" class="form-select"><option value="">ทุกสาขา</option>${['พิษณุโลก', 'กำแพงเพชร', 'แม่สอด', 'นครสวรรค์'].map(b => `<option>${b}</option>`).join('')}</select></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;margin-bottom:10px;"><input type="checkbox" id="cmp-problems" checked onchange="audShowCompare()"> เฉพาะที่ต้องตรวจ</label>
+      <button class="btn btn-primary" style="margin-bottom:4px;" onclick="audRunCompare()"><i data-lucide="git-compare"></i> เทียบ</button>
+      <button class="btn btn-ghost" style="margin-bottom:4px;" onclick="audExportCompare()"><i data-lucide="download"></i> Excel</button>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
-      <label class="btn btn-secondary" style="cursor:pointer;">
-        <i data-lucide="upload"></i> นำเข้าไฟล์ APSX (.csv)
-        <input type="file" accept=".csv" style="display:none;" onchange="audLoadCSV(event)" />
-      </label>
-      <button class="btn btn-primary" data-view-ok id="aud-compare-btn" onclick="audRunCompare()" disabled>
-        <i data-lucide="git-compare"></i> ตรวจสอบ
-      </button>
-    </div>
-    <div id="csv-preview"></div>
     <div id="compare-result"></div>
   </div>`;
   lucide.createIcons();
+  audRunCompare();
 }
-
-window._apsxData = [];
-function audLoadCSV(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const lines = ev.target.result.split('\n').filter(l => l.trim());
-    const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
-    _apsxData = lines.slice(1).map(line => {
-      const cols = line.split(',').map(c => c.replace(/"/g,'').trim());
-      const obj = {};
-      headers.forEach((h, i) => obj[h] = cols[i]||'');
-      return obj;
-    }).filter(r => r[headers[0]]);
-
-    const preview = document.getElementById('csv-preview');
-    if (preview) {
-      preview.innerHTML = `
-      <div class="alert-box alert-success" style="margin-bottom:12px;"><i data-lucide="check-circle"></i><span>โหลด ${_apsxData.length} รายการจากไฟล์ CSV</span></div>
-      <div class="table-wrap" style="max-height:200px;overflow:auto;margin-bottom:12px;">
-        <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>${_apsxData.slice(0,10).map(row => `<tr>${headers.map(h => `<td>${row[h]||''}</td>`).join('')}</tr>`).join('')}</tbody></table>
-      </div>`;
-    }
-    const btn = document.getElementById('aud-compare-btn');
-    if (btn) btn.disabled = false;
-    lucide.createIcons();
-  };
-  reader.readAsText(file, 'UTF-8');
+window._audCompare = [];
+async function audRunCompare() {
+  const box = document.getElementById('compare-result');
+  if (!box) return;
+  box.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-400);">กำลังเทียบ...</div>';
+  try {
+    window._audCompare = await DB.dispenseCompareSupabase(document.getElementById('cmp-from').value, document.getElementById('cmp-to').value, document.getElementById('cmp-branch').value);
+  } catch (e) {
+    box.innerHTML = `<div class="alert-box alert-warning"><i data-lucide="alert-triangle"></i><span>${/INVALID_RANGE/.test(e.message || '') ? 'เลือกช่วงวันที่ไม่เกิน 2 เดือน' : 'เทียบไม่สำเร็จ: ' + audEsc(e.message || e)}</span></div>`;
+    lucide.createIcons(); return;
+  }
+  audShowCompare();
 }
-
-function audRunCompare() {
-  const result = document.getElementById('compare-result');
-  if (!result) return;
-  result.innerHTML = `<div class="loading-placeholder" style="height:120px;"><div class="spinner"></div><p>AI กำลังวิเคราะห์...</p></div>`;
+function audShowCompare() {
+  const box = document.getElementById('compare-result');
+  if (!box) return;
+  const all = window._audCompare || [];
+  const counts = all.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
+  const onlyProblems = document.getElementById('cmp-problems')?.checked;
+  const rows = onlyProblems ? all.filter(r => r.status !== 'ตรง') : all;
+  const summary = Object.keys(AUD_CMP_STYLE).filter(k => counts[k]).map(k => `<span class="badge ${AUD_CMP_STYLE[k]}" style="margin-right:6px;">${k} ${counts[k]}</span>`).join('') || '<span style="color:var(--gray-500);">ไม่มีข้อมูลในช่วงนี้</span>';
+  box.innerHTML = `<div style="margin-bottom:10px;">${summary}</div>
+  ${rows.length ? `<div class="table-wrap" style="max-height:65vh;overflow:auto;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>HN</th><th>ลูกค้า</th><th>สินค้า</th><th class="num">ERP</th><th class="num">ARANA</th><th class="num">รอตรวจ</th><th>ผล</th><th>เอกสาร ERP</th></tr></thead><tbody>
+  ${rows.map(r => `<tr style="${['จำนวนไม่ตรง', 'มีใน ERP แต่ไม่ได้บันทึก'].includes(r.status) ? 'background:var(--red-100)' : ''}"><td class="nowrap">${formatDate(r.d)}</td><td>${audEsc(r.branch)}</td><td>${audEsc(r.hn || '-')}</td><td>${audEsc(r.customer_name || '-')}</td><td>${audEsc(r.item_name || r.sku)}<div style="font-size:.72rem;color:var(--gray-500);">${audEsc(r.sku)}</div></td><td class="num">${r.erp_qty ?? '-'}</td><td class="num">${r.ext_qty ?? '-'}</td><td class="num">${r.ext_wait_qty ? r.ext_wait_qty : ''}</td><td><span class="badge ${AUD_CMP_STYLE[r.status] || ''}">${r.status}</span></td><td style="font-size:.75rem;">${audEsc(r.erp_docs || '')}</td></tr>`).join('')}
+  </tbody></table></div>` : `<div class="empty-state">${all.length ? 'ทุกรายการตรงกัน 🎉' : 'ไม่มีข้อมูลในช่วงนี้'}</div>`}`;
   lucide.createIcons();
-
-  setTimeout(() => {
-    const syslogs = DB.getStockLogs({ branch: currentBranch, auditStatus: 'อนุมัติแล้ว' });
-    const sysMap = {};
-    syslogs.forEach(l => {
-      if (!sysMap[l.productCode]) sysMap[l.productCode] = 0;
-      if (l.direction === 'IN') sysMap[l.productCode] += l.qty;
-      else if (l.direction === 'OUT') sysMap[l.productCode] -= l.qty;
-    });
-
-    const rows = _apsxData.map(row => {
-      const code = row['รหัสสินค้า'] || row['code'] || Object.values(row)[0];
-      const name = row['ชื่อสินค้า'] || row['name'] || Object.values(row)[1];
-      const apsxQty = parseInt(row['จำนวน'] || row['qty'] || Object.values(row)[2]) || 0;
-      const sysQty = sysMap[code] || 0;
-      const diff = sysQty - apsxQty;
-      return { code, name, apsxQty, sysQty, diff, match: diff === 0 };
-    });
-
-    const mismatches = rows.filter(r => !r.match).length;
-
-    result.innerHTML = `
-    <div class="${mismatches===0?'alert-box alert-success':'alert-box alert-warning'}" style="margin-bottom:12px;">
-      <i data-lucide="${mismatches===0?'check-circle':'alert-triangle'}"></i>
-      <span>${mismatches===0?'ข้อมูลตรงกันทั้งหมด':'พบความคลาดเคลื่อน '+mismatches+' รายการ'}</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th class="num">APSX</th><th class="num">ระบบ</th><th class="num">ต่าง</th><th>สถานะ</th></tr></thead>
-        <tbody>
-          ${rows.map(r => `
-          <tr style="${r.match?'':'background:var(--red-100)'}">
-            <td><code style="font-size:0.75rem;background:rgba(0,0,0,0.06);padding:2px 5px;border-radius:4px;">${r.code}</code></td>
-            <td>${r.name||'-'}</td>
-            <td class="num">${r.apsxQty}</td>
-            <td class="num">${r.sysQty}</td>
-            <td class="num" style="font-weight:700;color:${r.diff>0?'var(--green-600)':r.diff<0?'var(--red-600)':'var(--gray-500)'};">${r.diff>0?'+':''}${r.diff}</td>
-            <td>${r.match?'<span class="badge badge-approved">ตรง</span>':'<span class="badge badge-rejected">ไม่ตรง</span>'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-    lucide.createIcons();
-  }, 1500);
+}
+async function audExportCompare() {
+  const rows = window._audCompare || [];
+  if (!rows.length) { Toast.show('ยังไม่มีผลเทียบ', 'warning'); return; }
+  try {
+    const ExcelJS = await erpExcelLoadLib();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('เทียบเบิก');
+    ws.addRow(['วันที่', 'สาขา', 'HN', 'ลูกค้า', 'รหัสสินค้า', 'สินค้า', 'ERP', 'ARANA', 'รอตรวจ', 'ผล', 'เอกสาร ERP']);
+    rows.forEach(r => ws.addRow([r.d, r.branch, r.hn || '', r.customer_name || '', r.sku, r.item_name || '', r.erp_qty ?? '', r.ext_qty ?? '', r.ext_wait_qty || '', r.status, r.erp_docs || '']));
+    await erpExcelDownload(wb, `เทียบเบิกระบบARANA-${document.getElementById('cmp-from').value}-${document.getElementById('cmp-to').value}.xlsx`);
+  } catch (e) { Toast.show(e.message || String(e), 'error', 5000); }
 }
 
 // ── TAB 4: Audit Log ─────────────────────────────────────

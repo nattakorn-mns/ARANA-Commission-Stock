@@ -892,7 +892,7 @@ async function admRenderErpSync(body) {
   body.innerHTML = pullCard + `
   <div class="alert-box alert-warning" style="margin-bottom:16px;">
     <i data-lucide="info"></i>
-    <span>หน้านี้เป็นการเตรียมโครงสร้างไว้ก่อนครับ — ยังไม่ได้เชื่อมส่งข้อมูลเข้า ERP หลักจริง (รอ ERP หลักเปิดช่องทางรับข้อมูลก่อน) รายการทั้งหมดจึงยังขึ้นสถานะ "รอส่ง"</span>
+    <span>ภาพรวมทุกบรรทัด — การนำส่งเข้า ERP ปกติทำในห้องตรวจ (ตรวจเบิกใช้ / ตรวจรับเข้า / ตรวจโอน) ปุ่ม "ส่งเข้า ERP" ที่นี่จะส่งทั้งใบที่บรรทัดนั้นอยู่</span>
   </div>
 
   <div class="glass-card" style="padding:0;overflow:hidden;">
@@ -914,13 +914,13 @@ async function admRenderErpSync(body) {
           ${rows.length ? rows.map(r => `
           <tr>
             <td>${formatDate(r.log_date)}</td>
-            <td>${r.move_type === 'TRANSFER' ? 'โอนสาขา' : 'เบิกใช้'}</td>
+            <td>${r.move_type === 'TRANSFER' ? 'โอนสาขา' : r.move_type === 'IN' ? 'รับเข้า' : 'เบิกใช้'}</td>
             <td>${r.branch_name||'-'}${r.to_branch_name?' → '+r.to_branch_name:''}</td>
             <td>${r.product_name||r.product_code||'-'}</td>
             <td>${r.qty||'-'}</td>
             <td>${badge(r.erp_sync_status)}${r.erp_sync_error?`<div style="font-size:0.72rem;color:var(--red-500,#dc2626);margin-top:2px;">${r.erp_sync_error}</div>`:''}</td>
             <td>${r.erp_ref||'—'}</td>
-            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" data-write onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="บัญชีคีย์รายการนี้เข้า ERP ด้วยมือแล้ว" onclick="admMarkKeyedInErp('${r.id}','${r.request_id||''}')">คีย์เข้า ERP แล้ว</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length})">ถอยการอนุมัติ</button>`:''}</td>
+            <td class="nowrap">${['รอส่ง','ส่งไม่สำเร็จ'].includes(r.erp_sync_status)&&r.audit_status!=='ตีกลับ'?`<button class="btn btn-ghost btn-sm" data-write onclick="admSyncStockLog('${r.id}')">ส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="บัญชีคีย์รายการนี้เข้า ERP ด้วยมือแล้ว" onclick="admMarkKeyedInErp('${r.id}','${r.request_id||''}')">คีย์เข้า ERP แล้ว</button>`:''}${r.audit_status==='อนุมัติแล้ว'&&!r.is_opd&&r.request_id?` <button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${r.request_id}', ${rows.filter(x=>x.request_id===r.request_id).length}, ${r.erp_sync_status==='ส่งสำเร็จ'})">ถอยการอนุมัติ</button>`:''}</td>
           </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px;">ไม่มีรายการ</td></tr>`}
         </tbody>
       </table>
@@ -952,9 +952,10 @@ async function admSyncStockLog(logId) {
   const rows = await DB.listStockLogsErpSyncSupabase(null);
   const row = rows.find(r => r.id === logId);
   if (!row) { Toast.show('ไม่พบรายการนี้ (อาจถูกอัปเดตไปแล้ว)', 'error'); admRenderErpSync(document.getElementById('adm-body')); return; }
-  const result = await DB.syncStockLogToErpSupabase(row);
-  if (result.ok) Toast.show('ส่งเข้า ERP สำเร็จ', 'success');
-  else Toast.show('ยังส่งไม่ได้: ' + (result.reason === 'NOT_CONFIGURED_YET' ? 'รอเชื่อมช่องทางกับ ERP หลักก่อน' : result.reason), 'error');
+  try {
+    const res = await DB.erpPushSupabase(row.request_id || row.id, 'send');
+    Toast.show('ส่งเข้า ERP สำเร็จ' + (res.erp_doc_no ? ' — ' + res.erp_doc_no : ''), 'success', 5000);
+  } catch (e) { Toast.show('ERP ไม่รับใบนี้: ' + (e.message || e), 'error', 9000); }
   admRenderErpSync(document.getElementById('adm-body'));
 }
 

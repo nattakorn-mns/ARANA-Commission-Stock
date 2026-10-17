@@ -44,7 +44,7 @@
   // ExcelJS is passed in so the same builder runs in the browser and in Node.
   function build(ExcelJS, { rows = [], products = [], branches = [] } = {}) {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'ARANA ระบบส่วนขยาย';
+    wb.creator = 'ARANA Staff';
     const ws = wb.addWorksheet('นำเข้า ERP', { views: [{ state: 'frozen', ySplit: 1 }] });
     ws.columns = ERP_COLUMNS.map(c => ({ header: c.key, key: c.key, width: c.width }));
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

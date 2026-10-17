@@ -26,13 +26,16 @@ async function renderInventory(container, defaultTab) {
 
   container.innerHTML = `<div><div id="inv-body">กำลังโหลดรายการสินค้า...</div></div>`;
 
-  invProductsCache = await DB.getProductsSupabase();
+  invPoNo = ''; invPoRows = []; invOthers = [];
+  [invProductsCache] = await Promise.all([DB.getProductsSupabase(), invTab === 'in' ? invLoadPos() : null]);
   invRender();
   lucide.createIcons();
 }
 
-function invSwitchTab(tab) {
+async function invSwitchTab(tab) {
   invTab = tab;
+  invPoNo = ''; invPoRows = []; invOthers = [];
+  if (tab === 'in') await invLoadPos();
   invRequestId = null;
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
@@ -87,18 +90,7 @@ function invRender() {
       </select>
     </div>` : ''}
 
-    ${invTab === 'in' ? `
-    <div class="form-row" style="margin-bottom:16px;">
-      <div class="form-group">
-        <label class="form-label">เลขที่ใบสั่งซื้อ (PO) ของ ERP</label>
-        <input id="inv-po-no" class="form-input" placeholder="เช่น PO-20261012-01 (ถ้าไม่มี PO เว้นว่าง)" autocomplete="off" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">ผู้ขาย / ส่งมาจาก</label>
-        <input id="inv-supplier" class="form-input" placeholder="ชื่อบริษัท หรือ ของแถม/ยืมคืน" autocomplete="off" />
-      </div>
-    </div>
-    <p style="font-size:0.75rem;color:var(--gray-400);margin:-8px 0 14px;">ถ้าสินค้าคุมล็อต ให้กรอกเลขล็อตและวันหมดอายุที่ข้างกล่องในแต่ละรายการ</p>` : ''}
+    ${invTab === 'in' ? invPoSectionHtml() : ''}
 
     ${invTab === 'out' ? `
     <div class="form-group" style="margin-bottom:16px;">
@@ -112,15 +104,16 @@ function invRender() {
       <p style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">เลือกให้ตรงนะคะ ข้อมูลนี้จะช่วยให้บัญชีเทียบยอดกับ OPD ได้ง่ายขึ้น</p>
     </div>` : ''}
 
+    ${invTab === 'in' ? `<div id="inv-po-rows"></div><div id="inv-others"></div>` : `
     <div class="section-header" style="margin-bottom:10px;">
-      <span class="section-title ${info.color}">รายการ${invTab==='out'?'เบิก':invTab==='in'?'รับ':'โอน'}</span>
+      <span class="section-title ${info.color}">รายการ${invTab==='out'?'เบิก':'โอน'}</span>
     </div>
 
     <div id="inv-rows-list"></div>
 
     <button class="btn btn-ghost btn-sm" onclick="invAddRow()" style="margin-bottom:20px;">
       <i data-lucide="plus"></i> เพิ่มรายการ
-    </button>
+    </button>`}
 
     <div class="section-header" style="margin-bottom:10px;">
       <span class="section-title">ภาพถ่ายประกอบ <span class="required">*</span></span>
@@ -140,8 +133,94 @@ function invRender() {
     </div>
   </div>`;
 
-  invRenderRows();
+  if (invTab === 'in') { invRenderPoRows(); invRenderOthers(); } else invRenderRows();
   lucide.createIcons();
+}
+
+// ── รับของเข้าตาม PO (คุณออม 18/10) ─────────────────────────────
+// พนักงานเห็นแค่ชื่อสินค้าใน PO แล้วนับเอง (ไม่เห็นจำนวนที่สั่ง) — บัญชีเห็นจำนวนค้างรับตอนตรวจ
+// ของที่มาแต่ไม่อยู่ใน PO ใส่ใน "ของใช้อื่นๆ" ให้บัญชีตัดสิน
+let invPos = [];
+let invPoNo = '';
+let invPoRows = [];
+let invOthers = [];
+
+async function invLoadPos() {
+  try { invPos = await DB.listOpenPosForReceivingSupabase(currentBranch); }
+  catch (e) { invPos = null; console.error(e); }
+}
+function invEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function invPoSectionHtml() {
+  if (invPos === null) return `<div class="alert-box alert-warning" style="margin-bottom:16px;"><i data-lucide="alert-triangle"></i><span>โหลดรายการ PO ไม่สำเร็จ กรุณารีเฟรชหน้า</span></div>`;
+  const list = invPos.length ? `<div class="table-wrap" style="margin-bottom:12px;"><table><thead><tr><th>เลขที่ PO</th><th>วันที่สั่ง</th><th>ผู้ขาย</th><th>รายการ</th><th></th></tr></thead><tbody>
+    ${invPos.map(p => `<tr style="${p.po_no === invPoNo ? 'background:var(--blue-50,#eff6ff);' : ''}"><td style="font-weight:700;">${invEsc(p.po_no)}</td><td class="nowrap">${p.order_date ? formatDate(p.order_date) : '-'}</td><td>${invEsc(p.vendor || '-')}</td><td>${(p.items || []).length} รายการ</td><td>${p.po_no === invPoNo ? '<span class="badge badge-approved">กำลังรับ</span>' : `<button class="btn btn-ghost btn-sm" onclick="invSelectPo('${invEsc(p.po_no)}')">เลือก</button>`}</td></tr>`).join('')}
+  </tbody></table></div>` : `<div class="empty-state" style="padding:16px;margin-bottom:12px;">ยังไม่มี PO ค้างรับของสาขา${invEsc(currentBranch)} — ถ้ามีของมาแต่ไม่มี PO ใส่ใน "ของใช้อื่นๆ" ด้านล่าง</div>`;
+  return `<div class="section-header" style="margin-bottom:8px;"><span class="section-title blue">ใบสั่งซื้อ (PO) ที่รอรับของ</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px;">เรียงจาก PO ที่สั่งนานที่สุด · อัปเดต 05:00 / 11:00 / 17:00</span></div>${list}`;
+}
+
+function invSelectPo(poNo) {
+  const po = (invPos || []).find(p => p.po_no === poNo);
+  if (!po) return;
+  invPoNo = poNo;
+  invPoRows = (po.items || []).map(i => ({ sku: i.sku, name: i.name, unit: i.unit, expiry: !!i.expiry_controlled, qty: '', expireDate: '', note: '' }));
+  invRequestId = null;
+  invRender();
+}
+
+function invRenderPoRows() {
+  const box = document.getElementById('inv-po-rows');
+  if (!box) return;
+  if (!invPoNo) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="section-header" style="margin-bottom:8px;"><span class="section-title blue">รายการรับของตาม ${invEsc(invPoNo)}</span>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="invPoNo='';invPoRows=[];invRender()">ไม่รับ PO นี้</button></div>
+  <p style="font-size:.78rem;color:var(--gray-500);margin:0 0 10px;">นับของที่มาถึงจริงแล้วกรอกจำนวนให้ครบทุกบรรทัด (จำนวนเต็ม) — ของที่ยังไม่มาใส่ 0</p>
+  ${invPoRows.map((r, i) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) 110px 70px ${r.expiry ? '150px ' : ''}minmax(0,1.5fr);gap:10px;align-items:flex-end;margin-bottom:8px;padding:10px 12px;background:var(--gray-50);border-radius:var(--radius-md);border:1px solid var(--gray-100);">
+    <div><div style="font-weight:600;">${invEsc(r.name)}</div><div style="font-size:.72rem;color:var(--gray-500);">${invEsc(r.sku)}</div></div>
+    <div class="form-group"><label class="form-label">จำนวนรับจริง <span class="required">*</span></label><input type="number" class="form-input" min="0" step="1" inputmode="numeric" value="${invEsc(r.qty)}" style="text-align:center;" oninput="invPoRows[${i}].qty=this.value" /></div>
+    <div class="form-group"><label class="form-label">หน่วย</label><input class="form-input" value="${invEsc(r.unit || '-')}" readonly /></div>
+    ${r.expiry ? `<div class="form-group"><label class="form-label">วันหมดอายุ <span class="required">*</span></label><input type="date" class="form-input" value="${invEsc(r.expireDate)}" onchange="invPoRows[${i}].expireDate=this.value" /></div>` : ''}
+    <div class="form-group"><label class="form-label">หมายเหตุ</label><input class="form-input" value="${invEsc(r.note)}" placeholder="เช่น กล่องบุบ" oninput="invPoRows[${i}].note=this.value" /></div>
+  </div>`).join('')}`;
+}
+
+function invRenderOthers() {
+  const box = document.getElementById('inv-others');
+  if (!box) return;
+  box.innerHTML = `<div class="section-header" style="margin:14px 0 8px;"><span class="section-title blue">ของใช้อื่นๆ</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px;">ของที่มาถึงแต่ไม่อยู่ใน PO — ถ่ายรูปแนบ บัญชีจะตรวจว่าเข้าคลังหรือไม่</span></div>
+  ${invOthers.map((o, i) => `<div style="display:grid;grid-template-columns:minmax(0,2fr) 100px 100px minmax(0,1.5fr) auto;gap:10px;align-items:flex-end;margin-bottom:8px;padding:10px 12px;background:var(--gray-50);border-radius:var(--radius-md);border:1px solid var(--gray-100);">
+    <div class="form-group"><label class="form-label">ชื่อของ <span class="required">*</span></label><input class="form-input" value="${invEsc(o.name)}" placeholder="เช่น กระดาษทิชชู่" oninput="invOthers[${i}].name=this.value" /></div>
+    <div class="form-group"><label class="form-label">จำนวน <span class="required">*</span></label><input type="number" class="form-input" min="0" step="any" value="${invEsc(o.qty)}" style="text-align:center;" oninput="invOthers[${i}].qty=this.value" /></div>
+    <div class="form-group"><label class="form-label">หน่วย</label><input class="form-input" value="${invEsc(o.unit)}" placeholder="ชิ้น/กล่อง" oninput="invOthers[${i}].unit=this.value" /></div>
+    <div class="form-group"><label class="form-label">หมายเหตุ</label><input class="form-input" value="${invEsc(o.note)}" oninput="invOthers[${i}].note=this.value" /></div>
+    <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--red-500);" onclick="invOthers.splice(${i},1);invRenderOthers()"><i data-lucide="trash-2"></i></button>
+  </div>`).join('')}
+  <button class="btn btn-ghost btn-sm" onclick="invOthers.push({name:'',qty:'',unit:'',note:''});invRenderOthers()" style="margin-bottom:20px;"><i data-lucide="plus"></i> เพิ่มของใช้อื่นๆ</button>`;
+  lucide.createIcons();
+}
+
+// Returns the receiving payload, or a Thai error message string.
+function invCollectReceiving() {
+  const lines = [];
+  if (invPoNo) {
+    for (const r of invPoRows) {
+      const raw = String(r.qty).trim();
+      if (raw === '') return `กรุณากรอกจำนวนให้ครบทุกบรรทัด (ของที่ยังไม่มาใส่ 0): ${r.name}`;
+      const q = Number(raw);
+      if (!Number.isInteger(q) || q < 0) return `จำนวนต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป: ${r.name}`;
+      if (q > 0 && r.expiry && !r.expireDate) return `กรุณากรอกวันหมดอายุ: ${r.name}`;
+      lines.push({ product_code: r.sku, qty: q, note: r.note || 'รับเข้าสต๊อก', expire_date: q > 0 ? (r.expireDate || null) : null });
+    }
+  }
+  const others = [];
+  for (const o of invOthers) {
+    if (!String(o.name).trim() && String(o.qty).trim() === '') continue;
+    const q = Number(o.qty);
+    if (!String(o.name).trim() || !(q > 0)) return 'ของใช้อื่นๆ ต้องมีชื่อและจำนวนมากกว่า 0';
+    others.push({ name: String(o.name).trim(), qty: q, unit: String(o.unit || '').trim(), note: String(o.note || '').trim() });
+  }
+  if (!lines.some(l => l.qty > 0) && !others.length) return 'กรุณาเลือก PO แล้วกรอกจำนวนที่รับ หรือเพิ่มของใช้อื่นๆ อย่างน้อย 1 รายการ';
+  return { lines, others };
 }
 
 function invRenderRows() {
@@ -236,8 +315,13 @@ async function invSubmit() {
   const date = document.getElementById('inv-date')?.value;
   if (!date) { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
 
-  const validRows = invRows.filter(r => r.productCode && r.qty > 0);
-  if (!validRows.length) { Toast.show('กรุณาเลือกรายการอย่างน้อย 1 รายการ', 'error'); return; }
+  let receiving = null;
+  if (invTab === 'in') {
+    receiving = invCollectReceiving();
+    if (typeof receiving === 'string') { Toast.show(receiving, 'error', 5000); return; }
+  }
+  const validRows = invTab === 'in' ? [] : invRows.filter(r => r.productCode && r.qty > 0);
+  if (invTab !== 'in' && !validRows.length) { Toast.show('กรุณาเลือกรายการอย่างน้อย 1 รายการ', 'error'); return; }
 
   if (invPhotos.length === 0) { Toast.show('กรุณาแนบภาพถ่ายอย่างน้อย 1 ภาพ', 'error'); return; }
 
@@ -268,15 +352,17 @@ async function invSubmit() {
       moveType: typeByTab[invTab],
       source,
       date,
-      poNo: invTab === 'in' ? document.getElementById('inv-po-no')?.value.trim() : null,
-      supplier: invTab === 'in' ? document.getElementById('inv-supplier')?.value.trim() : null,
-      lines: validRows.map(r => ({ product_code: r.productCode, qty: r.qty, note: r.note || defaultNoteByTab[invTab],
-        lot_no: invTab === 'in' ? (r.lotNo || null) : null, expire_date: invTab === 'in' ? (r.expireDate || null) : null })),
+      poNo: invTab === 'in' ? (invPoNo || null) : null,
+      supplier: null,
+      lines: invTab === 'in' ? receiving.lines : validRows.map(r => ({ product_code: r.productCode, qty: r.qty, note: r.note || defaultNoteByTab[invTab] })),
+      others: invTab === 'in' ? receiving.others : [],
       images: invPhotos.map(p => p.data)
     });
+    const count = invTab === 'in' ? receiving.lines.filter(l => l.qty > 0).length + receiving.others.length : validRows.length;
     Toast.show(res && res.duplicate
       ? 'ใบนี้บันทึกเข้าระบบไปแล้วก่อนหน้านี้ ✓ ไม่ได้บันทึกซ้ำ'
-      : `บันทึกสำเร็จ — ${validRows.length} รายการ ⏳ รอบัญชีอนุมัติ (สต็อกจะถูกตัดเมื่ออนุมัติ)`, 'success', 5000);
+      : `บันทึกสำเร็จ — ${count} รายการ ⏳ รอบัญชีอนุมัติ${invTab === 'in' ? ' (สต็อกจะเพิ่มเมื่ออนุมัติ)' : ' (สต็อกจะถูกตัดเมื่ออนุมัติ)'}`, 'success', 5000);
+    if (invTab === 'in') { invPoNo = ''; invPoRows = []; invOthers = []; await invLoadPos(); }
     invReset();
   } catch (e) {
     console.error(e);
@@ -288,6 +374,7 @@ async function invSubmit() {
 
 function invReset() {
   invRequestId = null;
+  invPoNo = ''; invPoRows = []; invOthers = [];
   invRows = [{ id: 'r_' + Date.now(), productCode: '', productName: '', qty: 1, unit: '', note: '' }];
   invPhotos = [];
   invRender();

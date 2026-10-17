@@ -214,6 +214,34 @@ const DB = {
     catch (error) { console.error('listStockLogsErpSyncSupabase error:', error); return []; }
   },
 
+  // ── รับของตาม PO / ของใช้อื่นๆ / นำส่ง ERP / เทียบเบิก (SQL ไฟล์ 12) ──────
+  async listOpenPosForReceivingSupabase(branch) {
+    return (await this._positionRpc('list_open_pos_for_receiving', { p_branch_name: branch })) || [];
+  },
+  async listReceiveOtherItemsSupabase(pendingOnly) {
+    return (await this._positionRpc('list_receive_other_items', { p_pending_only: pendingOnly !== false })) || [];
+  },
+  async decideReceiveOtherItemSupabase(id, decision, note) {
+    return this._requireAffected(await this._positionRpc('decide_receive_other_item', { p_id: id, p_decision: decision, p_note: note || null }));
+  },
+  async dispenseCompareSupabase(from, to, branch) {
+    return (await this._positionRpc('dispense_compare', { p_from: from, p_to: to, p_branch: branch || null })) || [];
+  },
+  // Sends one approved document to ERP (op 'send') or cancels it there after a revert (op 'reverse').
+  // The ERP keys live only in the Edge Function; the database checks this session's role.
+  async erpPushSupabase(requestId, op) {
+    const token = this._sessionToken();
+    if (!token) throw new Error('SESSION_REQUIRED');
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/erp-pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ action: 'push', session_token: token, request_id: requestId, op: op || 'send' })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.error || `ส่งไม่สำเร็จ (${r.status})`);
+    return j;
+  },
+
   // สร้างข้อมูลที่จะส่งให้ ERP ตามสเปคที่ยืนยันแล้ว (2026-09-20)
   // ไม่รวม source_system เพราะ ERP รู้เองจาก URL ปลายทาง
   buildErpSyncPayload(row, approvedByName) {
@@ -328,20 +356,24 @@ const DB = {
       EDIT_REQUEST_REQUIRED: 'ส่วนที่อนุมัติแล้วต้องขอแก้ไขและรอแอดมิน/บัญชีอนุมัติก่อน', NOT_YOUR_BILL: 'แก้ไขได้เฉพาะรายการที่ตัวเองบันทึก',
       REQUEST_ALREADY_OPEN: 'มีคำขอแก้ไขบิลนี้ค้างอยู่แล้ว', EDIT_WITHOUT_REQUEST: 'บิลนี้ยังไม่อนุมัติ กดแก้ไขได้เลยไม่ต้องขอ',
       EMPTY_BILL: 'กรุณาเพิ่มอย่างน้อย 1 รายการ (ค่ามือหรือรายการขาย)', UNKNOWN_PROGRAM: 'มีโปรแกรมที่ไม่พบหรือปิดใช้แล้ว',
-      INVALID_DATE: 'วันที่ไม่ถูกต้อง (ต้องไม่เกินวันนี้)', EXPIRED_ON_RECEIPT: 'วันหมดอายุต้องไม่ก่อนวันที่รับของ', HN_AND_CUSTOMER_REQUIRED: 'กรุณากรอก HN และชื่อลูกค้า'
+      INVALID_DATE: 'วันที่ไม่ถูกต้อง (ต้องไม่เกินวันนี้)', EXPIRED_ON_RECEIPT: 'วันหมดอายุต้องไม่ก่อนวันที่รับของ', HN_AND_CUSTOMER_REQUIRED: 'กรุณากรอก HN และชื่อลูกค้า',
+      PO_REQUIRED: 'กรุณาเลือกใบสั่งซื้อ (PO)', PO_NOT_OPEN: 'PO นี้ไม่อยู่ในรายการค้างรับแล้ว (อาจรับครบหรือปิดไปแล้ว) กรุณารีเฟรชหน้า',
+      QTY_MUST_BE_WHOLE: 'จำนวนรับเข้าต้องเป็นจำนวนเต็ม', NOT_IN_PO: 'มีสินค้าที่ไม่อยู่ในใบสั่งซื้อนี้',
+      EXPIRY_REQUIRED: 'สินค้านี้ต้องกรอกวันหมดอายุ', INVALID_OTHER_ITEM: 'ของใช้อื่นๆ ต้องมีชื่อและจำนวนมากกว่า 0',
+      INVALID_LINES: 'ต้องมีอย่างน้อย 1 รายการที่จำนวนมากกว่า 0'
     };
     const code = Object.keys(map).find(k => msg.includes(k));
     return code ? map[code] : msg;
   },
 
   // One request = all lines + photos in one database transaction (all saved or none).
-  async saveStockRequestSupabase({ requestId, branch, toBranch, moveType, source, date, lines, images, poNo, supplier }) {
+  async saveStockRequestSupabase({ requestId, branch, toBranch, moveType, source, date, lines, images, poNo, supplier, others }) {
     try {
       return await this._appRpc('save_stock_request', {
         p_request_id: requestId, p_branch_name: branch, p_to_branch_name: toBranch || null,
         p_move_type: moveType, p_source: source || null, p_log_date: date,
         p_po_no: poNo || null, p_supplier_name: supplier || null,
-        p_lines: lines, p_images: images
+        p_lines: lines, p_images: images, p_others: others || []
       });
     } catch (error) {
       if (!this._isMissingAction(error)) throw error;
@@ -492,7 +524,8 @@ const DB = {
       id: r.id, requestId: r.request_id || r.id, createdAt: r.created_at, date: r.log_date, branch: r.branch_name, toBranch: r.to_branch_name, type: r.move_type,
       productCode: r.product_code, productName: r.product_name, qty: r.qty, unit: r.unit,
       createdByName: r.created_by_name, auditStatus: r.audit_status, note: r.note, source: r.source,
-      poNo: r.po_no || '', supplierName: r.supplier_name || '', lotNo: r.lot_no || '', expireDate: r.expire_date || ''
+      poNo: r.po_no || '', supplierName: r.supplier_name || '', lotNo: r.lot_no || '', expireDate: r.expire_date || '',
+      poQtyExpected: r.po_qty_expected == null ? null : Number(r.po_qty_expected)
     }));
   },
 
