@@ -303,8 +303,8 @@ function adashRenderPendingTable(allPending) {
     const typeCfg = {
       bill: { label: 'ค่ามือ/คอม', badge: 'badge-service', tab: 'commission', canGo: !audCanAccessCommission || audCanAccessCommission() },
       deposit: { label: 'ยอดมัดจำ', badge: 'badge-in', tab: 'deposits', canGo: !audCanAccessDeposits || audCanAccessDeposits() },
-      opd: { label: 'ตัดสต๊อก OPD', badge: 'badge-out', tab: 'stock', canGo: !audCanAccessStock || audCanAccessStock() },
-      stock: { label: 'เบิก/รับทั่วไป', badge: 'badge-transfer', tab: 'stock', canGo: !audCanAccessStock || audCanAccessStock() }
+      opd: { label: 'ตัดสต๊อก OPD', badge: 'badge-out', tab: 'stock-opd', canGo: !audCanAccessStock || audCanAccessStock() },
+      stock: { label: 'เบิก/รับทั่วไป', badge: 'badge-transfer', tab: x.type === 'IN' ? 'stock-in' : x.type === 'TRANSFER' ? 'stock-transfer' : 'stock-out', canGo: !audCanAccessStock || audCanAccessStock() }
     }[x._type];
     const name = x.customerName || x.customer_name || (x.productName ? `${x.productName}${x.qty ? ' x' + x.qty : ''}` : '-') || '-';
     const dateVal = x.date || x.deposit_date || x.createdAt;

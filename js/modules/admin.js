@@ -930,9 +930,14 @@ async function admRenderErpSync(body) {
 }
 
 // ช่วงที่ยังไม่มีซิงก์อัตโนมัติ: บัญชีคีย์ตามใน ERP แล้วมากดปิดรายการ (ทั้งใบ) พร้อมเลขเอกสาร ERP
+// Called from both the admin ERP tab and the audit room tabs.
+function admErpRefreshView() {
+  if (document.getElementById('aud-approved-stock') && typeof audRender === 'function') audRender();
+  else if (document.getElementById('adm-body')) admRenderErpSync(document.getElementById('adm-body'));
+}
 async function admMarkKeyedInErp(logId, requestId) {
   const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => (requestId ? r.request_id === requestId : r.id === logId) && ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status));
-  if (!rows.length) { Toast.show('ไม่พบรายการที่รอส่ง (อาจปิดไปแล้ว)', 'warning'); admRenderErpSync(document.getElementById('adm-body')); return; }
+  if (!rows.length) { Toast.show('ไม่พบรายการที่รอส่ง (อาจปิดไปแล้ว)', 'warning'); admErpRefreshView(); return; }
   const ref = prompt(`เลขที่เอกสารใน ERP (เช่น RQ-20261014-01 / GR-... / TF-...)\nจะปิดรายการ ${rows.length} บรรทัดของใบนี้`);
   if (ref === null) return;
   if (!ref.trim()) { Toast.show('กรุณาใส่เลขที่เอกสาร ERP', 'error'); return; }
@@ -940,7 +945,7 @@ async function admMarkKeyedInErp(logId, requestId) {
     for (const r of rows) await DB.setStockLogErpSyncResultSupabase(r.id, 'ส่งสำเร็จ', ref.trim(), null);
     Toast.show(`บันทึกแล้ว: ${rows.length} บรรทัด อ้างอิง ${ref.trim()}`, 'success');
   } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + (e.message || e), 'error', 5000); }
-  admRenderErpSync(document.getElementById('adm-body'));
+  admErpRefreshView();
 }
 
 async function admSyncStockLog(logId) {

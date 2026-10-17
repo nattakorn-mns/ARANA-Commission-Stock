@@ -5,20 +5,22 @@ function audCanAccessDeposits() { return ['Admin', 'Audit', 'CommissionAudit'].i
 function audCanAccessStock() { return ['Admin', 'Audit', 'StockAudit'].includes(currentUser.role); }
 function renderAudit(container) {
   const canCommission = audCanAccessCommission(), canDeposits = audCanAccessDeposits(), canStock = audCanAccessStock();
-  auditTab = canCommission ? 'commission' : 'stock'; auditPage = 1;
+  auditTab = canCommission ? 'commission' : 'stock-opd'; auditPage = 1;
   container.innerHTML = `<div><div class="tab-bar">
     ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
     ${canDeposits ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
-    ${canStock ? `<button class="tab-btn ${auditTab==='stock'?'active':''}" id="aud-tab-stock" onclick="audSwitch('stock')"><i data-lucide="package-check"></i>อนุมัติตัดสต๊อก</button>` : ''}
+    ${canStock ? AUD_STOCK_TABS.map(t => `<button class="tab-btn ${auditTab===t.tab?'active':''}" id="aud-tab-${t.tab}" onclick="audSwitch('${t.tab}')"><i data-lucide="${t.icon}"></i>${t.label}<span class="badge badge-pending" id="aud-count-${t.kind}" style="display:none;margin-left:6px;padding:1px 8px;"></span></button>`).join('') : ''}
     ${audCanAccessEditRequests() ? `<button class="tab-btn" id="aud-tab-edits" onclick="audSwitch('edits')"><i data-lucide="file-pen-line"></i>คำขอแก้ไขบิล</button>` : ''}
-    ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิก APSX</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
+    ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิกระบบ ARANA</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
   </div><div id="aud-body"></div></div>`;
   audRender(); lucide.createIcons();
+  if (canStock) audRefreshStockCounts();
 }
 function audSwitch(tab) {
+  if (tab === 'stock') tab = 'stock-opd';
   if (tab === 'commission' && !audCanAccessCommission()) return;
   if (tab === 'deposits' && !audCanAccessDeposits()) return;
-  if (tab === 'stock' && !audCanAccessStock()) return;
+  if (tab.startsWith('stock-') && !audCanAccessStock()) return;
   if (tab === 'edits' && !audCanAccessEditRequests()) return;
   auditTab = tab; auditPage = 1;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -28,7 +30,7 @@ function audRender() {
   const body = document.getElementById('aud-body'); if (!body) return;
   if (auditTab === 'commission') audRenderOPD(body);
   else if (auditTab === 'deposits') audRenderDeposits(body);
-  else if (auditTab === 'stock') audRenderStock(body);
+  else if (auditTab.startsWith('stock-')) audRenderStock(body, auditTab.slice(6));
   else if (auditTab === 'edits') audRenderEditRequests(body);
   else if (auditTab === 'compare') audRenderCompare(body); else audRenderLog(body);
 }
@@ -420,9 +422,20 @@ function audDoRejectDeposit(depositId) {
   audDepositAction(depositId, 'ตีกลับ', note);
 }
 
-// ── TAB 2: Stock Audit ────────────────────────────────────
-async function audRenderStock(body) {
-  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+// ── TAB 2: Stock Audit — split into 4 rooms (คุณออม 18/10) ────────────
+// OPD supplies are cut by ERP itself at service time, so they never go to ERP from here;
+// once approved they wait for the "เทียบเบิกระบบ ARANA" tab. เบิกใช้/รับเข้า/โอน go to ERP after approval.
+const AUD_STOCK_TABS = [
+  { tab: 'stock-opd', kind: 'opd', icon: 'clipboard-check', label: 'ตรวจเบิก OPD' },
+  { tab: 'stock-out', kind: 'out', icon: 'package-minus', label: 'ตรวจเบิกใช้' },
+  { tab: 'stock-in', kind: 'in', icon: 'package-plus', label: 'ตรวจรับเข้า' },
+  { tab: 'stock-transfer', kind: 'transfer', icon: 'arrow-left-right', label: 'ตรวจโอนออก-รับเข้าข้ามสาขา' }
+];
+const AUD_KIND_MOVE = { out: 'OUT', in: 'IN', transfer: 'TRANSFER' };
+const AUD_KIND_NAME = { opd: 'เบิกจาก OPD', out: 'เบิกใช้', in: 'รับเข้า', transfer: 'โอนออก-รับเข้าข้ามสาขา' };
+function audStockKindOf(type) { return type === 'IN' ? 'in' : type === 'TRANSFER' ? 'transfer' : 'out'; }
+
+async function audLoadPendingStock() {
   const [opdRequests, pendingStockLogs, stockImages] = await Promise.all([
     DB.getPendingOpdStockRequestsSupabase(),
     DB.getPendingStockLogsSupabase(),
@@ -434,33 +447,88 @@ async function audRenderStock(body) {
   }, {});
   const stockLogs = (pendingStockLogs || []).map(log => ({ ...log, images: imageMap[log.id] || [] }));
   window._auditPendingStockLogs = stockLogs;
-  const grouped = Object.values((stockLogs || []).reduce((a, x) => { const k=x.requestId||x.id; (a[k] ||= {...x,requestId:k,items:[]}).items.push(x); return a; }, {}));
-  const rows = [...(opdRequests||[]).map(r=>({...r,rowType:'opd',itemCount:r.supplyCount||0})), ...grouped.map(r=>({...r,rowType:'stock',itemCount:r.items.length,customerName:'คำขอเบิก/รับ'}))];
-  body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:.9rem;color:var(--gray-700);font-weight:700;">รายการสต๊อกรอตรวจทั้งหมด</span><span class="badge badge-pending" style="font-size:1rem;padding:4px 12px;">${rows.length} คำขอ</span><span style="font-size:.8rem;color:var(--gray-500);">OPD ${opdRequests?.length||0} ใบ · เบิก/รับทั่วไป ${grouped.length} คำขอ</span></div>
-  <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่/เวลา</th><th>สาขา</th><th>ประเภท</th><th>ลูกค้า/รายการ</th><th>จำนวน</th><th>ผู้บันทึก</th><th>หลักฐาน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
-  ${rows.length ? rows.map(r=>`<tr id="stock-audit-row-${r.rowType}-${r.rowType==='opd'?r.billId:r.requestId}"><td class="nowrap">${formatDate(r.date)}${r.createdAt?`<br><small>${new Date(r.createdAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</small>`:''}</td><td>${r.branch||'-'}</td><td>${r.rowType==='opd'?'<span class="badge badge-service">เบิกจาก OPD</span>':`<span class="badge badge-${r.type==='IN'?'in':'out'}">${r.type==='IN'?'รับของเข้า':r.type==='TRANSFER'?'โอนข้ามสาขา':'เบิกใช้งาน'}</span>`}</td><td style="font-weight:600;">${r.customerName||'-'}</td><td>${r.itemCount} รายการ</td><td>${r.createdByName||'-'}</td><td><button class="btn btn-ghost btn-sm" onclick="${r.rowType==='opd'?`audOpenStockRequest('${r.billId}')`:`audOpenStockRequestGroup('${r.requestId}')`}"><i data-lucide="eye"></i> ดูรายละเอียด</button></td><td>${statusBadge(r.auditStatus||'รอตรวจสอบ')}</td><td><button class="btn btn-success btn-sm" onclick="${r.rowType==='opd'?`audStockAction('${r.billId}','อนุมัติแล้ว')`:`audStockRequestAction('${r.requestId}','อนุมัติแล้ว')`}">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="${r.rowType==='opd'?`audStockReject('${r.billId}')`:`audStockRequestReject('${r.requestId}')`}">ตีกลับ</button></td></tr>`).join(''):`<tr><td colspan="9"><div class="empty-state">ไม่มีรายการสต๊อกรอตรวจ</div></td></tr>`}
-  </tbody></table></div></div>
-  <div class="glass-card" style="margin-top:12px;padding:14px 16px;">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-weight:700;color:var(--gray-700);">ใบเบิก/รับ/โอน ที่อนุมัติแล้ว</span>
-      <span style="font-size:.8rem;color:var(--gray-500);">ถ้าอนุมัติผิด กด "ถอยการอนุมัติ" ระบบจะคืนของเข้าคลังและเปลี่ยนเป็น "ตีกลับ"</span>
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="audLoadApprovedStock()"><i data-lucide="history"></i> แสดงรายการ</button>
-    </div>
-    <div id="aud-approved-stock"></div>
-  </div>`;
-  lucide.createIcons();
+  const grouped = Object.values(stockLogs.reduce((a, x) => { const k = x.requestId || x.id; (a[k] ||= { ...x, requestId: k, items: [] }).items.push(x); return a; }, {}));
+  return {
+    opd: (opdRequests || []).map(r => ({ ...r, rowType: 'opd', itemCount: r.supplyCount || 0 })),
+    groups: grouped.map(r => ({ ...r, rowType: 'stock', kind: audStockKindOf(r.type), itemCount: r.items.length }))
+  };
 }
-// Loaded only on demand to keep data transfer small.
-async function audLoadApprovedStock() {
+function audSetStockCounts(p) {
+  const counts = { opd: p.opd.length, out: 0, in: 0, transfer: 0 };
+  p.groups.forEach(g => { counts[g.kind]++; });
+  Object.entries(counts).forEach(([k, n]) => {
+    const el = document.getElementById('aud-count-' + k);
+    if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
+  });
+}
+async function audRefreshStockCounts() {
+  try { audSetStockCounts(await audLoadPendingStock()); } catch (e) { console.error(e); }
+}
+
+async function audRenderStock(body, kind) {
+  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+  const pending = await audLoadPendingStock();
+  audSetStockCounts(pending);
+  const rows = kind === 'opd' ? pending.opd : pending.groups.filter(g => g.kind === kind);
+  const isOpd = kind === 'opd';
+  const typeBadge = r => r.rowType === 'opd' ? '<span class="badge badge-service">เบิกจาก OPD</span>'
+    : `<span class="badge badge-${r.type === 'IN' ? 'in' : 'out'}">${AUD_KIND_NAME[r.kind]}</span>`;
+  const label = r => r.rowType === 'opd' ? (r.customerName || '-')
+    : (r.items || []).slice(0, 3).map(i => i.productName || i.productCode).join(', ') + ((r.items || []).length > 3 ? ` และอีก ${r.items.length - 3}` : '');
+  const where = r => (r.branch || '-') + (r.toBranch ? ' → ' + r.toBranch : '');
+  const note = isOpd
+    ? 'ตรวจกับรูปใบ OPD แล้วกดอนุมัติ — รายการที่อนุมัติแล้วจะไปรอเทียบกับรายงานจ่ายยา/อุปกรณ์ของ ERP ในแท็บ "เทียบเบิกระบบ ARANA" (ไม่ต้องนำส่ง ERP เพราะ ERP ตัดสต็อกเองตอนใช้บริการ)'
+    : 'ตรวจกับรูปหลักฐานแล้วกดอนุมัติ — ใบที่อนุมัติแล้วจะย้ายไปส่วน "ตรวจแล้ว รอนำส่ง ERP" ด้านล่าง';
+  body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:.9rem;color:var(--gray-700);font-weight:700;">${AUD_KIND_NAME[kind]} — รอตรวจ</span><span class="badge badge-pending" style="font-size:1rem;padding:4px 12px;">${rows.length} ${isOpd ? 'ใบ' : 'คำขอ'}</span><span style="font-size:.8rem;color:var(--gray-500);flex-basis:100%;">${note}</span></div>
+  <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่/เวลา</th><th>สาขา</th><th>ประเภท</th><th>${isOpd ? 'ลูกค้า' : 'รายการ'}</th><th>จำนวน</th><th>ผู้บันทึก</th><th>หลักฐาน</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
+  ${rows.length ? rows.map(r => `<tr id="stock-audit-row-${r.rowType}-${r.rowType === 'opd' ? r.billId : r.requestId}"><td class="nowrap">${formatDate(r.date)}${r.createdAt ? `<br><small>${new Date(r.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</small>` : ''}</td><td>${where(r)}</td><td>${typeBadge(r)}</td><td style="font-weight:600;">${label(r)}</td><td>${r.itemCount} รายการ</td><td>${r.createdByName || '-'}</td><td><button class="btn btn-ghost btn-sm" onclick="${r.rowType === 'opd' ? `audOpenStockRequest('${r.billId}')` : `audOpenStockRequestGroup('${r.requestId}')`}"><i data-lucide="eye"></i> ดูรายละเอียด</button></td><td>${statusBadge(r.auditStatus || 'รอตรวจสอบ')}</td><td class="nowrap"><button class="btn btn-success btn-sm" onclick="${r.rowType === 'opd' ? `audStockAction('${r.billId}','อนุมัติแล้ว')` : `audStockRequestAction('${r.requestId}','อนุมัติแล้ว')`}">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="${r.rowType === 'opd' ? `audStockReject('${r.billId}')` : `audStockRequestReject('${r.requestId}')`}">ตีกลับ</button></td></tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">ไม่มี${AUD_KIND_NAME[kind]}รอตรวจ</div></td></tr>`}
+  </tbody></table></div></div>
+  ${isOpd ? '' : `<div class="glass-card" style="margin-top:12px;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-weight:700;color:var(--gray-700);">ตรวจแล้ว รอนำส่ง ERP</span>
+      <label style="font-size:.8rem;color:var(--gray-600);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="aud-approved-all" onchange="audLoadApprovedStock('${kind}')"> แสดงที่ส่งแล้วด้วย</label>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;" data-write onclick="erpExcelExport('${AUD_KIND_MOVE[kind]}')" title="รวมทุกใบที่ยังไม่เข้า ERP เป็นไฟล์เดียว"><i data-lucide="download"></i> Excel ทุกใบที่รอส่ง</button>
+    </div>
+    <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">ระหว่างที่ ERP ยังไม่เปิดช่องรับข้อมูล ปุ่ม "นำส่งเข้า ERP" จะดาวน์โหลดไฟล์ Excel ของใบนั้นให้นำเข้า ERP แล้วกด "คีย์เข้า ERP แล้ว" · อนุมัติผิดกด "ถอยการอนุมัติ" ระบบจะคืนของเข้าคลัง</div>
+    <div id="aud-approved-stock"></div>
+  </div>`}`;
+  lucide.createIcons();
+  if (!isOpd) audLoadApprovedStock(kind);
+}
+
+async function audLoadApprovedStock(kind) {
   const box = document.getElementById('aud-approved-stock');
   if (!box) return;
   box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
-  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => r.audit_status === 'อนุมัติแล้ว' && !r.is_opd);
+  const showAll = document.getElementById('aud-approved-all')?.checked;
+  const move = AUD_KIND_MOVE[kind];
+  const rows = (await DB.listStockLogsErpSyncSupabase(null)).filter(r => r.audit_status === 'อนุมัติแล้ว' && !r.is_opd && r.move_type === move
+    && (showAll || ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status)));
   const groups = Object.values(rows.reduce((a, r) => { const k = r.request_id || r.id; (a[k] ||= { ...r, requestId: k, items: [] }).items.push(r); return a; }, {}));
-  const typeName = t => t === 'IN' ? 'รับของเข้า' : t === 'TRANSFER' ? 'โอนข้ามสาขา' : 'เบิกใช้งาน';
-  box.innerHTML = groups.length ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ประเภท</th><th>รายการ</th><th>สถานะ ERP</th><th></th></tr></thead><tbody>${groups.map(g => `<tr><td class="nowrap">${formatDate(g.log_date)}</td><td>${g.branch_name || '-'}${g.to_branch_name ? ' → ' + g.to_branch_name : ''}</td><td>${typeName(g.move_type)}</td><td style="font-size:.82rem;">${g.items.map(i => (i.product_name || i.product_code) + ' × ' + i.qty).join('<br>')}</td><td>${g.erp_sync_status || '-'}</td><td><button class="btn btn-danger btn-sm" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length})">ถอยการอนุมัติ</button></td></tr>`).join('')}</tbody></table></div>`
-    : '<div class="empty-state">ไม่มีรายการที่อนุมัติแล้ว</div>';
+  const waiting = g => g.items.some(i => ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(i.erp_sync_status));
+  const erpCell = g => {
+    const s = waiting(g) ? (g.items.some(i => i.erp_sync_status === 'ส่งไม่สำเร็จ') ? 'ส่งไม่สำเร็จ' : 'รอส่ง') : g.items[0].erp_sync_status;
+    const cls = s === 'ส่งสำเร็จ' ? 'badge-approved' : s === 'ส่งไม่สำเร็จ' ? 'badge-rejected' : 'badge-waiting';
+    const ref = g.items.find(i => i.erp_ref)?.erp_ref;
+    return `<span class="badge ${cls}">${s}</span>${ref ? `<div style="font-size:.72rem;color:var(--gray-500);margin-top:2px;">${ref}</div>` : ''}`;
+  };
+  box.innerHTML = groups.length ? `<div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>รายการ</th>${kind === 'in' ? '<th>PO / ผู้ขาย</th>' : ''}<th>สถานะ ERP</th><th></th></tr></thead><tbody>${groups.map(g => `<tr><td class="nowrap">${formatDate(g.log_date)}</td><td>${g.branch_name || '-'}${g.to_branch_name ? ' → ' + g.to_branch_name : ''}</td><td style="font-size:.82rem;">${g.items.map(i => (i.product_name || i.product_code) + ' × ' + i.qty).join('<br>')}</td>${kind === 'in' ? `<td style="font-size:.82rem;">${g.po_no || '-'}${g.supplier_name ? '<br>' + g.supplier_name : ''}</td>` : ''}<td>${erpCell(g)}</td><td class="nowrap">${waiting(g) ? `<button class="btn btn-primary btn-sm" data-write onclick="audSendToErp('${g.requestId}','${kind}')"><i data-lucide="send"></i> นำส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="นำเข้า/คีย์ใบนี้ใน ERP แล้ว ใส่เลขเอกสาร ERP เพื่อปิดรายการ" onclick="admMarkKeyedInErp('${g.items[0].id}','${g.request_id || ''}')">คีย์เข้า ERP แล้ว</button> ` : ''}<button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length})">ถอยการอนุมัติ</button></td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="empty-state">${showAll ? 'ไม่มีรายการที่อนุมัติแล้ว' : 'ไม่มีใบที่รอนำส่ง ERP'}</div>`;
   lucide.createIcons();
+}
+
+// ERP has no inbound channel yet → hand the accountant this one document as the ERP import Excel.
+// When ERP's ext_write_post is live this becomes the automatic send; the button stays the same.
+async function audSendToErp(requestId, kind) {
+  try {
+    const [ExcelJS, products, all] = await Promise.all([erpExcelLoadLib(), erpExcelProducts(), DB.listStockLogsErpSyncSupabase(null)]);
+    const rows = (all || []).filter(r => (r.request_id || r.id) === requestId && r.audit_status === 'อนุมัติแล้ว' && !r.is_opd
+      && ['รอส่ง', 'ส่งไม่สำเร็จ'].includes(r.erp_sync_status));
+    if (!rows.length) { Toast.show('ใบนี้ไม่มีรายการที่รอนำส่งแล้ว', 'warning'); audLoadApprovedStock(kind); return; }
+    const name = AUD_KIND_NAME[kind] + '-' + (rows[0].branch_name || '') + '-' + rows[0].log_date + '-นำเข้าERP.xlsx';
+    await erpExcelDownload(ErpExcel.build(ExcelJS, { rows, products, branches: ERP_EXCEL_BRANCHES }), name);
+    Toast.show('ERP ยังไม่เปิดช่องรับอัตโนมัติ — ดาวน์โหลดไฟล์ให้นำเข้า ERP แล้ว นำเข้าเสร็จกด "คีย์เข้า ERP แล้ว"', 'info', 6000);
+  } catch (e) { Toast.show(e.message || String(e), 'error', 5000); }
 }
 function audStockRevertPrompt(requestId, count) {
   openModal(`<div class="modal"><div class="modal-header"><h3 class="modal-title">ถอยการอนุมัติ</h3></div><div class="modal-body"><div class="alert-box alert-warning" style="margin-bottom:12px;"><i data-lucide="alert-triangle"></i><span>ระบบจะคืนของ ${count} รายการในใบนี้กลับเข้าคลัง และเปลี่ยนสถานะเป็น "ตีกลับ" ให้พนักงานส่งใบใหม่ที่ถูกต้อง ถ้าใบนี้ส่งเข้า ERP ไปแล้ว จะขึ้นเตือนให้ไปยกเลิกที่ ERP ด้วย</span></div><label class="form-label">เหตุผล <span class="required">*</span></label><textarea id="aud-stock-revert-note" class="form-textarea" rows="3"></textarea></div><div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button><button class="btn btn-danger" onclick="audDoStockRevert('${requestId}')">ยืนยันถอยการอนุมัติ</button></div></div>`);
@@ -472,7 +540,7 @@ async function audDoStockRevert(requestId) {
     await DB.revertStockRequestSupabase(requestId, note);
     closeModalDirect();
     Toast.show('ถอยการอนุมัติแล้ว — คืนของเข้าคลังเรียบร้อย', 'success', 4000);
-    if (document.getElementById('aud-approved-stock')) audLoadApprovedStock();
+    if (document.getElementById('aud-approved-stock')) audRender();
     else if (typeof admRenderErpSync === 'function' && document.getElementById('adm-body')) admRenderErpSync(document.getElementById('adm-body'));
   } catch (e) {
     Toast.show('ถอยการอนุมัติไม่สำเร็จ: ' + (/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ชุดวันที่ 26/09' : DB.stockErrorText(e)), 'error', 6000);
