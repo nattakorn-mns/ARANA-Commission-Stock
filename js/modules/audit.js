@@ -490,7 +490,7 @@ async function audRenderStock(body, kind) {
       <label style="font-size:.8rem;color:var(--gray-600);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="aud-approved-all" onchange="audLoadApprovedStock('${kind}')"> แสดงที่ส่งแล้วด้วย</label>
       <button class="btn btn-ghost btn-sm" style="margin-left:auto;" data-write onclick="erpExcelExport('${AUD_KIND_MOVE[kind]}')" title="รวมทุกใบที่ยังไม่เข้า ERP เป็นไฟล์เดียว"><i data-lucide="download"></i> Excel ทุกใบที่รอส่ง</button>
     </div>
-    <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">ระหว่างที่ ERP ยังไม่เปิดช่องรับข้อมูล ปุ่ม "นำส่งเข้า ERP" จะดาวน์โหลดไฟล์ Excel ของใบนั้นให้นำเข้า ERP แล้วกด "คีย์เข้า ERP แล้ว" · อนุมัติผิดกด "ถอยการอนุมัติ" ระบบจะคืนของเข้าคลัง</div>
+    <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">กด "นำส่งเข้า ERP" ระบบส่งเข้า ERP ทันทีและได้เลขเอกสารกลับมา · ถ้า ERP ไม่รับจะขึ้นเหตุผลใต้สถานะ · ใบที่คีย์มือใน ERP ไปแล้วกด "คีย์เข้า ERP แล้ว" · อนุมัติผิดกด "ถอยการอนุมัติ" ระบบจะคืนของเข้าคลัง (และยกเลิกใน ERP ถ้าส่งไปแล้ว)</div>
     <div id="aud-approved-stock"></div>
   </div>`}`;
   lucide.createIcons();
