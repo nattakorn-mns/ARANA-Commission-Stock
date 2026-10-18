@@ -433,13 +433,19 @@ function opdToggleSection(id) {
 }
 
 // ช่อง HN: ค้นรายชื่อลูกค้าจาก ERP (คุณออม 18/10) — โชว์ชื่อให้เห็นว่าตรงคน / เตือนถ้าไม่พบ (ยังบันทึกได้)
+// ชื่อที่ระบบเติมให้จาก HN ก่อนหน้า — ถ้า HN เปลี่ยนและน้องยังไม่ได้แก้ชื่อเอง ให้ล้างชื่อเดิมออก (กันชื่อไม่ตรงกับ HN)
 let _opdHnTimer = null;
+let _opdHnAutoName = '';
 function opdCheckHn(value) {
   clearTimeout(_opdHnTimer);
   const hint = document.getElementById('opd-hn-hint');
   if (!hint) return;
+  const nameEl = document.getElementById('opd-customer');
+  if (nameEl && _opdHnAutoName && nameEl.value === _opdHnAutoName) nameEl.value = '';
+  _opdHnAutoName = '';
   const hn = String(value || '').trim();
   if (!hn) { hint.innerHTML = ''; return; }
+  hint.innerHTML = '<span style="color:var(--gray-400);">กำลังค้น HN ใน ERP...</span>';
   _opdHnTimer = setTimeout(async () => {
     let r;
     try { r = await DB.lookupErpCustomerSupabase(hn); } catch (e) { hint.innerHTML = ''; return; }
@@ -452,8 +458,7 @@ function opdCheckHn(value) {
       return;
     }
     hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '') + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '')).join(' / ') + '</span>';
-    const nameEl = document.getElementById('opd-customer');
-    if (nameEl && !nameEl.value.trim() && m.length === 1 && m[0].full_name) nameEl.value = m[0].full_name;
+    if (nameEl && !nameEl.value.trim() && m.length === 1 && m[0].full_name) { nameEl.value = m[0].full_name; _opdHnAutoName = m[0].full_name; }
   }, 500);
 }
 
