@@ -180,7 +180,7 @@ async function renderOPD(container) {
       <div id="shared-search-wrap" style="display:none;margin-top:14px;">
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label">ค้นหาบิลที่เปิดอยู่ (HN หรือชื่อลูกค้า)</label>
-          <input id="shared-search" class="form-input" placeholder="HN-0001 หรือ ชื่อ..." oninput="opdSearchSharedBills(this.value)" />
+          <input id="shared-search" class="form-input" placeholder="HN0001 หรือ ชื่อ..." oninput="opdSearchSharedBills(this.value)" />
         </div>
         <div id="shared-results" style="margin-top:8px;"></div>
         <div id="shared-info" style="display:none;margin-top:8px;" class="alert-box alert-info">
@@ -214,11 +214,12 @@ async function renderOPD(container) {
           <div class="form-group">
             <label class="form-label">HN <span class="required">*</span></label>
             <div style="display:flex;gap:8px;">
-              <input id="opd-hn" class="form-input" placeholder="HN-0001" style="flex:1;" />
+              <input id="opd-hn" class="form-input" placeholder="HN0001" style="flex:1;" oninput="opdCheckHn(this.value)" />
               <button class="btn btn-secondary btn-sm" onclick="opdAutoHN()" title="สร้าง HN ใหม่">
                 <i data-lucide="hash"></i> สร้างใหม่
               </button>
             </div>
+            <div id="opd-hn-hint" style="font-size:.78rem;margin-top:4px;min-height:1em;"></div>
           </div>
           <div class="form-group">
             <label class="form-label">ชื่อลูกค้า <span class="required">*</span></label>
@@ -438,6 +439,31 @@ function opdToggleSection(id) {
 
 function opdAutoHN() {
   document.getElementById('opd-hn').value = DB.nextHN();
+}
+
+// ช่อง HN: ค้นรายชื่อลูกค้าจาก ERP (คุณออม 18/10) — โชว์ชื่อให้เห็นว่าตรงคน / เตือนถ้าไม่พบ (ยังบันทึกได้)
+let _opdHnTimer = null;
+function opdCheckHn(value) {
+  clearTimeout(_opdHnTimer);
+  const hint = document.getElementById('opd-hn-hint');
+  if (!hint) return;
+  const hn = String(value || '').trim();
+  if (!hn) { hint.innerHTML = ''; return; }
+  _opdHnTimer = setTimeout(async () => {
+    let r;
+    try { r = await DB.lookupErpCustomerSupabase(hn); } catch (e) { hint.innerHTML = ''; return; }
+    if (document.getElementById('opd-hn')?.value.trim() !== hn) return;
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (!r || !r.loaded) { hint.innerHTML = ''; return; }
+    const m = r.matches || [];
+    if (!m.length) {
+      hint.innerHTML = '<span style="color:var(--orange-600,#c2410c);">⚠️ ไม่พบ HN นี้ใน ERP — ตรวจว่าพิมพ์ตรงกับ ERP (บันทึกต่อได้)</span>';
+      return;
+    }
+    hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '')).join(' / ') + '</span>';
+    const nameEl = document.getElementById('opd-customer');
+    if (nameEl && !nameEl.value.trim() && m.length === 1 && m[0].full_name) nameEl.value = m[0].full_name;
+  }, 500);
 }
 
 function opdShowTypePicker() {

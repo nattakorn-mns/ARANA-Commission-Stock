@@ -224,6 +224,9 @@ const DB = {
   async decideReceiveOtherItemSupabase(id, decision, note) {
     return this._requireAffected(await this._positionRpc('decide_receive_other_item', { p_id: id, p_decision: decision, p_note: note || null }));
   },
+  async lookupErpCustomerSupabase(hn) {
+    return await this._positionRpc('lookup_erp_customer', { p_hn: hn });
+  },
   async dispenseCompareSupabase(from, to, branch) {
     return (await this._positionRpc('dispense_compare', { p_from: from, p_to: to, p_branch: branch || null })) || [];
   },
