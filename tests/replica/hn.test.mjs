@@ -47,4 +47,21 @@ await check('compare matches HN-0001 typed in OPD with HN0001 in ERP', async () 
   assert.equal(rows.length, 1);
   assert.equal(rows[0].status, 'ตรง'); assert.equal(rows[0].hn, 'HN0001');
 });
+
+await check('14: short HN search — number finds HN/C/plain forms, own branch first; letters narrow it', async () => {
+  await db.exec(fs.readFileSync(SQL_1012 + '14_ค้นHNแบบย่อ.sql', 'utf8'));
+  const id = n => '00000000-0000-0000-0000-0000000e00' + String(n).padStart(2, '0');
+  await q1(`select public.erp_apply_page_ext('customers', $1::jsonb, false, true)`, [JSON.stringify([
+    { id: id(1), hn: 'HN0755', full_name: 'ใหม่ พล', branch: 'สาขาพิษณุโลก', status: 'ปกติ', updated_at: '2026-10-18T01:00:00Z' },
+    { id: id(2), hn: 'HN0755', full_name: 'ใหม่ กพ', branch: 'สาขากำแพงเพชร', status: 'ปกติ', updated_at: '2026-10-18T01:00:01Z' },
+    { id: id(3), hn: '755', full_name: 'เก่า กพ', branch: 'สาขากำแพงเพชร', status: 'ปกติ', updated_at: '2026-10-18T01:00:02Z' },
+    { id: id(4), hn: 'C0755', full_name: 'เก่า พล', branch: 'สาขาพิษณุโลก', status: 'ปกติ', updated_at: '2026-10-18T01:00:03Z' },
+    { id: id(5), hn: '7550', full_name: 'ไม่ใช่', branch: 'สาขาพิษณุโลก', status: 'ปกติ', updated_at: '2026-10-18T01:00:04Z' }])]);
+  const names = async q => (await q1(`select public.lookup_erp_customer('front', $1) r`, [q])).r.matches.map(m => m.full_name);
+  for (const q of ['755', '0755', '00755']) assert.deepEqual(await names(q), ['เก่า พล', 'ใหม่ พล', 'เก่า กพ', 'ใหม่ กพ']);
+  assert.deepEqual(await names('hn755'), ['ใหม่ พล', 'ใหม่ กพ']);
+  assert.deepEqual(await names('C755'), ['เก่า พล']);
+  assert.deepEqual(await names('7550'), ['ไม่ใช่']);
+  assert.deepEqual(await names('สมชาย'), []);
+});
 report();

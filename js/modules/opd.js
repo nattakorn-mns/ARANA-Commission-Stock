@@ -213,7 +213,7 @@ async function renderOPD(container) {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">HN <span class="required">*</span></label>
-            <input id="opd-hn" class="form-input" placeholder="HN0001 (ตามที่เปิดไว้ใน ERP)" oninput="opdCheckHn(this.value)" />
+            <input id="opd-hn" class="form-input" placeholder="พิมพ์ HN เต็ม หรือแค่เลข เช่น 755" oninput="opdCheckHn(this.value)" />
             <div id="opd-hn-hint" style="font-size:.78rem;margin-top:4px;min-height:1em;"></div>
           </div>
           <div class="form-group">
@@ -457,13 +457,33 @@ function opdCheckHn(value) {
       hint.innerHTML = '<span style="color:var(--orange-600,#c2410c);">⚠️ ไม่พบ HN นี้ใน ERP — ตรวจว่าพิมพ์ตรงกับ ERP (บันทึกต่อได้)</span>';
       return;
     }
-    hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '') + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '')).join(' / ') + '</span>';
-    // เติมชื่อให้เมื่อรู้แน่ว่าคนไหน: มีคนเดียวในสาขาที่บันทึก (HN ซ้ำข้ามสาขาได้) หรือมีคนเดียวทั้งระบบ
+    window._opdHnMatches = m;
+    const label = x => '<b>' + esc(x.hn) + '</b> ' + esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '') + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '');
+    // คนเดียวในสาขาที่บันทึก → ใส่ HN ตัวจริงตาม ERP + ชื่อให้เลย (พิมพ์แค่เลขก็ได้ เช่น 755 → HN0755)
     const own = m.filter(x => x.branch === currentBranch && x.active !== false);
-    const pick = own.length === 1 ? own[0] : (m.length === 1 ? m[0] : null);
-    if (nameEl && !nameEl.value.trim() && pick && pick.full_name) { nameEl.value = pick.full_name; _opdHnAutoName = pick.full_name; }
+    if (own.length === 1) {
+      opdApplyHn(own[0]);
+      const others = m.filter(x => x !== own[0]);
+      if (others.length) hint.innerHTML += '<div style="color:var(--gray-500);margin-top:2px;">ไม่ใช่คนนี้? เลือก: ' + others.map(x => `<a href="#" onclick="opdPickHn(${m.indexOf(x)});return false;" style="margin-right:8px;">${label(x)}</a>`).join('') + '</div>';
+      return;
+    }
+    // หลายคน หรือเป็นลูกค้าสาขาอื่น (มาใช้บริการต่างสาขา) → ให้น้องกดเลือกให้ตรงคน
+    hint.innerHTML = '<div style="color:var(--gray-700);margin-bottom:2px;">พบ ' + m.length + ' คน — กดเลือกให้ตรงกับลูกค้า:</div>'
+      + m.map((x, i) => `<button type="button" class="btn btn-ghost btn-sm" style="display:block;width:100%;text-align:left;margin-bottom:2px;${x.branch === currentBranch ? '' : 'opacity:.85;'}" onclick="opdPickHn(${i})">${label(x)}${x.branch === currentBranch ? '' : ' <span style="color:var(--gray-500);">(ลูกค้าสาขาอื่น)</span>'}</button>`).join('');
   }, 500);
 }
+// ใส่ HN ตัวจริงตาม ERP + ชื่อ ลงฟอร์ม (ชื่อที่น้องพิมพ์เองไม่ทับ เว้นแต่น้องกดเลือกเอง)
+function opdApplyHn(x, chosen) {
+  const hnEl = document.getElementById('opd-hn'), nameEl = document.getElementById('opd-customer'), hint = document.getElementById('opd-hn-hint');
+  if (!hnEl || !x) return;
+  hnEl.value = x.hn;
+  if (nameEl && x.full_name && (chosen || !nameEl.value.trim() || nameEl.value === _opdHnAutoName)) { nameEl.value = x.full_name; _opdHnAutoName = x.full_name; }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  if (hint) hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: <b>' + esc(x.hn) + '</b> ' + esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '')
+    + (x.branch !== currentBranch ? ' <span style="color:var(--gray-500);">(ลูกค้าสาขาอื่น มาใช้บริการที่สาขานี้)</span>' : '')
+    + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '') + '</span>';
+}
+function opdPickHn(i) { opdApplyHn((window._opdHnMatches || [])[i], true); }
 
 function opdShowTypePicker() {
   document.getElementById('sale-type-picker').style.display = 'block';
