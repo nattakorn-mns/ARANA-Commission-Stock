@@ -223,7 +223,7 @@ async function renderOPD(container) {
         </div>
         <div class="form-group" style="margin-top:12px;">
           <label class="form-label">เชื่อมยอดมัดจำเดิม (ถ้ามี)</label>
-          <input id="opd-deposit-search" class="form-input" placeholder="ค้นหาด้วยชื่อลูกค้า เบอร์โทร HN หรือเลขมัดจำ" oninput="opdSearchDeposits(this.value)" />
+          <input id="opd-deposit-search" class="form-input" placeholder="ค้นหาด้วยชื่อลูกค้า เบอร์โทร HN หรือเลขมัดจำ" oninput="opdSearchDeposits(this.value)" onfocus="if(!this.value.trim())opdAutoDeposits()" />
           <div id="opd-deposit-results" style="margin-top:8px;"></div>
           <div id="opd-deposit-info" class="alert-box alert-success" style="display:none;margin-top:8px;"></div>
         </div>
@@ -392,31 +392,51 @@ function opdCancelSharedBill() {
 }
 
 let opdDepositSearchTimer = null;
+// มัดจำค้างของลูกค้า (คุณออม 18/10): ทุกสาขา ทั้งที่ยืนยันแล้วและ "รอบัญชียืนยัน" — เชื่อมได้ทั้งหมด
+function opdRenderDeposits(rows, heading) {
+  const res = document.getElementById('opd-deposit-results');
+  if (!res) return;
+  window._opdDepositResults = rows;
+  if (!rows.length) { res.innerHTML = heading ? '' : '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">ไม่พบยอดมัดจำที่ยังไม่ได้เชื่อม</p>'; return; }
+  res.innerHTML = (heading ? `<div class="alert-box alert-warning" style="margin-bottom:6px;"><i data-lucide="wallet"></i><span>${heading}</span></div>` : '')
+    + rows.map(d => `<div class="count-row" style="cursor:pointer;" onclick="opdSelectDeposit('${d.id}')"><div class="count-row-info"><div class="count-row-code">${d.deposit_no} | ${formatDate(d.deposit_date)} | ฿${formatCurrency(d.deposit_amount)}${d.branch_name && d.branch_name !== currentBranch ? ` | <span style="color:var(--purple-600,#7c3aed);">รับมัดจำที่สาขา${d.branch_name}</span>` : ''}</div><div class="count-row-name">${d.customer_name} — ${d.program_name || '-'}${d.hn ? ' · ' + d.hn : ''}</div></div>${d.payment_status === 'รอตรวจสอบ' ? '<span class="badge badge-pending">รอบัญชียืนยัน</span>' : '<span class="badge badge-approved">เงินเข้าแล้ว</span>'}</div>`).join('');
+  lucide.createIcons();
+}
 function opdSearchDeposits(q) {
   const res = document.getElementById('opd-deposit-results');
   if (!res) return;
-  if (!q.trim()) { res.innerHTML = ''; return; }
   clearTimeout(opdDepositSearchTimer);
+  if (!q.trim()) { opdAutoDeposits(); return; }
   res.innerHTML = '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">กำลังค้นหา...</p>';
   opdDepositSearchTimer = setTimeout(async () => {
-    const rows = await DB.searchConfirmedDepositsSupabase(q, currentBranch);
-    res.innerHTML = rows.length ? rows.map(d => `<div class="count-row" style="cursor:pointer;" onclick="opdSelectDeposit('${d.id}')"><div class="count-row-info"><div class="count-row-code">${d.deposit_no} | ${formatDate(d.deposit_date)} | ฿${formatCurrency(d.deposit_amount)}</div><div class="count-row-name">${d.customer_name} — ${d.program_name}</div></div><span class="badge badge-approved">เงินเข้าแล้ว</span></div>`).join('') : '<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 0;">ไม่พบยอดมัดจำที่ยืนยันแล้ว</p>';
-    window._opdDepositResults = rows;
-    lucide.createIcons();
+    opdRenderDeposits(await DB.listCustomerDepositsSupabase({ query: q, branch: currentBranch }), '');
   }, 250);
+}
+// เลือก HN / กดช่องมัดจำ → หามัดจำของลูกค้าคนนี้ให้เอง
+async function opdAutoDeposits() {
+  if (opdState.linkedDepositId) return;
+  const hn = document.getElementById('opd-hn')?.value.trim(), name = document.getElementById('opd-customer')?.value.trim();
+  const search = document.getElementById('opd-deposit-search');
+  if ((!hn && !name) || (search && search.value.trim())) return;
+  const rows = await DB.listCustomerDepositsSupabase({ hn, name, branch: currentBranch });
+  if (search && search.value.trim()) return;
+  opdRenderDeposits(rows, rows.length ? `ลูกค้านี้มีมัดจำค้างอยู่ ${rows.length} รายการ — กดเพื่อเชื่อม` : '');
 }
 
 function opdSelectDeposit(depositId) {
   const d = (window._opdDepositResults || []).find(x => x.id === depositId);
   if (!d) return;
   opdState.linkedDepositId = d.id;
-  document.getElementById('opd-hn').value = d.hn || document.getElementById('opd-hn').value;
-  document.getElementById('opd-customer').value = d.customer_name;
+  const hnEl = document.getElementById('opd-hn'), nameEl = document.getElementById('opd-customer');
+  if (!hnEl.value.trim() && d.hn) hnEl.value = d.hn;
+  if (!nameEl.value.trim()) nameEl.value = d.customer_name;
   document.getElementById('opd-deposit-search').value = `${d.deposit_no} — ${d.customer_name}`;
   document.getElementById('opd-deposit-results').innerHTML = '';
   const info = document.getElementById('opd-deposit-info');
   info.style.display = 'flex';
-  info.innerHTML = `<i data-lucide="check-circle"></i><span>เชื่อมยอดมัดจำ ฿${formatCurrency(d.deposit_amount)} แล้ว — ค่าคอมยอดนี้ได้รับสิทธิ์ไปแล้ว กรุณาอย่ากรอกค่าคอมก้อนเดิมซ้ำใน OPD</span><button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="opdClearDeposit()">ยกเลิก</button>`;
+  const pending = d.payment_status === 'รอตรวจสอบ';
+  info.className = 'alert-box ' + (pending ? 'alert-warning' : 'alert-success');
+  info.innerHTML = `<i data-lucide="${pending ? 'clock' : 'check-circle'}"></i><span>เชื่อมยอดมัดจำ ฿${formatCurrency(d.deposit_amount)}${d.branch_name && d.branch_name !== currentBranch ? ' (รับที่สาขา' + d.branch_name + ')' : ''} แล้ว${pending ? ' — <b>รอบัญชียืนยันเงินเข้า</b>' : ''} — ค่าคอมยอดนี้ได้รับสิทธิ์ไปแล้ว กรุณาอย่ากรอกค่าคอมก้อนเดิมซ้ำใน OPD</span><button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="opdClearDeposit()">ยกเลิก</button>`;
   lucide.createIcons();
 }
 
@@ -482,6 +502,7 @@ function opdApplyHn(x, chosen) {
   if (hint) hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: <b>' + esc(x.hn) + '</b> ' + esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '')
     + (x.branch !== currentBranch ? ' <span style="color:var(--gray-500);">(ลูกค้าสาขาอื่น มาใช้บริการที่สาขานี้)</span>' : '')
     + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '') + '</span>';
+  opdAutoDeposits();
 }
 function opdPickHn(i) { opdApplyHn((window._opdHnMatches || [])[i], true); }
 

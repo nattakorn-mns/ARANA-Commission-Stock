@@ -63,7 +63,7 @@ const DB = context.__DB;
     'list_stock_logs_erp_sync', 'set_stock_log_erp_sync_result', 'get_my_deposits',
     'admin_erp_sync_status', 'admin_erp_sync_now', 'admin_notify_channels', 'admin_notify_set_channel', 'admin_notify_queue', 'admin_notify_test', 'admin_notify_build',
     'list_deposit_accounts', 'admin_save_deposit_account',
-    'list_open_pos_for_receiving', 'lookup_erp_customer', 'list_receive_other_items', 'decide_receive_other_item', 'dispense_compare'
+    'list_open_pos_for_receiving', 'lookup_erp_customer', 'list_customer_deposits', 'list_receive_other_items', 'decide_receive_other_item', 'dispense_compare'
   ]);
   const positionRpcNames = [...source.matchAll(/_positionRpc\('([^']+)'/g)].map(match => match[1]);
   assert.ok(positionRpcNames.length > 0);

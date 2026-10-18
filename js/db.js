@@ -224,6 +224,15 @@ const DB = {
   async decideReceiveOtherItemSupabase(id, decision, note) {
     return this._requireAffected(await this._positionRpc('decide_receive_other_item', { p_id: id, p_decision: decision, p_note: note || null }));
   },
+  // มัดจำที่ยังไม่ได้เชื่อม OPD ของลูกค้า (SQL ไฟล์ 15) — ก่อนติดตั้ง SQL ใช้การค้นแบบเดิม (เฉพาะยืนยันแล้ว สาขาตัวเอง)
+  async listCustomerDepositsSupabase({ query, hn, name, branch }) {
+    try {
+      return (await this._positionRpc('list_customer_deposits', { p_query: query || null, p_hn: hn || null, p_name: name || null })) || [];
+    } catch (error) {
+      const q = query || hn || name;
+      return q ? (await this.searchConfirmedDepositsSupabase(q, branch)).map(d => ({ ...d, payment_status: 'ยืนยันแล้ว', branch_name: branch })) : [];
+    }
+  },
   async lookupErpCustomerSupabase(hn) {
     return await this._positionRpc('lookup_erp_customer', { p_hn: hn });
   },
