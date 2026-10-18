@@ -8,7 +8,7 @@ let depositEvidence = [];
 async function renderDeposits(container) {
   depositEvidence = [];
   container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>';
-  depositProgramsCache = await DB.getProgramsSupabase();
+  depositProgramsCache = await DB.getProgramsSupabase(currentBranch);
 
   container.innerHTML = `
   <div class="opd-form">
@@ -35,7 +35,7 @@ async function renderDeposits(container) {
           </div>
         </div>
         <div class="form-group" style="margin-bottom:16px;"><label class="form-label">โปรแกรมที่จอง <span class="required">*</span></label>
-          <select id="dep-program" class="form-select"><option value="">-- เลือกโปรแกรม --</option>${depositProgramsCache.map(p => `<option value="${p.code}" data-price="${p.price}">${p.code} — ${p.name}</option>`).join('')}</select>
+          <select id="dep-program" class="form-select"><option value="">-- เลือกโปรแกรม --</option>${depositProgramsCache.map(p => `<option value="${p.code}" data-price="${p.price}">${p.erp_code || p.code} — ${p.name}</option>`).join('')}</select>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">ราคาเต็มของโปรแกรม</label><input id="dep-package-price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" /></div>

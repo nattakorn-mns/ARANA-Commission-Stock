@@ -157,7 +157,7 @@ async function renderOPD(container) {
 
   container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>`;
   [opdProgramsCache, opdProductsCache] = await Promise.all([
-    DB.getProgramsSupabase(),
+    DB.getProgramsSupabase(currentBranch),
     DB.getProductsSupabase()
   ]);
 

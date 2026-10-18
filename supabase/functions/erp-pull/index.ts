@@ -14,9 +14,11 @@ const ERP_WRITE_KEY = Deno.env.get("ERP_EXT_WRITE_KEY") || "";
 // ชุดที่ ERP ส่งมาทั้งหมดทุกครั้ง vs ชุดที่ดึงเฉพาะที่เปลี่ยน
 const FULL = new Set(["stock_balance", "open_purchase_orders"]);
 const DATASETS = ["employees", "stock_items", "stock_balance", "open_purchase_orders", "service_commissions", "deposits",
-  "dispense_items", "ext_write_status", "customers"];
+  "dispense_items", "ext_write_status", "customers", "courses", "services"];
 // ชุดใหม่ (SQL ไฟล์ 12) บันทึกด้วยฟังก์ชันแยก
 const EXT = new Set(["dispense_items", "ext_write_status", "customers"]);
+// คอร์ส/บริการ (SQL ไฟล์ 16) → โปรแกรมบริการแยกสาขา
+const PROG = new Set(["courses", "services"]);
 const PAGE = 1000;
 const MAX_PAGES = 50; // กันวนไม่จบ
 
@@ -55,7 +57,9 @@ async function pullDataset(dataset: string) {
     const res = await erpPage(dataset, since, afterId);
     const done = !res.next_cursor;
     const args = { p_dataset: dataset, p_rows: res.rows || [], p_full_first: page === 0, p_done: done };
-    const { data, error } = EXT.has(dataset)
+    const { data, error } = PROG.has(dataset)
+      ? await local.rpc("erp_apply_programs", args)
+      : EXT.has(dataset)
       ? await local.rpc("erp_apply_page_ext", args)
       : await local.rpc("erp_apply_page", { ...args, p_error: null });
     if (error) throw new Error(`บันทึก ${dataset} ไม่สำเร็จ: ${error.message}`);

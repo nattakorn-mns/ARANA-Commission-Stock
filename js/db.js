@@ -443,7 +443,9 @@ const DB = {
   },
 
   // ── OPD ผ่านฐานข้อมูลกลาง (Supabase) ────────────────────────
-  async getProgramsSupabase() {
+  // โปรแกรมของสาขา (SQL ไฟล์ 16: ดึงจาก ERP แยกสาขา) — ก่อนติดตั้งใช้รายการเดิมทั้งหมด
+  async getProgramsSupabase(branch) {
+    if (branch) { try { return (await this._positionRpc('list_programs_for_branch', { p_branch_name: branch })) || []; } catch (e) { /* ใช้รายการเดิม */ } }
     try { var data = await this._appRpc('get_active_programs'); }
     catch (error) { console.error('getProgramsSupabase error:', error); return []; }
     return data || [];
