@@ -213,12 +213,7 @@ async function renderOPD(container) {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">HN <span class="required">*</span></label>
-            <div style="display:flex;gap:8px;">
-              <input id="opd-hn" class="form-input" placeholder="HN0001" style="flex:1;" oninput="opdCheckHn(this.value)" />
-              <button class="btn btn-secondary btn-sm" onclick="opdAutoHN()" title="สร้าง HN ใหม่">
-                <i data-lucide="hash"></i> สร้างใหม่
-              </button>
-            </div>
+            <input id="opd-hn" class="form-input" placeholder="HN0001 (ตามที่เปิดไว้ใน ERP)" oninput="opdCheckHn(this.value)" />
             <div id="opd-hn-hint" style="font-size:.78rem;margin-top:4px;min-height:1em;"></div>
           </div>
           <div class="form-group">
@@ -437,10 +432,6 @@ function opdToggleSection(id) {
   if (el) el.classList.toggle('collapsed');
 }
 
-function opdAutoHN() {
-  document.getElementById('opd-hn').value = DB.nextHN();
-}
-
 // ช่อง HN: ค้นรายชื่อลูกค้าจาก ERP (คุณออม 18/10) — โชว์ชื่อให้เห็นว่าตรงคน / เตือนถ้าไม่พบ (ยังบันทึกได้)
 let _opdHnTimer = null;
 function opdCheckHn(value) {
@@ -460,7 +451,7 @@ function opdCheckHn(value) {
       hint.innerHTML = '<span style="color:var(--orange-600,#c2410c);">⚠️ ไม่พบ HN นี้ใน ERP — ตรวจว่าพิมพ์ตรงกับ ERP (บันทึกต่อได้)</span>';
       return;
     }
-    hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '')).join(' / ') + '</span>';
+    hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '') + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '')).join(' / ') + '</span>';
     const nameEl = document.getElementById('opd-customer');
     if (nameEl && !nameEl.value.trim() && m.length === 1 && m[0].full_name) nameEl.value = m[0].full_name;
   }, 500);

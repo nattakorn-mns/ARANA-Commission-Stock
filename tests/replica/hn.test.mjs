@@ -22,14 +22,18 @@ await check('customer lookup: not loaded yet → no warning signal; then finds b
   assert.deepEqual(r, { loaded: false, matches: [] });
   const id = n => `00000000-0000-0000-0000-00000000c00${n}`;
   await q1(`select public.erp_apply_page_ext('customers', $1::jsonb, true, true)`, [JSON.stringify([
-    { id: id(1), hn: 'HN0001', full_name: 'ลูกค้า แม่สอด', branch: 'สาขาแม่สอด', active: true, updated_at: '2026-10-18T00:00:00Z' },
-    { id: id(2), hn: 'HN0001', full_name: 'ลูกค้า พิษณุโลก', branch: 'สาขาพิษณุโลก', active: true, updated_at: '2026-10-18T00:00:01Z' },
-    { id: id(3), hn: '026500244', full_name: 'สุภาวดี', branch: 'สาขากำแพงเพชร', active: true, updated_at: '2026-10-18T00:00:02Z' },
+    { id: id(1), hn: 'HN0001', full_name: 'ลูกค้า แม่สอด', branch: 'สาขาแม่สอด', status: 'ปกติ', updated_at: '2026-10-18T00:00:00Z' },
+    { id: id(2), hn: 'HN0001', full_name: 'ลูกค้า พิษณุโลก', branch: 'สาขาพิษณุโลก', status: 'ปกติ', updated_at: '2026-10-18T00:00:01Z' },
+    { id: id(4), hn: 'HN0001', full_name: 'ลบแล้ว', branch: 'สาขาพิษณุโลก', status: 'ลบแล้ว', updated_at: '2026-10-18T00:00:01Z' },
+    { id: id(5), hn: 'HN0002', full_name: 'ระงับ', branch: 'สาขาพิษณุโลก', status: 'ระงับ', updated_at: '2026-10-18T00:00:01Z' },
+    { id: id(3), hn: '026500244', full_name: 'สุภาวดี', branch: 'สาขากำแพงเพชร', status: 'ปกติ', updated_at: '2026-10-18T00:00:02Z' },
   ])]);
   r = (await q1(`select public.lookup_erp_customer('front', 'hn-0001') r`)).r;
   assert.equal(r.loaded, true);
   assert.deepEqual(r.matches.map(m => m.full_name), ['ลูกค้า พิษณุโลก', 'ลูกค้า แม่สอด']);
   assert.equal((await q1(`select public.lookup_erp_customer('front', 'HN9999') r`)).r.matches.length, 0);
+  const sus = (await q1(`select public.lookup_erp_customer('front', 'HN0002') r`)).r.matches[0];
+  assert.equal(sus.active, false); assert.equal(sus.status, 'ระงับ');
   await assert.rejects(q1(`select public.lookup_erp_customer('nobody', 'HN0001')`), /SESSION/);
   assert.equal((await q1(`select public.erp_sync_cursor('customers') c`)).c.after_id, id(3));
 });

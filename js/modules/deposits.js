@@ -29,7 +29,7 @@ async function renderDeposits(container) {
           <div class="form-group"><label class="form-label">เบอร์โทร</label><input id="dep-phone" class="form-input" inputmode="tel" placeholder="เช่น 08x-xxx-xxxx" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">HN (ถ้ามี)</label><input id="dep-hn" class="form-input" placeholder="HN-0001" /></div>
+          <div class="form-group"><label class="form-label">HN (ถ้ามี)</label><input id="dep-hn" class="form-input" placeholder="HN0001 (ลูกค้าใหม่เว้นว่างได้)" /></div>
           <div class="form-group"><label class="form-label">ช่องทางที่ปิดยอด <span class="required">*</span></label>
             <select id="dep-channel" class="form-select"><option value="">-- เลือกช่องทาง --</option><option>LINE</option><option>Facebook</option><option>Instagram</option><option>โทรศัพท์</option><option>หน้าร้าน</option><option>อื่นๆ</option></select>
           </div>

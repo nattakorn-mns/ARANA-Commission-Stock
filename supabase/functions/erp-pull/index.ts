@@ -14,9 +14,9 @@ const ERP_WRITE_KEY = Deno.env.get("ERP_EXT_WRITE_KEY") || "";
 // ชุดที่ ERP ส่งมาทั้งหมดทุกครั้ง vs ชุดที่ดึงเฉพาะที่เปลี่ยน
 const FULL = new Set(["stock_balance", "open_purchase_orders"]);
 const DATASETS = ["employees", "stock_items", "stock_balance", "open_purchase_orders", "service_commissions", "deposits",
-  "dispense_items", "ext_write_status"];
+  "dispense_items", "ext_write_status", "customers"];
 // ชุดใหม่ (SQL ไฟล์ 12) บันทึกด้วยฟังก์ชันแยก
-const EXT = new Set(["dispense_items", "ext_write_status"]);
+const EXT = new Set(["dispense_items", "ext_write_status", "customers"]);
 const PAGE = 1000;
 const MAX_PAGES = 50; // กันวนไม่จบ
 
