@@ -458,7 +458,10 @@ function opdCheckHn(value) {
       return;
     }
     hint.innerHTML = '<span style="color:var(--green-600,#16a34a);">✓ ERP: ' + m.map(x => esc(x.full_name || '-') + (x.nickname ? ' (' + esc(x.nickname) + ')' : '') + ' · ' + esc(x.branch || '') + (x.active === false ? ' <b style="color:var(--orange-600,#c2410c);">[' + esc(x.status || 'ระงับ') + ']</b>' : '')).join(' / ') + '</span>';
-    if (nameEl && !nameEl.value.trim() && m.length === 1 && m[0].full_name) { nameEl.value = m[0].full_name; _opdHnAutoName = m[0].full_name; }
+    // เติมชื่อให้เมื่อรู้แน่ว่าคนไหน: มีคนเดียวในสาขาที่บันทึก (HN ซ้ำข้ามสาขาได้) หรือมีคนเดียวทั้งระบบ
+    const own = m.filter(x => x.branch === currentBranch && x.active !== false);
+    const pick = own.length === 1 ? own[0] : (m.length === 1 ? m[0] : null);
+    if (nameEl && !nameEl.value.trim() && pick && pick.full_name) { nameEl.value = pick.full_name; _opdHnAutoName = pick.full_name; }
   }, 500);
 }
 
