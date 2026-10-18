@@ -445,7 +445,8 @@ const DB = {
   // ── OPD ผ่านฐานข้อมูลกลาง (Supabase) ────────────────────────
   // โปรแกรมของสาขา (SQL ไฟล์ 16: ดึงจาก ERP แยกสาขา) — ก่อนติดตั้งใช้รายการเดิมทั้งหมด
   async getProgramsSupabase(branch) {
-    if (branch) { try { return (await this._positionRpc('list_programs_for_branch', { p_branch_name: branch })) || []; } catch (e) { /* ใช้รายการเดิม */ } }
+    // แสดงเฉพาะ "คอร์ส" (คุณออม 18/10) — "บริการ" ของ ERP ส่วนใหญ่ซ้ำกับคอร์ส เก็บไว้ในฐานข้อมูลแต่ไม่ให้เลือก
+    if (branch) { try { return ((await this._positionRpc('list_programs_for_branch', { p_branch_name: branch })) || []).filter(p => p.kind !== 'S'); } catch (e) { /* ใช้รายการเดิม */ } }
     try { var data = await this._appRpc('get_active_programs'); }
     catch (error) { console.error('getProgramsSupabase error:', error); return []; }
     return data || [];
