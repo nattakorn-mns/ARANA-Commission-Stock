@@ -28,6 +28,7 @@ function audSwitch(tab) {
 }
 function audRender() {
   const body = document.getElementById('aud-body'); if (!body) return;
+  body.dataset.stockKind = auditTab.startsWith('stock-') ? auditTab.slice(6) : '';
   if (auditTab === 'commission') audRenderOPD(body);
   else if (auditTab === 'deposits') audRenderDeposits(body);
   else if (auditTab.startsWith('stock-')) audRenderStock(body, auditTab.slice(6));

@@ -89,7 +89,10 @@ renderDeposits=async function(container){
     reference.closest('.form-group').querySelector('.form-label').textContent='เลขอ้างอิงอัตโนมัติ';
     reference.readOnly=true;reference.value=DEPOSIT_AUTO_REF_TEXT;
     reference.placeholder='ระบบสร้างให้อัตโนมัติ';reference.classList.add('deposit-auto-reference');
-    
+    // ฟอร์มกระชับ (คุณออม 18/10): เลขอ้างอิงระบบสร้างเอง ไม่ต้องโชว์ — ใช้ที่ว่างนั้นวาง "วันที่นัดหมาย" คู่กับบัญชีรับโอน
+    const refGroup=reference.closest('.form-group');
+    const appt=document.getElementById('dep-appointment-date')?.closest('.form-group');
+    if(refGroup&&appt){refGroup.after(appt);refGroup.style.display='none';}
   }
   // Deposit evidence is usually an existing chat screenshot or transfer slip.
   // Keep multi-select, but do not force the camera as the OPD form does.

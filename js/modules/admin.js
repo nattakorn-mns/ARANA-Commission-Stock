@@ -3,21 +3,16 @@
  * js/modules/admin.js
  */
 
-let adminTab = 'ai';
+let adminTab = 'users';
 
+// หน้า "ผู้ดูแลระบบ" (คุณออม 18/10): เอาแท็บ AI เดิมและ System Logs ออก (ใช้ข้อมูลตัวอย่างในเครื่อง ไม่ใช่ข้อมูลจริง)
 function renderAdmin(container) {
-  adminTab = 'ai';
+  adminTab = 'users';
   container.innerHTML = `
   <div>
     <div class="tab-bar">
-      <button class="tab-btn active" id="adm-tab-ai" onclick="admSwitch('ai')">
-        <i data-lucide="cpu"></i>AI Auto-Verification
-      </button>
-      <button class="tab-btn" id="adm-tab-users" onclick="admSwitch('users')">
+      <button class="tab-btn active" id="adm-tab-users" onclick="admSwitch('users')">
         <i data-lucide="users"></i>จัดการผู้ใช้
-      </button>
-      <button class="tab-btn" id="adm-tab-logs" onclick="admSwitch('logs')">
-        <i data-lucide="activity"></i>System Logs
       </button>
       <button class="tab-btn" id="adm-tab-import" onclick="admSwitch('import')">
         <i data-lucide="file-up"></i>นำเข้าข้อมูล (Import)
@@ -31,16 +26,14 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-notify" onclick="admSwitch('notify')">
         <i data-lucide="bell"></i>แจ้งเตือน
       </button>
+      <button class="tab-btn" id="adm-tab-aiplan" onclick="admSwitch('aiplan')">
+        <i data-lucide="sparkles"></i>AI ช่วยตรวจ (แผนพัฒนา)
+      </button>
     </div>
     <div id="adm-body"></div>
   </div>`;
   admRender();
   lucide.createIcons();
-}
-
-function renderSystemLogs(container) {
-  adminTab = 'logs';
-  renderAdmin(container);
 }
 
 function admSwitch(tab) {
@@ -54,13 +47,29 @@ function admSwitch(tab) {
 function admRender() {
   const body = document.getElementById('adm-body');
   if (!body) return;
-  if (adminTab === 'ai') admRenderAI(body);
-  else if (adminTab === 'users') admRenderUsers(body);
-  else if (adminTab === 'import') admRenderImport(body);
+  if (adminTab === 'import') admRenderImport(body);
   else if (adminTab === 'positions') admRenderPositions(body);
   else if (adminTab === 'erpsync') admRenderErpSync(body);
   else if (adminTab === 'notify') admRenderNotify(body);
-  else admRenderLogs(body);
+  else if (adminTab === 'aiplan') admRenderAiPlan(body);
+  else admRenderUsers(body);
+}
+
+// ห้องรอไว้พัฒนา — ยังไม่มีปุ่มหรือตัวเลข จะได้ไม่ลืมแผน (เห็นเฉพาะผู้ดูแลระบบ)
+function admRenderAiPlan(body) {
+  const plans = [
+    'เตือนบิลที่ไม่มีรูป OPD',
+    'เตือนบิลที่มีค่ามือแต่ไม่มีของเบิก',
+    'เตือนค่ามือสูงกว่าราคาโปรแกรม',
+    'เตือน % ค่าคอมไม่ตรงกับที่ตั้งไว้ในเมนูตั้งค่า',
+    'เตือนของที่เบิกไม่ตรงกับรายงานจ่ายยาของ ERP',
+    'กฎตรวจค่าคอม/ค่ามือเพิ่มเติมที่คุณออมจะแจ้งภายหลัง'
+  ];
+  body.innerHTML = `<div class="glass-card">
+    <div class="section-header" style="margin-bottom:10px;"><span class="section-title">AI ช่วยตรวจ — แผนพัฒนา</span></div>
+    <p style="color:var(--ink-3);margin:0 0 12px;">ยังไม่เปิดใช้งาน เมื่อพร้อมจะขึ้นเป็นป้ายเตือนที่บิลรอตรวจในห้องตรวจ ให้บัญชีเห็นจุดผิดก่อนเปิดบิล</p>
+    <ul style="margin:0;padding-left:20px;line-height:1.9;">${plans.map(p => `<li>${p}</li>`).join('')}</ul>
+  </div>`;
 }
 
 // ── AI Auto-Verification ──────────────────────────────────
@@ -965,7 +974,16 @@ async function admRenderNotify(body) {
   let channels, queue;
   try { [channels, queue] = await Promise.all([DB.adminNotifyChannelsSupabase(), DB.adminNotifyQueueSupabase(100)]); }
   catch (e) {
-    body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>ยังไม่ได้ติดตั้งระบบแจ้งเตือน</h4><p>รัน SQL ไฟล์ 05 (รอบ 12/10) ก่อน — ${DB.stockErrorText(e)}</p></div>`;
+    // ยังไม่ได้ตั้งค่า (คุณออม 18/10): บอกให้ชัดว่าแท็บนี้มีไว้ทำอะไร และยังไม่ได้เปิดใช้ ไม่ขึ้นข้อผิดพลาดทางเทคนิค
+    body.innerHTML = `<div class="glass-card" style="max-width:720px;">
+      <div class="section-header" style="margin-bottom:10px;"><span class="section-title">แจ้งเตือน LINE / Telegram — ยังไม่ได้เปิดใช้</span></div>
+      <p style="margin:0 0 10px;color:var(--ink-2);">รอตั้งค่าหลังเริ่มใช้งานจริง เมื่อเปิดแล้วระบบจะส่งข้อความเข้ากลุ่มให้อัตโนมัติ</p>
+      <ul style="margin:0;padding-left:20px;line-height:1.9;color:var(--ink-2);">
+        <li>Telegram "อัพเซลรายลูกค้า" — ทุกรายการขาย / คำขอแก้ไข ทันที</li>
+        <li>Telegram "สรุปรายงาน" — สรุปผลงานรายคน ทุกวัน 23:00</li>
+        <li>LINE — เบิก/โอน, รับเข้า/รับโอน, มัดจำแต่ละสาขา และแจ้งแอดมินเมื่อลูกค้าที่นัดไว้มาใช้บริการ</li>
+      </ul>
+    </div>`;
     lucide.createIcons(); return;
   }
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

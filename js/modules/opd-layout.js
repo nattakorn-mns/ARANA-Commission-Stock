@@ -45,7 +45,7 @@ opdToggleSection=function(id){
  el.classList.toggle('collapsed');el.previousElementSibling.setAttribute('aria-expanded',String(opening));
  if(opening&&id==='services-body'&&!opdState.services.length)opdAddService();
  if(opening&&id==='sales-body'&&!opdState.sales.length)opdShowTypePicker();
- if(opening&&id==='supplies-body'&&!opdState.supplies.length)opdAddSupply();
+ if(opening&&id==='supplies-body'&&!opdState.supplies.length){const first=opdSupplyPrograms()[0];if(first)opdAddSupply(first.key);else opdRenderSupplies();}
 };
 function addInlineControls(card,addAction){
  const remove=card.querySelector('button[onclick^="opdRemove"]');
@@ -70,16 +70,14 @@ opdRenderSales=function(){layoutRenderSales();document.querySelectorAll('.sale-c
  result.classList.add('commission-result');baseRow.append(result);baseRow.classList.add('paired-fields');
  });};
 const layoutRenderSupplies=opdRenderSupplies;
-opdRenderSupplies=function(){layoutRenderSupplies();document.querySelectorAll('.supply-row').forEach(card=>{
- addInlineControls(card,()=>opdAddSupply());
- const unit=card.querySelector('[id^="sup-unit-"]');if(unit){unit.classList.add('unit-display');unit.setAttribute('aria-label','หน่วยตามฐานข้อมูล');}
- });};
+// เบิกยา/วัสดุ: ปุ่มเพิ่มอยู่ท้ายแต่ละโปรแกรมแล้ว ไม่ใส่ปุ่ม +เพิ่ม ในแถว (เดิมไปเพิ่มในกลุ่มไม่ระบุโปรแกรม)
+opdRenderSupplies=function(){layoutRenderSupplies();};
 const layoutRemoveService=opdRemoveService;
 opdRemoveService=function(id){layoutRemoveService(id);if(!document.getElementById('services-body')?.classList.contains('collapsed')&&!opdState.services.length)opdAddService();};
 const layoutRemoveSale=opdRemoveSale;
 opdRemoveSale=function(id){layoutRemoveSale(id);if(!document.getElementById('sales-body')?.classList.contains('collapsed')&&!opdState.sales.length)opdShowTypePicker();};
 const layoutRemoveSupply=opdRemoveSupply;
-opdRemoveSupply=function(id){layoutRemoveSupply(id);if(!document.getElementById('supplies-body')?.classList.contains('collapsed')&&!opdState.supplies.length)opdAddSupply();};
+opdRemoveSupply=function(id){layoutRemoveSupply(id);};
 // Camera capture only: no album/file chooser, no persistence or production uploads.
 let opdCameraStream=null,opdCameraGeneration=0;
 function closeOPDCamera(){opdCameraGeneration++;opdCameraStream?.getTracks().forEach(t=>t.stop());opdCameraStream=null;document.getElementById('opd-camera')?.remove();document.getElementById('photo-upload-area')?.focus();}

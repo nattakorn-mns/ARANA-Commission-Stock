@@ -55,7 +55,8 @@ function buildSS(uid, items, selectedCode, onPickFn, placeholder) {
     const name = (item.name||'').replace(/"/g,'&quot;');
     const search = (item.code + ' ' + item.name).toLowerCase();
     
-    const showCode = !isProg && (item.code !== 'walkin' && item.code !== 'manual' && !item.code.startsWith('svc:') && !item.code.startsWith('shared:'));
+    // รหัสแสดงเฉพาะรายการยา/สินค้า — รหัสโปรแกรมเป็นแท็กหลังบ้าน ไม่ให้น้องเห็น (คุณออม 18/10)
+    const showCode = uid.startsWith('supprod') && !isProg;
     const codeHtml = showCode ? `<span class="ss-item-code">${item.code}</span>` : '';
     
     return `<div class="ss-item" data-code="${item.code}" data-text="${search}" onmousedown="ssPick(event,'${uid}','${item.code}','${onPickFn}')">${codeHtml}${name}</div>`;
@@ -213,7 +214,7 @@ async function renderOPD(container) {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">HN <span class="required">*</span></label>
-            <input id="opd-hn" class="form-input" placeholder="พิมพ์ HN เต็ม หรือแค่เลข เช่น 755" oninput="opdCheckHn(this.value)" />
+            <input id="opd-hn" class="form-input" placeholder="HN หรือแค่เลข เช่น 755" oninput="opdCheckHn(this.value)" />
             <div id="opd-hn-hint" style="font-size:.78rem;margin-top:4px;min-height:1em;"></div>
           </div>
           <div class="form-group">
@@ -221,7 +222,7 @@ async function renderOPD(container) {
             <input id="opd-customer" class="form-input" placeholder="ชื่อ-นามสกุล" />
           </div>
         </div>
-        <div class="form-group" style="margin-top:12px;">
+        <div class="form-group opd-deposit-link">
           <label class="form-label">เชื่อมยอดมัดจำเดิม (ถ้ามี)</label>
           <input id="opd-deposit-search" class="form-input" placeholder="ค้นหาด้วยชื่อลูกค้า เบอร์โทร HN หรือเลขมัดจำ" oninput="opdSearchDeposits(this.value)" onfocus="if(!this.value.trim())opdAutoDeposits()" />
           <div id="opd-deposit-results" style="margin-top:8px;"></div>
@@ -242,6 +243,19 @@ async function renderOPD(container) {
         <button class="btn btn-primary btn-sm" onclick="opdAddService()">
           <i data-lucide="plus"></i> เพิ่มรายการบริการ
         </button>
+      </div>
+    </div>
+
+    <!-- Section 3: Supplies -->
+    <div class="opd-section" id="supplies-section">
+      <div class="opd-section-head" onclick="opdToggleSection('supplies-body')">
+        <h3><i data-lucide="pill"></i>เบิกยา/วัสดุ/อุปกรณ์ <span id="supply-required-badge" style="display:none;background:var(--red-500);color:white;font-size:0.68rem;padding:2px 7px;border-radius:999px;margin-left:6px;font-weight:700;">จำเป็น</span></h3>
+        <span class="opd-section-count" id="supplies-count">0</span>
+        <i data-lucide="chevron-down"></i>
+      </div>
+      <div class="opd-section-body" id="supplies-body">
+        <p class="opd-hint">เพิ่มของที่เบิกใต้โปรแกรมที่ทำ</p>
+        <div id="supplies-list"></div>
       </div>
     </div>
 
@@ -274,19 +288,6 @@ async function renderOPD(container) {
             <i data-lucide="plus"></i> เพิ่มรายการขาย
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- Section 3: Supplies -->
-    <div class="opd-section" id="supplies-section">
-      <div class="opd-section-head" onclick="opdToggleSection('supplies-body')">
-        <h3><i data-lucide="pill"></i>เบิกยา/วัสดุ/อุปกรณ์ <span id="supply-required-badge" style="display:none;background:var(--red-500);color:white;font-size:0.68rem;padding:2px 7px;border-radius:999px;margin-left:6px;font-weight:700;">จำเป็น</span></h3>
-        <span class="opd-section-count" id="supplies-count">0</span>
-        <i data-lucide="chevron-down"></i>
-      </div>
-      <div class="opd-section-body" id="supplies-body">
-        <p style="font-size:0.78rem;color:var(--gray-500);margin:0 0 10px;">เลือกโปรแกรมที่ให้บริการ แล้วกด “เพิ่มของที่เบิก” ใต้โปรแกรมนั้น เพื่อให้ผู้ตรวจเทียบของกับโปรแกรมได้</p>
-        <div id="supplies-list"></div>
       </div>
     </div>
 
@@ -694,11 +695,16 @@ function opdBuildSaleCard(s) {
 
       <div class="form-row" style="margin-bottom:10px;">
         <div class="form-group">
-          <label class="form-label">โปรแกรมใหม่ที่ขาย <span class="required">*</span></label>
-          ${buildSS(newProgUID, programs, s.newProgram, 'ssSaleNewProg_' + s.id, 'พิมพ์ค้นหาโปรแกรม...')}
+          ${isProduct
+            // ขายสินค้า: พิมพ์ชื่อเองไปก่อน จนกว่าจะตั้งหมวดสินค้าขายหน้าร้านใน ERP (คุณออม 18/10)
+            ? `<label class="form-label">สินค้าที่ขาย <span class="required">*</span></label>
+               <input type="text" class="form-input" value="${(s.newProgram || '').replace(/"/g, '&quot;')}" placeholder="พิมพ์ชื่อสินค้า"
+                 oninput="opdSaleTextInput('${s.id}','newProgram',this.value)" />`
+            : `<label class="form-label">โปรแกรมใหม่ที่ขาย <span class="required">*</span></label>
+               ${buildSS(newProgUID, programs, s.newProgram, 'ssSaleNewProg_' + s.id, 'พิมพ์ค้นหาโปรแกรม...')}`}
         </div>
         <div class="form-group">
-          <label class="form-label">ราคาโปรแกรมใหม่ (฿)</label>
+          <label class="form-label">${isProduct ? 'ราคาสินค้า (฿)' : 'ราคาโปรแกรมใหม่ (฿)'}</label>
           <input type="number" class="form-input" id="sale-newprice-${s.id}"
             value="${s.newPrice||''}" placeholder="0"
             oninput="opdSaleNumInput('${s.id}','newPrice',this.value)" />
@@ -939,57 +945,41 @@ function opdRenderSupplies() {
     const uid = 'supprod-' + s.id;
     window['ssSupprod_' + s.id] = function (code) { opdSupplyProduct(s.id, code); };
     return `
-    <div class="supply-row" id="suprow-${s.id}" style="display:grid;grid-template-columns:2fr 80px 60px auto;align-items:end;gap:8px;margin-bottom:8px;">
-      <div>
-        <label class="form-label">รายการยา/วัสดุ</label>
-        ${buildSS(uid, products, s.productCode, 'ssSupprod_' + s.id, 'พิมพ์รหัสหรือชื่อสินค้า...')}
-      </div>
-      <div>
-        <label class="form-label">จำนวน</label>
-        <input type="number" class="form-input" value="${s.qty}" min="0" step="any" inputmode="decimal"
-          oninput="opdSupplyQtyInput('${s.id}',this.value)" style="text-align:center;" />
-      </div>
-      <div>
-        <label class="form-label">หน่วย</label>
-        <input type="text" class="form-input" id="sup-unit-${s.id}" value="${s.unit}" readonly placeholder="-" />
-      </div>
-      <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--red-500);align-self:flex-end;" onclick="opdRemoveSupply('${s.id}')">
+    <div class="supply-row" id="suprow-${s.id}">
+      <div class="supply-item">${buildSS(uid, products, s.productCode, 'ssSupprod_' + s.id, 'พิมพ์ชื่อหรือรหัสยา/วัสดุ...')}</div>
+      <input type="number" class="form-input supply-qty" value="${s.qty}" min="0" step="any" inputmode="decimal" aria-label="จำนวน"
+        oninput="opdSupplyQtyInput('${s.id}',this.value)" />
+      <span class="supply-unit" id="sup-unit-${s.id}">${s.unit || '-'}</span>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm supply-del" aria-label="ลบรายการ" onclick="opdRemoveSupply('${s.id}')">
         <i data-lucide="trash-2"></i>
       </button>
     </div>`;
   };
 
-  const groupHtml = (key, name, tag, rows) => `
-    <div class="supply-group" style="border:1px solid var(--gray-200);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--gray-50);">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${rows.length ? '10px' : '0'};">
-        <i data-lucide="clipboard-list" style="width:16px;"></i>
-        <strong style="font-size:0.9rem;">${name}</strong>
-        ${tag ? `<span style="font-size:0.7rem;background:var(--gray-200);color:var(--gray-600);padding:2px 7px;border-radius:999px;">${tag}</span>` : ''}
-        <span style="font-size:0.75rem;color:var(--gray-500);">${rows.length} รายการเบิก</span>
-        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="opdAddSupply('${key}')">
-          <i data-lucide="plus"></i> เพิ่มของที่เบิก
-        </button>
-      </div>
+  // หัวข้อโปรแกรม 1 บรรทัด → รายการของที่เบิก → ปุ่มเพิ่มจุดเดียว (คุณออม 18/10)
+  const groupHtml = (key, name, rows) => `
+    <div class="supply-group">
+      <div class="supply-group-head"><i data-lucide="clipboard-list"></i><strong>${name}</strong><span>${rows.length} รายการ</span></div>
+      ${rows.length ? `<div class="supply-cols"><span>ยา/วัสดุ</span><span>จำนวน</span><span>หน่วย</span><span></span></div>` : ''}
       ${rows.map(rowHtml).join('')}
+      <button type="button" class="btn btn-ghost btn-sm supply-add" onclick="opdAddSupply('${key}')"><i data-lucide="plus"></i> เพิ่มของที่เบิก</button>
     </div>`;
 
   let html = '';
   if (!programs.length) {
     html += `<div class="empty-state" style="padding:14px;margin-bottom:10px;">
       <i data-lucide="info"></i>
-      <h4 style="font-size:0.85rem;">ยังไม่มีโปรแกรมให้ผูก — กรุณาเพิ่มรายการค่ามือหรือรายการขายก่อน</h4>
+      <h4 style="font-size:0.85rem;">เลือกโปรแกรมในส่วนค่ามือก่อน แล้วเพิ่มของที่เบิกใต้โปรแกรมนั้น</h4>
     </div>`;
   }
   programs.forEach(p => {
-    html += groupHtml(p.key, p.name, p.tag, opdState.supplies.filter(s => s.programCode === p.key));
+    html += groupHtml(p.key, p.name, opdState.supplies.filter(s => s.programCode === p.key));
   });
 
   const orphans = opdState.supplies.filter(s => !s.programCode || !programs.some(p => p.key === s.programCode));
-  if (orphans.length) {
-    html += groupHtml('', 'ไม่ระบุโปรแกรม / ใช้ร่วม', 'ควรระบุโปรแกรม', orphans);
-  }
+  if (orphans.length) html += groupHtml('', 'ไม่ระบุโปรแกรม / ใช้ร่วม', orphans);
+  else html += `<button type="button" class="supply-orphan-link" onclick="opdAddSupply('')">+ เบิกแบบไม่ระบุโปรแกรม (ของใช้ร่วม)</button>`;
 
-  container.innerHTML = html;
   document.getElementById('supplies-count').textContent = opdState.supplies.length;
   lucide.createIcons();
 }
@@ -1002,7 +992,7 @@ function opdSupplyProduct(id, code) {
   s.productName = p ? p.name : '';
   s.unit = p ? p.unit : '';
   const unitEl = document.getElementById('sup-unit-' + id);
-  if (unitEl) unitEl.value = s.unit;
+  if (unitEl) unitEl.textContent = s.unit || '-';
 }
 
 function opdSupplyQtyInput(id, val) {

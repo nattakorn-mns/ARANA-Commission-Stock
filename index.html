@@ -7,7 +7,7 @@
   <meta name="description" content="ARANA Staff — ค่ามือ ค่าคอมมิชชั่น มัดจำ และคลังสินค้า สำหรับพนักงาน ARANA CLINIC" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/opd-layout.css?v=2" />
   <link rel="stylesheet" href="css/deposit-layout.css?v=2" />
   <link rel="stylesheet" href="css/summary-layout.css?v=2" />
+  <link rel="stylesheet" href="css/staff-ui.css?v=7" />
 </head>
 <body>
 
@@ -66,6 +67,12 @@
           <i data-lucide="arrow-right"></i>
         </button>
       </form>
+      <div class="login-or"><span>หรือ</span></div>
+      <button id="login-erp-btn" type="button" class="btn btn-secondary btn-full" onclick="loginWithErp()">
+        <i data-lucide="log-in"></i>
+        <span>เข้าสู่ระบบด้วยบัญชี ERP</span>
+      </button>
+      <p class="login-hint">ใช้อีเมลและรหัสผ่านเดียวกับ ERP · ยังไม่มีบัญชี ERP ใช้รหัสพนักงานด้านบน</p>
 
     </div>
   </div>
@@ -109,13 +116,9 @@
       </nav>
 
       <div class="sidebar-footer" style="display:flex; flex-direction:column; gap:4px;">
-        <button class="sidebar-item" onclick="openChangePasswordModal()" style="justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
+        <button class="sidebar-item" onclick="openChangePasswordModal()" style="justify-content:flex-start;text-align:left;border:none;width:100%;cursor:pointer;">
           <i data-lucide="key-round"></i>
           <span>เปลี่ยนรหัสผ่าน</span>
-        </button>
-        <button class="sidebar-item" onclick="if(confirm('ระบบจะรีเซ็ตข้อมูลทั้งหมดและใส่ข้อมูลตัวอย่าง ยืนยันหรือไม่?')){DB.reset(); location.reload();}" style="color:var(--amber-600); font-weight:600; justify-content: flex-start; text-align:left; background:transparent; border:none; width:100%; cursor:pointer;">
-          <i data-lucide="database"></i>
-          <span>สร้างข้อมูลตัวอย่าง</span>
         </button>
         <button class="sidebar-logout" onclick="logout()">
           <i data-lucide="log-out"></i>
@@ -123,6 +126,7 @@
         </button>
       </div>
     </aside>
+    <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
     <!-- MAIN CONTENT -->
     <main class="main-content">
@@ -163,21 +167,21 @@
   <script src="js/config.js?v=2"></script>
   <script src="js/supabaseClient.js?v=3"></script>
   <script src="js/db.js?v=24"></script>
-  <script src="js/modules/opd.js?v=14"></script>
-  <script src="js/modules/opd-layout.js?v=3"></script>
-  <script src="js/modules/deposits.js?v=5"></script>
-  <script src="js/modules/deposit-layout.js?v=5"></script>
+  <script src="js/modules/opd.js?v=16"></script>
+  <script src="js/modules/opd-layout.js?v=4"></script>
+  <script src="js/modules/deposits.js?v=6"></script>
+  <script src="js/modules/deposit-layout.js?v=6"></script>
   <script src="js/modules/history.js?v=10"></script>
   <script src="js/modules/summary-layout.js?v=4"></script>
   <script src="js/modules/erp-excel.js?v=3"></script>
   <script src="js/modules/inventory.js?v=7"></script>
-  <script src="js/modules/stockcard.js?v=3"></script>
-  <script src="js/modules/audit.js?v=13"></script>
+  <script src="js/modules/stockcard.js?v=4"></script>
+  <script src="js/modules/audit.js?v=14"></script>
   <script src="js/modules/audit_dashboard.js?v=3"></script>
-  <script src="js/modules/reports.js?v=5"></script>
-  <script src="js/modules/admin.js?v=13"></script>
+  <script src="js/modules/reports.js?v=6"></script>
+  <script src="js/modules/admin.js?v=14"></script>
   <script src="js/modules/admin_dashboard.js?v=2"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>
 

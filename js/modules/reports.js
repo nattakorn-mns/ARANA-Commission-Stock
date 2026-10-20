@@ -19,9 +19,9 @@ function renderReports(container) {
   <div>
     <!-- Filter -->
     <div class="filter-bar" style="margin-bottom:16px; position:relative;">
-      <div class="filter-actions" style="position:absolute; top:12px; right:12px; display:flex; gap:4px;">
-        <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--gray-600);" onclick="rptExport()" title="Export CSV"><i data-lucide="download"></i></button>
-        <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--gray-600);" onclick="window.print()" title="พิมพ์"><i data-lucide="printer"></i></button>
+      <div class="filter-actions">
+        <button class="btn btn-ghost btn-sm" onclick="rptExport()"><i data-lucide="download"></i> ดาวน์โหลด Excel</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.print()"><i data-lucide="printer"></i> พิมพ์</button>
       </div>
       ${isAdmin ? `<div class="filter-group">
         <label class="filter-label">พนักงาน</label>

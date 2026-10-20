@@ -47,7 +47,7 @@ async function renderDeposits(container) {
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">เปอร์เซ็นต์ค่าคอม</label><select id="dep-commission-pct" class="form-select" onchange="depUpdateCommission()">${[0,0.5,0.65,0.75,1,1.3,1.5,2,2.5,3,5].map(x=>`<option value="${x}">${x}%</option>`).join('')}</select></div>
-          <div class="form-group"><label class="form-label">ค่าคอมที่ขอรับ</label><input id="dep-commission-amount" class="form-input" value="0.00" readonly /></div>
+          <div class="form-group"><label class="form-label">ค่าคอมที่ได้รับ</label><input id="dep-commission-amount" class="form-input" value="0.00" readonly /></div>
         </div>
         <div class="form-group"><label class="form-label">วันที่นัดหมาย (ถ้ามี)</label><input id="dep-appointment-date" type="date" class="form-input" /></div>
         <div class="form-group"><label class="form-label">หมายเหตุ</label><textarea id="dep-note" class="form-input" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea></div>

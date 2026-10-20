@@ -108,6 +108,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
 
+  // เข้าสู่ระบบด้วยบัญชี ERP: แลกรหัสใช้ครั้งเดียวจากหน้า ERP เป็นรหัสพนักงาน แล้วออก session ของ ARANA Staff
+  if (body.action === "erp_login") {
+    const code = String(body.code || ""), state = String(body.state || "");
+    if (!/^[0-9a-f]{64}$/i.test(code) || !state) return json({ ok: false, error: "ลิงก์เข้าสู่ระบบไม่ถูกต้อง" }, 400);
+    try {
+      const who = await erpRpc("ext_redeem_login_code", { p_key: ERP_KEY, p_code: code, p_state: state });
+      if (!who?.emp_code || who.active === false) return json({ ok: false, error: "บัญชี ERP นี้ไม่ได้ผูกกับพนักงานที่ยังทำงานอยู่" });
+      const { data, error } = await local.rpc("erp_issue_app_session", { p_emp_code: who.emp_code });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      if (!data) return json({ ok: false, error: `ยังไม่มีบัญชี ARANA Staff สำหรับรหัสพนักงาน ${who.emp_code} — แจ้งผู้ดูแลระบบ` });
+      return json({ ok: true, user: data });
+    } catch (e) {
+      return json({ ok: false, error: String((e as Error).message || e) });
+    }
+  }
+
   // ปุ่มในห้องตรวจ: ยืนยันตัวตนด้วย session ของผู้ใช้ (ตรวจในฐานข้อมูล)
   if (body.action === "push") {
     const token = String(body.session_token || ""), requestId = String(body.request_id || ""), op = String(body.op || "send");

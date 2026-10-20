@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
   DB.init();
   startClock();
 
+  if (handleErpLoginReturn()) return;
   const saved = sessionStorage.getItem('arana_session');
   if (saved) {
     try {
@@ -65,21 +66,79 @@ async function login() {
   }
 
   if (user) {
-    const token = user.sessionToken;
-    delete user.sessionToken;
-    currentUser = user;
-    currentBranch = user.branch;
-    sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch, token }));
     errorEl.classList.add('hidden');
-    await showApp();
+    await finishLogin(user);
   } else if (!loginErrorShown) {
     showLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     document.getElementById('login-password').value = '';
   }
 }
 
-async function logout() {
-  if (!confirm('ต้องการออกจากระบบ?')) return;
+async function finishLogin(user) {
+  const token = user.sessionToken;
+  delete user.sessionToken;
+  currentUser = user;
+  currentBranch = user.branch;
+  sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch, token }));
+  await showApp();
+}
+
+// ── เข้าสู่ระบบด้วยบัญชี ERP (คุณออม 18/10) ─────────────────────
+// ไปเข้าสู่ระบบที่หน้า ERP เอง (รหัสผ่าน ERP ไม่ผ่านเว็บนี้) แล้ว ERP ส่งรหัสใช้ครั้งเดียวกลับมา
+const ERP_LOGIN_URL = 'https://arana-aesthetic-erp.netlify.app/ext-login';
+function erpLoginReturnUrl() {
+  return location.hostname === 'localhost' ? 'http://localhost:8095/' : 'https://nattakorn-mns.github.io/ARANA-Commission-Stock/';
+}
+function loginWithErp() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const state = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  sessionStorage.setItem('erp_login_state', state);
+  location.href = `${ERP_LOGIN_URL}?return_url=${encodeURIComponent(erpLoginReturnUrl())}&state=${encodeURIComponent(state)}`;
+}
+// กลับมาจากหน้า ERP พร้อม ?erp_login_code=...&state=... → true ถ้ากำลังจัดการ (ไม่ต้องโชว์หน้า login ซ้ำ)
+function handleErpLoginReturn() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('erp_login_code'), state = params.get('state');
+  if (!code) return false;
+  history.replaceState(null, '', location.pathname);
+  const expected = sessionStorage.getItem('erp_login_state');
+  sessionStorage.removeItem('erp_login_state');
+  showLogin();
+  if (!state || !expected || state !== expected) {
+    showLoginError('ลิงก์เข้าสู่ระบบหมดอายุหรือไม่ได้เริ่มจากเครื่องนี้ กรุณากด "เข้าสู่ระบบด้วยบัญชี ERP" อีกครั้ง');
+    return true;
+  }
+  const btn = document.getElementById('login-erp-btn');
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+  (async () => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/erp-pull`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action: 'erp_login', code, state })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok || !j.user) { showLoginError(j.error || 'เข้าสู่ระบบด้วยบัญชี ERP ไม่สำเร็จ'); return; }
+      const d = j.user;
+      await finishLogin({ id: d.id, username: d.username, name: d.name, nickname: d.nickname, role: d.role,
+        branch: d.branch_name, position: d.position, sessionToken: d.session_token });
+    } catch (e) {
+      showLoginError('เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่');
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+    }
+  })();
+  return true;
+}
+
+// ยืนยันด้วยกล่องในหน้าเว็บ (กล่อง confirm ของเบราว์เซอร์ถูกปิดในบางเครื่อง/แอป ทำให้กดออกจากระบบไม่ได้)
+function logout() {
+  openModal(`<div class="modal" style="max-width:380px;"><div class="modal-header"><h3 class="modal-title">ออกจากระบบ</h3></div>
+    <div class="modal-body"><p style="margin:0;">ต้องการออกจากระบบใช่ไหม?</p></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button>
+    <button class="btn btn-primary" onclick="closeModalDirect();doLogout()">ออกจากระบบ</button></div></div>`);
+}
+async function doLogout() {
   await DB.logoutSupabase();
   sessionStorage.removeItem('arana_session');
   currentUser = null;
@@ -168,9 +227,8 @@ const ROUTES = {
   audit: { label: 'Audit Room', icon: 'shield-check', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAudit(getPage()) },
   balance: { label: 'สต๊อกคงเหลือ', icon: 'layers', roles: ['Audit', 'Admin'], render: () => renderBalance(getPage()) },
   reports: { label: 'รายงานผลงานพนักงาน', icon: 'bar-chart-3', roles: ['Frontdesk', 'Admin'], render: () => renderReports(getPage()) },
-  admin: { label: 'AI Auto-Verification', icon: 'cpu', roles: ['Admin'], render: () => renderAdmin(getPage()) },
+  admin: { label: 'ผู้ดูแลระบบ', icon: 'user-cog', roles: ['Admin'], render: () => renderAdmin(getPage()) },
   admin_dashboard: { label: 'ระบบ Admin Dashboard', icon: 'layout-dashboard', roles: ['Admin'], render: () => renderAdminDashboard(getPage()) },
-  systemlogs: { label: 'System Logs', icon: 'activity', roles: ['Admin'], render: () => renderSystemLogs(getPage()) },
 };
 
 // Names shown on screen, matched to the main ERP. The stored role value stays the same.
@@ -192,7 +250,7 @@ function buildNav() {
     { label: null, routes: ['opd', 'deposit', 'history'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit_dashboard', 'audit', 'balance', 'reports'] },
-    { label: 'ผู้ดูแลระบบ', routes: ['admin', 'admin_dashboard', 'systemlogs'] },
+    { label: 'ผู้ดูแลระบบ', routes: ['admin'] }, // คลังรูปภาพแทน Admin Dashboard (ข้อ 25) / System Logs เอาออก (ข้อ 27)
   ];
 
   let html = '';
@@ -259,7 +317,7 @@ function navigate(route) {
     else if (route.startsWith('inventory-') || route === 'stockcard' || route === 'weeklycount' || route === 'balance') parentCategory = 'คลังสินค้า';
     else if (route === 'reports') parentCategory = 'รายงาน';
     else if (route === 'audit' || route === 'audit_dashboard') parentCategory = 'ห้องตรวจสอบ';
-    else if (route === 'admin' || route === 'systemlogs') parentCategory = 'ผู้ดูแลระบบ';
+    else if (route === 'admin') parentCategory = 'ผู้ดูแลระบบ';
 
     headerCard.innerHTML = `
       <div class="apsx-page-header">
@@ -652,3 +710,25 @@ function confirmDialog(msg, onConfirm) {
 // ── Module render functions are defined in js/modules/*.js ────
 // DO NOT redefine them here — they are loaded before app.js
 
+
+// ── ตาราง: จัดคอลัมน์ข้อความยาวชิดซ้าย (คุณออม 18/10 ข้อ 20) ───────────
+// หัวคอลัมน์ที่เป็นชื่อ/รายการ/หมายเหตุ → ทั้งคอลัมน์ชิดซ้าย ที่เหลือกึ่งกลาง (CSS ใน staff-ui.css)
+const TABLE_TEXT_HEADERS = /ชื่อ|รายการ|สินค้า|ลูกค้า|โปรแกรม|หมายเหตุ|ข้อผิดพลาด|รายละเอียด|ผู้ขาย|แหล่งที่มา|ชุดข้อมูล|ของ$/;
+function alignTableColumns(root) {
+  (root || document).querySelectorAll('table').forEach(table => {
+    const heads = table.querySelectorAll('thead th');
+    if (!heads.length) return;
+    const textCols = [];
+    heads.forEach((th, i) => { if (TABLE_TEXT_HEADERS.test(th.textContent.trim())) { th.classList.add('col-text'); textCols.push(i); } });
+    if (!textCols.length) return;
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      if (tr.children.length !== heads.length) return; // แถวรวมช่อง (colspan) ไม่ต้องจัด
+      textCols.forEach(i => tr.children[i]?.classList.add('col-text'));
+    });
+  });
+}
+let _alignTimer = null;
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.documentElement) {
+  new MutationObserver(() => { clearTimeout(_alignTimer); _alignTimer = setTimeout(() => alignTableColumns(), 60); })
+    .observe(document.documentElement, { childList: true, subtree: true });
+}

@@ -58,7 +58,7 @@ function scRenderStockCard(body) {
 
   body.innerHTML = `
   <div class="filter-bar" style="position:relative;">
-    ${canExport ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="scExportCSV()" style="position:absolute; top:12px; right:12px; color:var(--gray-600);" title="Export"><i data-lucide="download"></i></button>` : ''}
+    ${canExport ? `<div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="scExportCSV()"><i data-lucide="download"></i> ดาวน์โหลด Excel</button></div>` : ''}
     <div class="filter-group" style="grid-column: 1 / -1;">
       <label class="filter-label">ค้นหา</label>
       <input type="text" class="filter-input" id="sc-search" placeholder="รหัส / ชื่อสินค้า..." oninput="scRenderTable()" style="width:100%;" />
@@ -378,7 +378,7 @@ function wcRenderResult(results) {
 function scRenderBalance(body) {
   body.innerHTML = `
   <div class="filter-bar" style="position:relative;">
-    <button class="btn btn-ghost btn-icon btn-sm" onclick="balExport()" style="position:absolute; top:12px; right:12px; color:var(--gray-600);" title="Export"><i data-lucide="download"></i></button>
+    <div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="balExport()"><i data-lucide="download"></i> ดาวน์โหลด Excel</button></div>
     <div class="filter-group" style="grid-column: 1 / -1;">
       <label class="filter-label">ค้นหา</label>
       <input type="text" class="filter-input" id="bal-search" placeholder="รหัส / ชื่อ..." oninput="balRender()" style="width:100%;" />
