@@ -689,6 +689,11 @@ const DB = {
     return (await this._positionRpc('admin_activity_log', { p_from: from || null, p_to: to || null, p_user: user || null, p_action: action || null })) || [];
   },
 
+  // ── คลังรูป (SQL ไฟล์ 20) ──
+  async listPhotosSupabase(kind, branch, month) {
+    return (await this._positionRpc('list_photos', { p_kind: kind, p_branch_name: branch, p_month: month })) || [];
+  },
+
   // ── โอนข้ามสาขา 2 ขั้น (SQL ไฟล์ 19) ──
   async listIncomingTransfersSupabase(branch) {
     return (await this._positionRpc('list_incoming_transfers', { p_branch_name: branch })) || [];

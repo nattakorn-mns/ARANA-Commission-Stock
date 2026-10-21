@@ -66,6 +66,7 @@ const DB = context.__DB;
     'list_open_pos_for_receiving', 'lookup_erp_customer', 'list_customer_deposits', 'list_programs_for_branch', 'list_receive_other_items', 'decide_receive_other_item', 'dispense_compare',
     'get_app_settings', 'admin_save_app_setting', 'create_deposit_any_branch', 'submit_bill_edit', 'list_bill_edits', 'decide_bill_edit',
     'commission_period_status', 'close_commission_period', 'admin_activity_log',
+    'list_photos',
     'list_incoming_transfers', 'receive_transfer', 'list_transfer_receipts', 'decide_transfer_receipt', 'list_transfers_to_fix', 'fix_transfer_dispatch'
   ]);
   const positionRpcNames = [...source.matchAll(/_positionRpc\('([^']+)'/g)].map(match => match[1]);

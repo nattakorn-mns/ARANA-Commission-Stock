@@ -210,8 +210,8 @@ async function showApp() {
   // Build nav
   buildNav();
 
-  // Default route
-  navigate('opd');
+  // Default route (ลิงก์คลังรูปที่คัดลอกไปวางใน LINE → เปิดหน้าคลังรูป)
+  navigate(window._galleryLink && canAccess('gallery') ? 'gallery' : 'opd');
 
   lucide.createIcons();
 }
@@ -231,6 +231,7 @@ const ROUTES = {
   audit: { label: 'Audit Room', icon: 'shield-check', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAudit(getPage()) },
   balance: { label: 'สต๊อกคงเหลือ', icon: 'layers', roles: ['Audit', 'Admin'], render: () => renderBalance(getPage()) },
   reports: { label: 'รายงานผลงานพนักงาน', icon: 'bar-chart-3', roles: ['Frontdesk', 'Admin'], render: () => renderReports(getPage()) },
+  gallery: { label: 'คลังรูปภาพ', icon: 'images', roles: ['Frontdesk', 'OnlineSales', 'Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderGallery(getPage()) },
   settings: { label: 'ตั้งค่า', icon: 'settings', roles: ['Admin', 'Audit', 'CommissionAudit'], render: () => renderSettings(getPage()) },
   admin: { label: 'ผู้ดูแลระบบ', icon: 'user-cog', roles: ['Admin'], render: () => renderAdmin(getPage()) },
   admin_dashboard: { label: 'ระบบ Admin Dashboard', icon: 'layout-dashboard', roles: ['Admin'], render: () => renderAdminDashboard(getPage()) },
@@ -252,7 +253,7 @@ function canAccess(route) {
 function buildNav() {
   const nav = document.getElementById('sidebar-nav');
   const sections = [
-    { label: null, routes: ['opd', 'deposit', 'history'] },
+    { label: null, routes: ['opd', 'deposit', 'history', 'gallery'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'inventory-receive', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit_dashboard', 'audit', 'balance', 'reports'] },
     { label: 'ผู้ดูแลระบบ', routes: ['settings', 'admin'] }, // คลังรูปภาพแทน Admin Dashboard (ข้อ 25) / System Logs เอาออก (ข้อ 27)

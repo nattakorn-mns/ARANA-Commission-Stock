@@ -206,7 +206,7 @@ function audShowReceipt(requestId) {
         ${r.lines.map(l => { const d = Math.round((Number(l.received ?? 0) - Number(l.sent)) * 1000) / 1000;
           return `<tr${d ? ' class="aud-diff-changed"' : ''}><td class="col-text">${trfEsc(l.product_name)} <small>${trfEsc(l.unit || '')}</small></td><td class="num">${trfQty(l.sent)}</td><td class="num">${trfQty(l.received)}</td><td class="num" style="font-weight:700;${d ? 'color:var(--red-600);' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`; }).join('')}
       </tbody></table></div>
-      ${(r.images || []).length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${r.images.map(src => `<img src="${src}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('${src}')" />`).join('')}</div>` : ''}
+      ${(r.images || []).length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${r.images.map(src => `<img src="${src}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="Photos.isMarker(this.dataset.photo||'') ? Photos.open(this.dataset.photo) : window.open(this.src)" />`).join('')}</div>` : ''}
       ${mismatch ? `<div class="form-group" style="margin-top:12px;"><label class="form-label">เหตุผล / สิ่งที่ตรวจพบ <span class="required">*</span></label><textarea id="aud-rcv-note" class="form-input" rows="2"></textarea></div>` : ''}
     </div>
     <div class="modal-footer" style="flex-wrap:wrap;gap:6px;"><button class="btn btn-ghost" onclick="closeModalDirect()">ปิด</button>

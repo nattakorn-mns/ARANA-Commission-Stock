@@ -866,7 +866,7 @@ async function audLoadOthers() {
 }
 function audOtherImages(id) {
   const o = (window._audOthers || []).find(x => x.id === id);
-  const imgs = (o?.images || []).filter(u => /^data:image\/|^https:\/\//.test(String(u)));
+  const imgs = (o?.images || []).filter(u => /^data:image\/|^https:\/\/|^storage:/.test(String(u)));
   openModal(`<div class="modal" style="width:900px;max-width:96vw;"><div class="modal-header"><h3 class="modal-title">หลักฐาน — ${audEsc(o?.item_name || '')}</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()">×</button></div><div class="modal-body">${imgs.map((u, i) => `<img src="${String(u).replace(/"/g, '&quot;')}" alt="หลักฐาน ${i + 1}" style="width:100%;max-height:70vh;object-fit:contain;margin-bottom:10px;border-radius:10px;border:1px solid var(--gray-200);">`).join('') || 'ไม่มีรูป'}</div></div>`);
 }
 async function audDecideOther(id, decision) {

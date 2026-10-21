@@ -467,3 +467,11 @@ table.aud-diff td { font-size: .84rem; }
 .trf-card-sub { font-size: .82rem; color: var(--gray-500); margin-top: 2px; }
 .trf-card-warn { display: flex; align-items: center; gap: 4px; font-size: .8rem; color: var(--amber-700, #b45309); margin-top: 4px; }
 .trf-card-warn svg { width: 14px; height: 14px; }
+
+/* ข้อ 25: คลังรูปภาพ */
+.gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.gal-item { margin: 0; background: #fff; border: 1px solid var(--gray-100); border-radius: 10px; overflow: hidden; cursor: pointer; }
+.gal-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--gray-50, #f6f6f6); }
+.gal-item figcaption { padding: 6px 8px; font-size: .75rem; line-height: 1.35; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.gal-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+@media (max-width: 480px) { .gal-grid { grid-template-columns: repeat(2, 1fr); } }
