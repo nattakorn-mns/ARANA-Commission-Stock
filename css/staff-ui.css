@@ -457,3 +457,13 @@ tr.sc-opening-row td { background: var(--gray-50, #f8f8f8); font-weight: 600; co
 /* ข้อ 29: ก่อน/หลังแก้ไข */
 tr.aud-diff-changed td { background: #fff7e6 !important; }
 table.aud-diff td { font-size: .84rem; }
+
+/* ข้อ 17: รับโอนข้ามสาขา */
+.trf-card { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; padding: 14px 16px; cursor: pointer; border-left: 4px solid var(--t-tr); }
+.trf-card:hover { background: var(--t-tr-soft); }
+.trf-card-main { flex: 1; min-width: 0; }
+.trf-card-title { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.trf-card-title svg { width: 18px; height: 18px; color: var(--t-tr); }
+.trf-card-sub { font-size: .82rem; color: var(--gray-500); margin-top: 2px; }
+.trf-card-warn { display: flex; align-items: center; gap: 4px; font-size: .8rem; color: var(--amber-700, #b45309); margin-top: 4px; }
+.trf-card-warn svg { width: 14px; height: 14px; }

@@ -224,6 +224,7 @@ const ROUTES = {
   'inventory-out': { label: 'เบิกใช้วัสดุ/อุปกรณ์', icon: 'package-minus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'orange', render: () => renderInventory(getPage(), 'out') },
   'inventory-in': { label: 'รับเข้าสต๊อก', icon: 'package-plus', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'blue', render: () => renderInventory(getPage(), 'in') },
   'inventory-transfer': { label: 'เบิกโอนข้ามสาขา', icon: 'truck', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'purple', render: () => renderInventory(getPage(), 'transfer') },
+  'inventory-receive': { label: 'รับโอนข้ามสาขา', icon: 'package-check', roles: ['Frontdesk', 'Audit', 'Admin'], color: 'purple', render: () => renderTransferReceive(getPage()) },
   stockcard: { label: 'สต๊อกการ์ด', icon: 'book-open', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderStockCard(getPage()) },
   weeklycount: { label: 'เช็คสต๊อกประจำสัปดาห์', icon: 'calendar-check', roles: ['Frontdesk', 'Audit', 'Admin'], render: () => renderWeeklyCount(getPage()) },
   audit_dashboard: { label: 'แดชบอร์ด สรุปงานทีมออดิท', icon: 'gauge', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAuditDashboard(getPage()) },
@@ -252,7 +253,7 @@ function buildNav() {
   const nav = document.getElementById('sidebar-nav');
   const sections = [
     { label: null, routes: ['opd', 'deposit', 'history'] },
-    { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
+    { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'inventory-receive', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit_dashboard', 'audit', 'balance', 'reports'] },
     { label: 'ผู้ดูแลระบบ', routes: ['settings', 'admin'] }, // คลังรูปภาพแทน Admin Dashboard (ข้อ 25) / System Logs เอาออก (ข้อ 27)
   ];

@@ -397,7 +397,8 @@ const DB = {
       PO_REQUIRED: 'กรุณาเลือกใบสั่งซื้อ (PO)', PO_NOT_OPEN: 'PO นี้ไม่อยู่ในรายการค้างรับแล้ว (อาจรับครบหรือปิดไปแล้ว) กรุณารีเฟรชหน้า',
       QTY_MUST_BE_WHOLE: 'จำนวนรับเข้าต้องเป็นจำนวนเต็ม', NOT_IN_PO: 'มีสินค้าที่ไม่อยู่ในใบสั่งซื้อนี้',
       EXPIRY_REQUIRED: 'สินค้านี้ต้องกรอกวันหมดอายุ', INVALID_OTHER_ITEM: 'ของใช้อื่นๆ ต้องมีชื่อและจำนวนมากกว่า 0',
-      INVALID_LINES: 'ต้องมีอย่างน้อย 1 รายการที่จำนวนมากกว่า 0'
+      INVALID_LINES: 'ต้องมีอย่างน้อย 1 รายการที่จำนวนมากกว่า 0',
+      TRANSFER_ALREADY_RECEIVED: 'สาขาปลายทางรับของแล้ว ถอยไม่ได้ — ให้ทำใบโอนกลับแทน'
     };
     const code = Object.keys(map).find(k => msg.includes(k));
     return code ? map[code] : msg;
@@ -686,6 +687,26 @@ const DB = {
   },
   async adminActivityLogSupabase({ from, to, user, action } = {}) {
     return (await this._positionRpc('admin_activity_log', { p_from: from || null, p_to: to || null, p_user: user || null, p_action: action || null })) || [];
+  },
+
+  // ── โอนข้ามสาขา 2 ขั้น (SQL ไฟล์ 19) ──
+  async listIncomingTransfersSupabase(branch) {
+    return (await this._positionRpc('list_incoming_transfers', { p_branch_name: branch })) || [];
+  },
+  async receiveTransferSupabase(requestId, lines, images, note) {
+    return await this._positionRpc('receive_transfer', { p_request_id: requestId, p_lines: lines, p_images: images, p_note: note || null });
+  },
+  async listTransferReceiptsSupabase(status) {
+    return (await this._positionRpc('list_transfer_receipts', { p_status: status === undefined ? 'รอตรวจรับ' : status })) || [];
+  },
+  async decideTransferReceiptSupabase(requestId, decision, note) {
+    return this._requireAffected(await this._positionRpc('decide_transfer_receipt', { p_request_id: requestId, p_decision: decision, p_note: note || null }));
+  },
+  async listTransfersToFixSupabase(branch) {
+    return (await this._positionRpc('list_transfers_to_fix', { p_branch_name: branch })) || [];
+  },
+  async fixTransferDispatchSupabase(requestId, lines, reason) {
+    return await this._positionRpc('fix_transfer_dispatch', { p_request_id: requestId, p_lines: lines, p_reason: reason });
   },
 
   // Own deposit commissions for "สรุปยอดของฉัน". Empty until the get_my_deposits SQL has been run.

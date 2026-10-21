@@ -541,6 +541,7 @@ async function audRenderStock(body, kind) {
   ${rows.length ? rows.map(r => `<tr id="stock-audit-row-${r.rowType}-${r.rowType === 'opd' ? r.billId : r.requestId}"><td class="nowrap">${formatDate(r.date)}${r.createdAt ? `<br><small>${new Date(r.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</small>` : ''}</td><td>${where(r)}</td><td>${typeBadge(r)}</td><td style="font-weight:600;">${label(r)}</td><td>${r.itemCount} รายการ</td><td>${r.createdByName || '-'}</td><td><button class="btn btn-ghost btn-sm" onclick="${r.rowType === 'opd' ? `audOpenStockRequest('${r.billId}')` : `audOpenStockRequestGroup('${r.requestId}')`}"><i data-lucide="eye"></i> ดูรายละเอียด</button></td><td>${statusBadge(r.auditStatus || 'รอตรวจสอบ')}</td><td class="nowrap"><button class="btn btn-success btn-sm" onclick="${r.rowType === 'opd' ? `audStockAction('${r.billId}','อนุมัติแล้ว')` : `audStockRequestAction('${r.requestId}','อนุมัติแล้ว')`}">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="${r.rowType === 'opd' ? `audStockReject('${r.billId}')` : `audStockRequestReject('${r.requestId}')`}">ตีกลับ</button></td></tr>`).join('') : `<tr><td colspan="9"><div class="empty-state">ไม่มี${AUD_KIND_NAME[kind]}รอตรวจ</div></td></tr>`}
   </tbody></table></div></div>
   ${kind === 'in' ? '<div id="aud-others"></div>' : ''}
+  ${kind === 'transfer' ? '<div id="aud-receipts" style="margin-top:12px;"></div>' : ''}
   ${isOpd ? '' : `<div class="glass-card" style="margin-top:12px;padding:14px 16px;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-weight:700;color:var(--gray-700);">ตรวจแล้ว รอนำส่ง ERP</span>
@@ -553,6 +554,7 @@ async function audRenderStock(body, kind) {
   lucide.createIcons();
   if (!isOpd) audLoadApprovedStock(kind);
   if (kind === 'in') audLoadOthers();
+  if (kind === 'transfer' && typeof audLoadReceipts === 'function') audLoadReceipts();
 }
 
 async function audLoadApprovedStock(kind) {
@@ -576,13 +578,12 @@ async function audLoadApprovedStock(kind) {
   };
   const sent = g => g.items.every(i => i.erp_sync_status === 'ส่งสำเร็จ');
   const actions = g => {
-    if (toCancel(g)) return kind === 'transfer'
-      ? '<span style="font-size:.75rem;color:var(--gray-500);">ทำใบโอนกลับใน ERP</span>'
-      : `<button class="btn btn-danger btn-sm" data-write onclick="audErpReverse('${g.requestId}','${kind}')">ยกเลิกใน ERP</button>`;
+    // โอน 2 ขั้น: ยกเลิกใบโอนออกใน ERP ได้จนกว่าปลายทางรับ (ERP ตรวจเองอีกชั้น)
+    if (toCancel(g)) return `<button class="btn btn-danger btn-sm" data-write onclick="audErpReverse('${g.requestId}','${kind}')">ยกเลิกใน ERP</button>`;
     let h = '';
     if (waiting(g)) h += `<button class="btn btn-primary btn-sm" data-write onclick="audSendToErp('${g.requestId}','${kind}', this)"><i data-lucide="send"></i> นำส่งเข้า ERP</button> <button class="btn btn-ghost btn-sm" data-write title="คีย์ใบนี้ใน ERP ด้วยมือแล้ว ใส่เลขเอกสาร ERP เพื่อปิดรายการ" onclick="admMarkKeyedInErp('${g.items[0].id}','${g.request_id || ''}')">คีย์เข้า ERP แล้ว</button> `;
-    // โอนที่ส่งเข้า ERP แล้ว สาขาปลายทางรับไปแล้ว ถอยไม่ได้ ต้องทำใบโอนกลับ
-    if (!(kind === 'transfer' && sent(g))) h += `<button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length}, ${sent(g)})">ถอยการอนุมัติ</button>`;
+    // โอน: ถอยได้จนกว่าบัญชีอนุมัติการรับ (ฐานข้อมูลตรวจและแจ้งเหตุผลถ้าถอยไม่ได้)
+    h +=`<button class="btn btn-ghost btn-sm" data-write style="color:var(--red-500,#dc2626);" onclick="audStockRevertPrompt('${g.requestId}', ${g.items.length}, ${sent(g)})">ถอยการอนุมัติ</button>`;
     return h;
   };
   const itemCell = g => g.items.map(i => {
