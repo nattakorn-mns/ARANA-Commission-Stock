@@ -4,7 +4,7 @@
  */
 
 const APP_SETTINGS_DEFAULT = {
-  commission_pcts: { frontdesk: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], admin: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], product_pct: 5 },
+  commission_pcts: { frontdesk: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], admin: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], product_pct: 5, product_pcts: [5] },
   channels: ['หน้าร้าน', 'LINE', 'Facebook', 'Instagram', 'TikTok', 'Live สด', 'โทรศัพท์', 'อื่นๆ'],
   // ข้อ 32: กติกาค่าคอมปิดจากแชท
   chat_commission: { tiers: [{ max: 500, amount: 199 }, { max: 999.99, amount: 499 }, { max: null, amount: 1000 }], surgery_amount: 1999,
@@ -18,6 +18,8 @@ async function loadAppSettings() {
   appSettings = JSON.parse(JSON.stringify(APP_SETTINGS_DEFAULT));
   if (s && typeof s === 'object') {
     if (s.commission_pcts) appSettings.commission_pcts = { ...appSettings.commission_pcts, ...s.commission_pcts };
+    if (!Array.isArray(appSettings.commission_pcts.product_pcts) || !appSettings.commission_pcts.product_pcts.length)
+      appSettings.commission_pcts.product_pcts = [Number(appSettings.commission_pcts.product_pct) || 5];
     if (Array.isArray(s.channels) && s.channels.length) appSettings.channels = s.channels;
     if (s.chat_commission && typeof s.chat_commission === 'object') appSettings.chat_commission = { ...appSettings.chat_commission, ...s.chat_commission };
     if (typeof s.notify_admin_tag === 'string') appSettings.notify_admin_tag = s.notify_admin_tag;
@@ -51,9 +53,15 @@ function commissionPctList(role) {
   const list = (role || currentUser?.role) === 'OnlineSales' ? p.admin : p.frontdesk;
   return Array.isArray(list) && list.length ? list : APP_SETTINGS_DEFAULT.commission_pcts.frontdesk;
 }
+// ขายสินค้า: มีได้หลาย % (คุณออม 22/10) — ตัวแรกเป็นค่าเริ่มต้น
+function productCommissionPcts() {
+  const p = appSettings.commission_pcts || {};
+  const list = Array.isArray(p.product_pcts) && p.product_pcts.length ? p.product_pcts : [Number.isFinite(Number(p.product_pct)) ? Number(p.product_pct) : 5];
+  return list.map(Number).filter(v => Number.isFinite(v) && v >= 0);
+}
 function productCommissionPct() {
-  const v = Number(appSettings.commission_pcts?.product_pct);
-  return Number.isFinite(v) && v >= 0 ? v : 5;
+  const list = productCommissionPcts(), def = Number(appSettings.commission_pcts?.product_pct);
+  return list.includes(def) ? def : (list[0] ?? 5);
 }
 function salesChannels() { return appSettings.channels || APP_SETTINGS_DEFAULT.channels; }
 
@@ -110,12 +118,8 @@ function setPctHtml() {
     </div>`;
   return group('frontdesk', 'ตัวเลือก % ค่าคอม — พนักงานหน้าร้าน', 'ใช้ในฟอร์ม OPD (อัพเซล/ขายเพิ่ม) และฟอร์มมัดจำของพนักงานหน้าร้าน')
     + group('admin', 'ตัวเลือก % ค่าคอม — แอดมินออนไลน์', 'ใช้ในฟอร์มมัดจำของแอดมินออนไลน์')
-    + `<div class="glass-card" style="margin-bottom:14px;">
-        <div class="section-title" style="margin-bottom:4px;">% ค่าคอมขายสินค้า</div>
-        <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 10px;">ใช้กับรายการ "ขายสินค้า" ทุกรายการ (พนักงานเปลี่ยนเองไม่ได้)</p>
-        <div class="set-add-row"><input type="number" class="form-input" id="set-product-pct" min="0" max="100" step="0.01" value="${Number(p.product_pct)}" oninput="setDraft.commission_pcts.product_pct=Number(this.value)" /><span>%</span></div>
-      </div>
-      <div class="set-save-row"><button class="btn btn-primary" id="set-save-btn" onclick="setSave('commission_pcts')"><i data-lucide="save"></i> บันทึก % ค่าคอม</button></div>`;
+    + group('product_pcts', 'ตัวเลือก % ค่าคอม — ขายสินค้า', 'ใช้กับรายการ "ขายสินค้า" ในฟอร์ม OPD — ถ้ามีตัวเลือกเดียว ระบบใส่ให้เอง พนักงานเปลี่ยนไม่ได้')
+    + `<div class="set-save-row"><button class="btn btn-primary" id="set-save-btn" onclick="setSave('commission_pcts')"><i data-lucide="save"></i> บันทึก % ค่าคอม</button></div>`;
 }
 function setPctAdd(key) {
   const el = document.getElementById('set-pct-new-' + key);
@@ -128,6 +132,7 @@ function setPctAdd(key) {
 }
 function setPctRemove_frontdesk(i) { setDraft.commission_pcts.frontdesk.splice(i, 1); setRender(); }
 function setPctRemove_admin(i) { setDraft.commission_pcts.admin.splice(i, 1); setRender(); }
+function setPctRemove_product_pcts(i) { setDraft.commission_pcts.product_pcts.splice(i, 1); setRender(); }
 
 // ── ช่องทาง ──
 function setChannelsHtml() {
@@ -184,7 +189,8 @@ function setChatHtml() {
 async function setSave(key) {
   const value = setDraft[key];
   if (key === 'channels' && !value.length) { Toast.show('ต้องมีช่องทางอย่างน้อย 1 รายการ', 'error'); return; }
-  if (key === 'commission_pcts' && (!value.frontdesk.length || !value.admin.length)) { Toast.show('แต่ละกลุ่มต้องมี % อย่างน้อย 1 ตัวเลือก', 'error'); return; }
+  if (key === 'commission_pcts' && (!value.frontdesk.length || !value.admin.length || !value.product_pcts.length)) { Toast.show('แต่ละกลุ่มต้องมี % อย่างน้อย 1 ตัวเลือก', 'error'); return; }
+  if (key === 'commission_pcts' && !value.product_pcts.includes(Number(value.product_pct))) value.product_pct = value.product_pcts[0];
   if (key === 'chat_commission' && value.tiers.some(t => !(Number(t.amount) > 0))) { Toast.show('มัดจำตามกติกาแต่ละช่วงต้องมากกว่า 0', 'error'); return; }
   if (key === 'notify_admin_tag' && value && !String(value).startsWith('@')) { Toast.show('ชื่อผู้ใช้ Telegram ต้องขึ้นต้นด้วย @', 'error'); return; }
   const btn = document.getElementById('set-save-btn');

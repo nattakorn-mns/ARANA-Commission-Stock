@@ -485,3 +485,54 @@ table.aud-diff td { font-size: .84rem; }
 .dep-rule-text { font-size: .82rem; color: var(--gray-600); padding: 9px 0; line-height: 1.4; }
 .dep-appt-mode .dep-money { display: none !important; }
 .dep-appt-mode #dep-appt-rule { display: block !important; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; background: var(--gray-50, #f7f7f7); }
+
+/* ===== มือถือ / ไอแพด (คุณออม 22/10) ===== */
+/* ช่องเลือกแบบพิมพ์ค้นหา */
+.sel-search { position: relative; width: 100%; }
+.sel-search > select.sel-search-native { position: absolute !important; opacity: 0 !important; pointer-events: none !important; width: 1px !important; height: 1px !important; left: 0; bottom: 0; }
+.sel-search-input { width: 100%; padding-right: 30px !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; text-overflow: ellipsis; }
+.sel-search-list { display: none; position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 4px); max-height: 280px; overflow-y: auto; background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); -webkit-overflow-scrolling: touch; }
+.sel-search-list.open { display: block; }
+.sel-search-item { padding: 10px 12px; font-size: .9rem; cursor: pointer; border-bottom: 1px solid var(--gray-50, #f5f5f5); line-height: 1.35; }
+.sel-search-item:hover, .sel-search-item.active { background: var(--brand-soft, #fbeef2); }
+.sel-search-item.selected { font-weight: 700; color: var(--burgundy-700); }
+.sel-search-more { padding: 8px 12px; font-size: .78rem; color: var(--gray-500); }
+
+@media (max-width: 768px) {
+  /* ช่องกรอกตัวอักษร 16px — iPhone ไม่ซูมเข้าเองตอนแตะ */
+  input.form-input, input.filter-input, select.form-select, select.filter-select, textarea.form-input, .sel-search-input, .count-input { font-size: 16px !important; }
+  /* หัวการ์ดซ้ำกับชื่อด้านบน → ซ่อน (เหลือเฉพาะปุ่มที่อยู่ในหัวการ์ด เช่น สร้างบิลใหม่/พ่วง OPD) */
+  #apsx-page-header .apsx-header-info { display: none !important; }
+  #apsx-page-header > .apsx-page-header:has(.apsx-header-actions:empty) { display: none !important; }
+  #apsx-page-header > .apsx-page-header { justify-content: flex-end; min-height: 0 !important; padding: 6px 8px !important; }
+  /* ชื่อสาขาบนแถบบนสุดแสดงด้วย */
+  .topbar-branch-pill span { display: inline !important; font-size: .78rem; }
+  .topbar-datetime { display: none !important; }
+  /* เช็คสต๊อก: แถบด้านบนกระชับ 2 แถว */
+  .wc-toolbar { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 8px 4px; }
+  .wc-toolbar .form-group:nth-child(3) { grid-column: 1 / 2; }
+  .wc-toolbar #wc-save-btn { grid-column: 2 / 3; align-self: end; width: 100%; justify-content: center; min-height: 42px; }
+  .wc-toolbar .form-label { font-size: .75rem; margin-bottom: 2px; }
+  /* ตารางในมือถือ: ตัวเล็กลง เลื่อนข้างได้ในกรอบ */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .table-wrap table { font-size: .8rem; }
+  .table-wrap th, .table-wrap td { padding: 8px 8px !important; }
+  /* หน้าต่างกลางจอเต็มความกว้าง */
+  .modal { max-width: 100% !important; width: 100% !important; margin: 0 !important; border-radius: 16px 16px 0 0 !important; max-height: 92vh; overflow-y: auto; }
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-footer { flex-wrap: wrap; gap: 8px; }
+  .modal-footer .btn { flex: 1 1 auto; justify-content: center; }
+  /* ปุ่มล่างสุดของฟอร์มกดง่าย */
+  .opd-actions, .deposit-actions { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg, #fdf8f9) 30%); padding: 12px 0 10px !important; z-index: 5; }
+  .opd-actions .btn, .deposit-actions .btn { flex: 1; justify-content: center; min-height: 46px; }
+  .gal-item figcaption { font-size: .72rem; }
+  .set-add-row { max-width: none; }
+}
+/* ไอแพดแนวตั้ง: ฟอร์ม 2 ช่องต่อแถวยังอ่านง่าย ตารางไม่บีบ */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .page-content { padding: 16px 18px 60px !important; }
+  .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; display: grid !important; }
+  .filter-bar .filter-group[style*="grid-column"] { grid-column: 1 / -1 !important; }
+  .table-wrap table { font-size: .84rem; }
+  .gal-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}

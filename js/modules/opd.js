@@ -142,6 +142,7 @@ const COM_PCTS = [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5];
 // ตัวเลือก % และ % ขายสินค้า มาจากเมนูตั้งค่า (settings.js) — ถ้ายังไม่โหลดใช้ค่าเดิม
 const opdComPcts = () => typeof commissionPctList === 'function' ? commissionPctList() : COM_PCTS;
 const opdProductPct = () => typeof productCommissionPct === 'function' ? productCommissionPct() : 5;
+const opdProductPcts = () => typeof productCommissionPcts === 'function' ? productCommissionPcts() : [5];
 const PAY_TYPES = ['จ่ายเต็ม', 'มัดจำ', 'แบ่งชำระ', 'จ่ายเพิ่มจากมัดจำ'];
 const INSTALLMENTS = [
   { value: '', label: '— เลือกงวด —' },
@@ -645,7 +646,7 @@ function opdRenderSales() {
 function opdBuildSaleCard(s) {
   const isProduct = s.type === 'product';
   const isUpsell  = s.type === 'upsell';
-  const labels    = { upsell:'อัพเซลส์', crosssell:'ขายเพิ่ม (Cross-sell)', product:'ขายสินค้า ' + opdProductPct() + '%' };
+  const labels    = { upsell:'อัพเซลส์', crosssell:'ขายเพิ่ม (Cross-sell)', product:'ขายสินค้า' };
   const badgeColor = { upsell:'hsl(270,55%,42%)', crosssell:'hsl(145,55%,35%)', product:'hsl(38,80%,40%)' };
   const programs  = opdProgramsCache.map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
   const needInstallment = (s.payType === 'แบ่งชำระ');
@@ -770,11 +771,11 @@ function opdBuildSaleCard(s) {
             oninput="opdSaleBaseManual('${s.id}',this.value)" />
         </div>
         <div class="form-group">
-          <label class="form-label">% ค่าคอม ${isProduct ? '<span style="color:var(--amber-600);font-size:0.72rem;">(' + opdProductPct() + '% ตายตัว)</span>' : ''}</label>
-          ${isProduct
+          <label class="form-label">% ค่าคอม</label>
+          ${isProduct && opdProductPcts().length < 2
             ? `<input type="text" class="form-input" value="${opdProductPct()}%" readonly style="background:var(--gray-50);" />`
             : `<select class="form-select" onchange="opdSaleCommPct('${s.id}',this.value)">
-                ${opdComPcts().map(p => `<option value="${p}" ${s.commissionPct==p?'selected':''}>${p}%</option>`).join('')}
+                ${(isProduct ? opdProductPcts() : opdComPcts()).map(p => `<option value="${p}" ${s.commissionPct==p?'selected':''}>${p}%</option>`).join('')}
                </select>`
           }
         </div>
@@ -891,7 +892,8 @@ function opdCalcSale(s) {
   }
   
   if (s.type === 'product') {
-    s.commissionPct = opdProductPct();
+    // ขายสินค้า: เลือก % จากตัวเลือกที่ตั้งไว้ (ไม่อยู่ในรายการ → ใช้ค่าเริ่มต้น)
+    if (!opdProductPcts().includes(Number(s.commissionPct))) s.commissionPct = opdProductPct();
     s.commissionBase = s.amountPaid;
   } else if (s.type === 'upsell') {
     if (s.payType === 'จ่ายเพิ่มจากมัดจำ') {

@@ -336,12 +336,13 @@ function navigate(route) {
             <h2 class="apsx-header-title">${routeConf.label}</h2>
           </div>
         </div>
-        <div class="apsx-header-actions" id="apsx-header-actions">
-        </div>
+        <div class="apsx-header-actions" id="apsx-header-actions"></div>
       </div>`;
   }
 
   currentRoute = route;
+  // เปลี่ยนหน้าแล้วเริ่มที่ด้านบนเสมอ (มือถือเคยค้างตำแหน่งเลื่อนของหน้าก่อน)
+  try { document.querySelector('.page-content')?.scrollTo(0, 0); window.scrollTo(0, 0); } catch (e) { /* ignore */ }
   const readOnly = !canEditRoute(route);
   document.body.classList.toggle('readonly-mode', readOnly);
   const headerActions = document.getElementById('apsx-header-actions');
