@@ -475,3 +475,13 @@ table.aud-diff td { font-size: .84rem; }
 .gal-item figcaption { padding: 6px 8px; font-size: .75rem; line-height: 1.35; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .gal-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
 @media (max-width: 480px) { .gal-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ข้อ 32: มัดจำ / นัดหมายไม่วางมัดจำ */
+.dep-kind-switch { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 999px; background: var(--gray-100); }
+.dep-kind-switch label { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: .88rem; font-weight: 600; }
+.dep-kind-switch input { display: none; }
+.dep-kind-switch label:has(input:checked) { background: #fff; color: var(--burgundy-700); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.dep-surgery { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .82rem; color: var(--gray-600); }
+.dep-rule-text { font-size: .82rem; color: var(--gray-600); padding: 9px 0; line-height: 1.4; }
+.dep-appt-mode .dep-money { display: none !important; }
+.dep-appt-mode #dep-appt-rule { display: block !important; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; background: var(--gray-50, #f7f7f7); }

@@ -689,6 +689,21 @@ const DB = {
     return (await this._positionRpc('admin_activity_log', { p_from: from || null, p_to: to || null, p_user: user || null, p_action: action || null })) || [];
   },
 
+  // ── ค่าคอมปิดจากแชท / นัดหมายไม่วางมัดจำ (SQL ไฟล์ 21) ──
+  async createChatAppointmentSupabase(payload) {
+    return await this._positionRpc('create_chat_appointment', { p_payload: payload });
+  },
+  async listChatVisitsSupabase(status, runMatch) {
+    return (await this._positionRpc('list_chat_visits', { p_status: status || null, p_run_match: !!runMatch })) || [];
+  },
+  async decideChatVisitSupabase(kind, id, decision, visitPaid) {
+    return this._requireAffected(await this._positionRpc('decide_chat_visit', { p_kind: kind, p_id: id, p_decision: decision,
+      p_visit_paid: visitPaid == null || visitPaid === '' ? null : Number(visitPaid) }));
+  },
+  async listMyChatCommissionsSupabase() {
+    try { return (await this._positionRpc('list_my_chat_commissions')) || []; } catch (e) { return []; }
+  },
+
   // ── คลังรูป (SQL ไฟล์ 20) ──
   async listPhotosSupabase(kind, branch, month) {
     return (await this._positionRpc('list_photos', { p_kind: kind, p_branch_name: branch, p_month: month })) || [];

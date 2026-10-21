@@ -5,7 +5,11 @@
 
 const APP_SETTINGS_DEFAULT = {
   commission_pcts: { frontdesk: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], admin: [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5], product_pct: 5 },
-  channels: ['หน้าร้าน', 'LINE', 'Facebook', 'Instagram', 'TikTok', 'Live สด', 'โทรศัพท์', 'อื่นๆ']
+  channels: ['หน้าร้าน', 'LINE', 'Facebook', 'Instagram', 'TikTok', 'Live สด', 'โทรศัพท์', 'อื่นๆ'],
+  // ข้อ 32: กติกาค่าคอมปิดจากแชท
+  chat_commission: { tiers: [{ max: 500, amount: 199 }, { max: 999.99, amount: 499 }, { max: null, amount: 1000 }], surgery_amount: 1999,
+    admin_pct: 3, admin_live_pct: 1, admin_appt_pct: 1, store_deposit_pct: 1, store_rest_pct: 1, store_appt_pct: 0.5 },
+  notify_admin_tag: ''
 };
 let appSettings = JSON.parse(JSON.stringify(APP_SETTINGS_DEFAULT));
 
@@ -15,7 +19,30 @@ async function loadAppSettings() {
   if (s && typeof s === 'object') {
     if (s.commission_pcts) appSettings.commission_pcts = { ...appSettings.commission_pcts, ...s.commission_pcts };
     if (Array.isArray(s.channels) && s.channels.length) appSettings.channels = s.channels;
+    if (s.chat_commission && typeof s.chat_commission === 'object') appSettings.chat_commission = { ...appSettings.chat_commission, ...s.chat_commission };
+    if (typeof s.notify_admin_tag === 'string') appSettings.notify_admin_tag = s.notify_admin_tag;
   }
+}
+
+// ค่าคอมปิดจากแชท (เหมือนที่ฐานข้อมูลคิด — ฐานข้อมูลคิดซ้ำอีกครั้งตอนบันทึก)
+function chatDepositTier(price, surgery) {
+  const r = appSettings.chat_commission;
+  if (surgery) return Number(r.surgery_amount) || 1999;
+  if (!(Number(price) > 0)) return null;
+  const tiers = [...(r.tiers || [])].sort((a, b) => (a.max == null ? 1e15 : a.max) - (b.max == null ? 1e15 : b.max));
+  const t = tiers.find(x => x.max == null || Number(price) <= Number(x.max));
+  return t ? Number(t.amount) : null;
+}
+function chatDepositCommission({ role, channel, price, amount, surgery }) {
+  const r = appSettings.chat_commission;
+  if (role === 'OnlineSales') {
+    const pct = channel === 'Live สด' ? Number(r.admin_live_pct) : Number(r.admin_pct);
+    const tier = chatDepositTier(price, surgery);
+    const base = tier == null ? Number(amount) || 0 : Math.min(Number(amount) || 0, tier);
+    return { pct, base, amt: roundCommission(base, pct), tier, closer: 'แอดมิน' };
+  }
+  const pct = Number(r.store_deposit_pct);
+  return { pct, base: Number(amount) || 0, amt: roundCommission(Number(amount) || 0, pct), tier: null, closer: 'หน้าร้าน' };
 }
 
 // แอดมินออนไลน์ใช้ชุด % ของแอดมิน คนอื่นใช้ชุดหน้าร้าน
@@ -39,7 +66,7 @@ async function renderSettings(container) {
   container.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div></div>';
   await loadAppSettings();
   setDraft = JSON.parse(JSON.stringify(appSettings));
-  const tabs = [['pct', 'percent', '% ค่าคอม'], ['channels', 'megaphone', 'ช่องทาง'], ['accounts', 'landmark', 'บัญชีรับเงินโอน']];
+  const tabs = [['pct', 'percent', '% ค่าคอม'], ['channels', 'megaphone', 'ช่องทาง'], ['chat', 'message-circle', 'ค่าคอมปิดแชท + แจ้งเตือน'], ['accounts', 'landmark', 'บัญชีรับเงินโอน']];
   if (currentUser.role === 'Admin') tabs.push(['period', 'lock', 'ปิดรอบค่าคอม']);
   if (!tabs.some(t => t[0] === setTab)) setTab = 'pct';
   container.innerHTML = `
@@ -61,6 +88,7 @@ function setRender() {
   if (!body) return;
   if (setTab === 'pct') body.innerHTML = setPctHtml();
   else if (setTab === 'channels') body.innerHTML = setChannelsHtml();
+  else if (setTab === 'chat') body.innerHTML = setChatHtml();
   else if (setTab === 'accounts') { body.innerHTML = '<div class="glass-card"><div id="set-accounts"><div class="loading-placeholder"><div class="spinner"></div></div></div></div>'; setLoadAccounts(); }
   else if (setTab === 'period') { body.innerHTML = '<div class="glass-card" id="set-period"><div class="loading-placeholder"><div class="spinner"></div></div></div>'; setLoadPeriod(); }
   lucide.createIcons();
@@ -121,10 +149,44 @@ function setChannelAdd() {
 }
 function setChannelRemove(i) { setDraft.channels.splice(i, 1); setRender(); }
 
+// ── ค่าคอมปิดจากแชท (ข้อ 32) + แท็กใน Telegram (ข้อ 29) ──
+function setChatHtml() {
+  const r = setDraft.chat_commission;
+  const num = (key, label, suffix = '%') => `<div class="form-group"><label class="form-label">${label}</label>
+      <div class="set-add-row"><input type="number" class="form-input" min="0" step="0.01" value="${Number(r[key])}" oninput="setDraft.chat_commission.${key}=Number(this.value)" /><span>${suffix}</span></div></div>`;
+  return `<div class="glass-card" style="margin-bottom:14px;">
+      <div class="section-title" style="margin-bottom:4px;">มัดจำตามกติกา (ตามราคาโปรแกรม)</div>
+      <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 10px;">ค่าคอมแอดมินคิดจาก "ยอดมัดจำตามกติกา" = น้อยกว่าระหว่างยอดที่โอนจริงกับยอดในตารางนี้</p>
+      <div class="table-wrap"><table><thead><tr><th>ราคาโปรแกรมไม่เกิน (บาท)</th><th>มัดจำตามกติกา (บาท)</th><th></th></tr></thead><tbody>
+        ${r.tiers.map((t, i) => `<tr>
+          <td><input type="number" class="form-input" min="0" step="0.01" value="${t.max ?? ''}" placeholder="ขึ้นไป (ไม่จำกัด)" oninput="setDraft.chat_commission.tiers[${i}].max=this.value===''?null:Number(this.value)" /></td>
+          <td><input type="number" class="form-input" min="0" step="1" value="${Number(t.amount)}" oninput="setDraft.chat_commission.tiers[${i}].amount=Number(this.value)" /></td>
+          <td><button class="btn btn-ghost btn-sm" ${r.tiers.length > 1 ? '' : 'disabled'} onclick="setDraft.chat_commission.tiers.splice(${i},1);setRender()">ลบ</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="setDraft.chat_commission.tiers.push({max:null,amount:0});setRender()"><i data-lucide="plus"></i> เพิ่มช่วงราคา</button>
+      <div class="form-row" style="margin-top:12px;">${num('surgery_amount', 'ศัลยกรรม: มัดจำตามกติกา', 'บาท')}</div>
+    </div>
+    <div class="glass-card" style="margin-bottom:14px;">
+      <div class="section-title" style="margin-bottom:8px;">% ค่าคอมปิดจากแชท</div>
+      <div class="form-row">${num('admin_pct', 'แอดมินออนไลน์ — มัดจำปกติ')}${num('admin_live_pct', 'แอดมินออนไลน์ — มัดจำจาก Live สด')}</div>
+      <div class="form-row">${num('admin_appt_pct', 'แอดมินออนไลน์ — นัดไม่วางมัดจำ (ของยอดที่จ่ายตอนมา)')}${num('store_deposit_pct', 'หน้าร้าน — ของยอดมัดจำ')}</div>
+      <div class="form-row">${num('store_rest_pct', 'หน้าร้าน — ของยอดที่จ่ายตอนลูกค้ามา (มีมัดจำ)')}${num('store_appt_pct', 'หน้าร้าน — นัดไม่วางมัดจำ (ของยอดที่จ่ายตอนมา)')}</div>
+      <div class="set-save-row"><button class="btn btn-primary" id="set-save-btn" onclick="setSave('chat_commission')"><i data-lucide="save"></i> บันทึกกติกา</button></div>
+    </div>
+    <div class="glass-card">
+      <div class="section-title" style="margin-bottom:4px;">แท็กคุณออมใน Telegram</div>
+      <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 10px;">ใส่ชื่อผู้ใช้ Telegram (ขึ้นต้นด้วย @) — ข้อความ "[ขอแก้ไขรายการ]" จะแท็กชื่อนี้</p>
+      <div class="set-add-row"><input type="text" class="form-input" id="set-tag" value="${setEsc(setDraft.notify_admin_tag || '')}" placeholder="@username" oninput="setDraft.notify_admin_tag=this.value.trim()" />
+        <button class="btn btn-primary btn-sm" onclick="setSave('notify_admin_tag')">บันทึก</button></div>
+    </div>`;
+}
+
 async function setSave(key) {
   const value = setDraft[key];
   if (key === 'channels' && !value.length) { Toast.show('ต้องมีช่องทางอย่างน้อย 1 รายการ', 'error'); return; }
   if (key === 'commission_pcts' && (!value.frontdesk.length || !value.admin.length)) { Toast.show('แต่ละกลุ่มต้องมี % อย่างน้อย 1 ตัวเลือก', 'error'); return; }
+  if (key === 'chat_commission' && value.tiers.some(t => !(Number(t.amount) > 0))) { Toast.show('มัดจำตามกติกาแต่ละช่วงต้องมากกว่า 0', 'error'); return; }
+  if (key === 'notify_admin_tag' && value && !String(value).startsWith('@')) { Toast.show('ชื่อผู้ใช้ Telegram ต้องขึ้นต้นด้วย @', 'error'); return; }
   const btn = document.getElementById('set-save-btn');
   if (btn) btn.disabled = true;
   try {

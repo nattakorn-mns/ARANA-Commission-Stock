@@ -7,6 +7,7 @@ let depositEvidence = [];
 
 async function renderDeposits(container) {
   depositEvidence = [];
+  depKind = 'deposit';
   container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>';
   depositProgramsCache = currentUser.role === 'Frontdesk' ? await DB.getProgramsSupabase(currentBranch) : [];
 
@@ -20,8 +21,12 @@ async function renderDeposits(container) {
     <div class="opd-section">
       <div class="opd-section-head"><h3><i data-lucide="wallet-cards"></i>ข้อมูลยอดมัดจำ</h3></div>
       <div class="opd-section-body">
+        <div class="dep-kind-switch" role="radiogroup" aria-label="ประเภท">
+          <label><input type="radio" name="dep-kind" value="deposit" checked onchange="depSetKind(this.value)"> <span>วางมัดจำ</span></label>
+          <label><input type="radio" name="dep-kind" value="appt" onchange="depSetKind(this.value)"> <span>นัดหมายไม่วางมัดจำ</span></label>
+        </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">วันที่รับเงิน <span class="required">*</span></label><input id="dep-date" type="date" class="form-input" value="${todayISO()}" max="${todayISO()}" /></div>
+          <div class="form-group dep-money"><label class="form-label">วันที่รับเงิน <span class="required">*</span></label><input id="dep-date" type="date" class="form-input" value="${todayISO()}" max="${todayISO()}" /></div>
           <div class="form-group"><label class="form-label">สาขาที่ลูกค้าจะมาใช้บริการ <span class="required">*</span></label>
             <select id="dep-branch" class="form-select" onchange="depBranchChanged(this.value)">${depBranchOptions()}</select></div>
         </div>
@@ -32,30 +37,34 @@ async function renderDeposits(container) {
         <div class="form-row">
           <div class="form-group"><label class="form-label">HN (ถ้ามี)</label><input id="dep-hn" class="form-input" placeholder="HN0001 (ลูกค้าใหม่เว้นว่างได้)" /></div>
           <div class="form-group"><label class="form-label">ช่องทางที่ปิดยอด <span class="required">*</span></label>
-            <select id="dep-channel" class="form-select"><option value="">-- เลือกช่องทาง --</option>${salesChannels().map(c => `<option>${String(c).replace(/</g, '&lt;')}</option>`).join('')}</select>
+            <select id="dep-channel" class="form-select" onchange="depUpdateCommission()"><option value="">-- เลือกช่องทาง --</option>${salesChannels().map(c => `<option>${String(c).replace(/</g, '&lt;')}</option>`).join('')}</select>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:16px;"><label class="form-label">โปรแกรมที่จอง <span class="required">*</span></label>
           <select id="dep-program" class="form-select">${depProgramOptions()}</select>
+          <label class="dep-surgery"><input type="checkbox" id="dep-surgery" onchange="depUpdateCommission()"> ศัลยกรรม (มัดจำตามกติกา ${formatCurrency(appSettings.chat_commission.surgery_amount)} บาท)</label>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">ราคาเต็มของโปรแกรม</label><input id="dep-package-price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" /></div>
-          <div class="form-group"><label class="form-label">ยอดมัดจำที่รับจริง <span class="required">*</span></label><input id="dep-amount" type="number" min="0.01" step="0.01" class="form-input" placeholder="0.00" oninput="depUpdateCommission()" /></div>
+          <div class="form-group"><label class="form-label">ราคาเต็มของโปรแกรม</label><input id="dep-package-price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" oninput="depUpdateCommission()" /></div>
+          <div class="form-group dep-money"><label class="form-label">ยอดมัดจำที่รับจริง <span class="required">*</span></label><input id="dep-amount" type="number" min="0.01" step="0.01" class="form-input" placeholder="0.00" oninput="depUpdateCommission()" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">วิธีชำระ <span class="required">*</span></label><select id="dep-payment-method" class="form-select"><option value="">-- เลือกวิธีชำระ --</option><option>โอนเงิน</option><option>บัตรเครดิต</option><option>เงินสด</option><option>QR Payment</option><option>อื่นๆ</option></select></div>
+          <div class="form-group dep-money"><label class="form-label">วิธีชำระ <span class="required">*</span></label><select id="dep-payment-method" class="form-select"><option value="">-- เลือกวิธีชำระ --</option><option>โอนเงิน</option><option>บัตรเครดิต</option><option>เงินสด</option><option>QR Payment</option><option>อื่นๆ</option></select></div>
           <div class="form-group"><label class="form-label">เลขใบเสร็จ/เลขอ้างอิง</label><input id="dep-reference" class="form-input" placeholder="ช่วยป้องกันการส่งยอดซ้ำ" /></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">เปอร์เซ็นต์ค่าคอม</label><select id="dep-commission-pct" class="form-select" onchange="depUpdateCommission()">${commissionPctList().map(x=>`<option value="${x}">${x}%</option>`).join('')}</select></div>
+        <!-- ข้อ 32: ค่าคอมคิดตามกติกาให้อัตโนมัติ (ตั้งได้ที่เมนูตั้งค่า) -->
+        <input type="hidden" id="dep-commission-pct" value="0" />
+        <div class="form-row dep-money">
+          <div class="form-group"><label class="form-label">ค่าคอมตามกติกา</label><div id="dep-commission-rule" class="dep-rule-text">-</div></div>
           <div class="form-group"><label class="form-label">ค่าคอมที่ได้รับ</label><input id="dep-commission-amount" class="form-input" value="0.00" readonly /></div>
         </div>
-        <div class="form-group"><label class="form-label">วันที่นัดหมาย (ถ้ามี)</label><input id="dep-appointment-date" type="date" class="form-input" /></div>
+        <div id="dep-appt-rule" class="dep-rule-text dep-appt-only" style="display:none;"></div>
+        <div class="form-group"><label class="form-label" id="dep-appt-label">วันที่นัดหมาย (ถ้ามี)</label><input id="dep-appointment-date" type="date" class="form-input" /></div>
         <div class="form-group"><label class="form-label">หมายเหตุ</label><textarea id="dep-note" class="form-input" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea></div>
       </div>
     </div>
 
-    <div class="opd-section">
+    <div class="opd-section dep-money" id="dep-evidence-section">
       <div class="opd-section-head"><h3><i data-lucide="paperclip"></i>หลักฐานการรับเงิน <span class="required">*</span></h3><span class="opd-section-count" id="dep-evidence-count">0</span></div>
       <div class="opd-section-body">
         <div class="photo-upload-area" id="dep-evidence-area" onclick="document.getElementById('dep-evidence-input').click()"><i data-lucide="upload-cloud"></i><p>แนบสลิป ใบเสร็จ หรือภาพแชท<br><span style="font-size:0.75rem;">อย่างน้อย 1 รูป</span></p></div>
@@ -74,7 +83,9 @@ async function renderDeposits(container) {
     const option = this.options[this.selectedIndex];
     const price = option?.dataset?.price;
     if (price) document.getElementById('dep-package-price').value = price;
+    depUpdateCommission();
   });
+  depUpdateCommission();
   lucide.createIcons();
 }
 
@@ -96,11 +107,52 @@ async function depBranchChanged(branch) {
   sel.innerHTML = depProgramOptions();
 }
 
+// ข้อ 32: ค่าคอมตามกติกา — แอดมินออนไลน์ 3% (Live สด 1%) ของยอดมัดจำตามกติกา / หน้าร้าน 1% ของยอดมัดจำ
+let depKind = 'deposit';
 function depUpdateCommission() {
-  const amount = Number(document.getElementById('dep-amount')?.value || 0);
-  const pct = Number(document.getElementById('dep-commission-pct')?.value || 0);
-  const out = document.getElementById('dep-commission-amount');
-  if (out) out.value = roundCommission(amount, pct).toFixed(2);
+  const val = id => document.getElementById(id)?.value;
+  const surgery = !!document.getElementById('dep-surgery')?.checked;
+  const r = chatDepositCommission({ role: currentUser.role, channel: val('dep-channel'), price: Number(val('dep-package-price') || 0),
+    amount: Number(val('dep-amount') || 0), surgery });
+  const pctEl = document.getElementById('dep-commission-pct'); if (pctEl) pctEl.value = r.pct;
+  const out = document.getElementById('dep-commission-amount'); if (out) out.value = r.amt.toFixed(2);
+  const txt = document.getElementById('dep-commission-rule');
+  if (txt) txt.textContent = r.closer === 'แอดมิน'
+    ? `ปิดโดยแอดมิน ${r.pct}% ของ ${formatCurrency(r.base)} บาท` + (r.tier != null ? ` (มัดจำตามกติกา ${formatCurrency(r.tier)} บาท${surgery ? ' · ศัลยกรรม' : ''})` : ' (ใส่ราคาเต็มเพื่อคิดตามกติกา)')
+    : `ปิดโดยหน้าร้าน ${r.pct}% ของยอดมัดจำ + ${appSettings.chat_commission.store_rest_pct}% ของยอดที่จ่ายตอนลูกค้ามา`;
+  const appt = document.getElementById('dep-appt-rule');
+  if (appt) appt.textContent = `นัดหมายไม่วางมัดจำ: ได้ค่าคอม ${currentUser.role === 'OnlineSales' ? appSettings.chat_commission.admin_appt_pct : appSettings.chat_commission.store_appt_pct}% ของยอดที่ลูกค้าจ่ายตอนมาใช้บริการ (ระบบจับคู่ให้เมื่อมีบิล OPD ของลูกค้าคนนี้)`;
+}
+
+function depSetKind(kind) {
+  depKind = kind === 'appt' ? 'appt' : 'deposit';
+  const form = document.getElementById('deposit-preview-form') || document.querySelector('.opd-form');
+  form?.classList.toggle('dep-appt-mode', depKind === 'appt');
+  const appt = document.getElementById('dep-appt-rule'); if (appt) appt.style.display = depKind === 'appt' ? '' : 'none';
+  const lbl = document.getElementById('dep-appt-label');
+  if (lbl) lbl.innerHTML = depKind === 'appt' ? 'วันที่นัดหมาย <span class="required">*</span>' : 'วันที่นัดหมาย (ถ้ามี)';
+  const btn = document.getElementById('dep-submit-btn');
+  if (btn) btn.innerHTML = depKind === 'appt' ? '<i data-lucide="calendar-plus"></i> บันทึกนัดหมาย' : '<i data-lucide="send"></i> ส่งยอดมัดจำ';
+  depUpdateCommission();
+  lucide.createIcons();
+}
+
+async function depSubmitAppointment() {
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const branchName = val('dep-branch'), customerName = val('dep-customer'), channel = val('dep-channel'), date = val('dep-appointment-date');
+  if (!branchName || !customerName || !channel || !date) { Toast.show('กรุณากรอก สาขา ชื่อลูกค้า ช่องทาง และวันที่นัดหมาย', 'error'); return; }
+  const program = depositProgramsCache.find(p => p.code === val('dep-program'));
+  const btn = document.getElementById('dep-submit-btn');
+  btn.disabled = true;
+  try {
+    await DB.createChatAppointmentSupabase({ branch_name: branchName, customer_name: customerName, customer_phone: val('dep-phone'), hn: val('dep-hn'),
+      channel, program_name: program?.name || '', package_price: Number(val('dep-package-price') || 0), appointment_date: date,
+      is_surgery: !!document.getElementById('dep-surgery')?.checked, note: val('dep-note') });
+    Toast.show('บันทึกนัดหมายแล้ว ✓ เมื่อลูกค้ามาใช้บริการ ระบบจะจับคู่และคิดค่าคอมให้', 'success', 5000);
+    renderDeposits(getPage());
+  } catch (e) {
+    Toast.show('บันทึกไม่สำเร็จ: ' + (/Could not find the function|PGRST202/.test(e.message || '') ? 'ยังไม่ได้ติดตั้งฐานข้อมูลรอบ 5 (SQL ไฟล์ 21)' : (e.hint || e.message || e)), 'error', 6000);
+  } finally { btn.disabled = false; }
 }
 
 async function depHandleEvidence(event) {
@@ -127,6 +179,7 @@ function depRemoveEvidence(id) {
 }
 
 async function depSubmit() {
+  if (depKind === 'appt') return depSubmitAppointment();
   const customerName = document.getElementById('dep-customer')?.value.trim();
   const programCode = document.getElementById('dep-program')?.value;
   const channel = document.getElementById('dep-channel')?.value;
@@ -156,6 +209,7 @@ async function depSubmit() {
       payment_reference: document.getElementById('dep-reference').value.trim(),
       commission_pct: Number(document.getElementById('dep-commission-pct').value || 0),
       appointment_date: document.getElementById('dep-appointment-date').value || null,
+      is_surgery: !!document.getElementById('dep-surgery')?.checked,
       note: document.getElementById('dep-note').value.trim(),
       created_by: currentUser.id,
       images: depositEvidence.map(p => ({ name: p.name, data: p.data }))

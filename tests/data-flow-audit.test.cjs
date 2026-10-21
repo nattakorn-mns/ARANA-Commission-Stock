@@ -134,7 +134,7 @@ async function inventory(e) {
     const e=env(['js/modules/opd.js']);e.run("s={type:'product',amountPaid:590};opdCalcSale(s)");assert.equal(e.ctx.s.commissionAmt,29.5);
   });
   await check('Deposit commission calculation rounds to 2 decimals',()=>{
-    const e=env(['js/modules/deposits.js']);e.el('dep-amount').value='2999';e.el('dep-commission-pct').value='1.5';
+    const e=env(['js/modules/settings.js','js/modules/deposits.js']);e.el('dep-amount').value='2999';e.run('currentUser=currentUser||{role:"Frontdesk"};currentUser.role="Frontdesk";appSettings.chat_commission.store_deposit_pct=1.5');
     e.run('depUpdateCommission()');assert.equal(e.el('dep-commission-amount').value,'44.99');
   });
   await check('OPD empty item rows cannot produce an empty bill',async()=>{

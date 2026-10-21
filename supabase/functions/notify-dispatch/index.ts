@@ -40,6 +40,15 @@ async function sendLine(token: string, groupId: string, text: string, imageUrl: 
   if (!r.ok) throw new Error(`line ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
+// รูปที่เก็บใน Storage ("storage:<path>") → ลิงก์ชั่วคราว 7 วันให้ LINE เปิดได้ / ลิงก์ https ใช้ตามเดิม / อย่างอื่นส่งเฉพาะข้อความ
+async function imageLink(url: string | null) {
+  if (!url) return null;
+  if (url.startsWith("https://")) return url;
+  if (!url.startsWith("storage:")) return null;
+  const { data } = await supabase.storage.from("photos").createSignedUrl(url.slice(8), 7 * 24 * 3600);
+  return data?.signedUrl || null;
+}
+
 Deno.serve(async (req) => {
   // รับเฉพาะคำขอที่ถือ service_role key (จาก pg_cron หรือหน้าแอดมินผ่านฐานข้อมูล)
   const auth = req.headers.get("authorization") || "";
@@ -65,7 +74,7 @@ Deno.serve(async (req) => {
         result.skipped++; continue;
       }
       if (it.provider === "telegram") await sendTelegram(token, it.target_id, it.text);
-      else await sendLine(token, it.target_id, it.text, it.image_url);
+      else await sendLine(token, it.target_id, it.text, await imageLink(it.image_url));
       await supabase.rpc("notify_mark", { p_id: it.id, p_ok: true });
       result.sent++;
     } catch (e) {

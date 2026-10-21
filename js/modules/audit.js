@@ -9,6 +9,7 @@ function renderAudit(container) {
   container.innerHTML = `<div><div class="tab-bar">
     ${canCommission ? `<button class="tab-btn ${auditTab==='commission'?'active':''}" id="aud-tab-commission" onclick="audSwitch('commission')"><i data-lucide="badge-dollar-sign"></i>อนุมัติค่ามือ/คอมมิชชั่น</button>` : ''}
     ${canDeposits ? `<button class="tab-btn" id="aud-tab-deposits" onclick="audSwitch('deposits')"><i data-lucide="wallet-cards"></i>ตรวจยอดมัดจำ</button>` : ''}
+    ${canDeposits ? `<button class="tab-btn" id="aud-tab-chat" onclick="audSwitch('chat')"><i data-lucide="message-circle"></i>ลูกค้าจากแชท</button>` : ''}
     ${canStock ? AUD_STOCK_TABS.map(t => `<button class="tab-btn ${auditTab===t.tab?'active':''}" id="aud-tab-${t.tab}" onclick="audSwitch('${t.tab}')"><i data-lucide="${t.icon}"></i>${t.label}<span class="badge badge-pending" id="aud-count-${t.kind}" style="display:none;margin-left:6px;padding:1px 8px;"></span></button>`).join('') : ''}
     ${audCanAccessEditRequests() ? `<button class="tab-btn" id="aud-tab-edits" onclick="audSwitch('edits')"><i data-lucide="file-pen-line"></i>คำขอแก้ไขบิล</button>` : ''}
     ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิกระบบ ARANA</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
@@ -19,7 +20,7 @@ function renderAudit(container) {
 function audSwitch(tab) {
   if (tab === 'stock') tab = 'stock-opd';
   if (tab === 'commission' && !audCanAccessCommission()) return;
-  if (tab === 'deposits' && !audCanAccessDeposits()) return;
+  if ((tab === 'deposits' || tab === 'chat') && !audCanAccessDeposits()) return;
   if (tab.startsWith('stock-') && !audCanAccessStock()) return;
   if (tab === 'edits' && !audCanAccessEditRequests()) return;
   auditTab = tab; auditPage = 1;
@@ -31,6 +32,7 @@ function audRender() {
   body.dataset.stockKind = auditTab.startsWith('stock-') ? auditTab.slice(6) : '';
   if (auditTab === 'commission') audRenderOPD(body);
   else if (auditTab === 'deposits') audRenderDeposits(body);
+  else if (auditTab === 'chat') audRenderChatVisits(body);
   else if (auditTab.startsWith('stock-')) audRenderStock(body, auditTab.slice(6));
   else if (auditTab === 'edits') audRenderEditRequests(body);
   else if (auditTab === 'compare') audRenderCompare(body); else audRenderLog(body);
