@@ -17,10 +17,9 @@ window.addEventListener('DOMContentLoaded', () => {
   startClock();
 
   if (handleErpLoginReturn()) return;
-  const saved = sessionStorage.getItem('arana_session');
-  if (saved) {
+  const session = AppSession.get();
+  if (session) {
     try {
-      const session = JSON.parse(saved);
       currentUser = session.user;
       if (currentUser && session.token) {
         currentBranch = session.branch || currentUser.branch;
@@ -79,7 +78,8 @@ async function finishLogin(user) {
   delete user.sessionToken;
   currentUser = user;
   currentBranch = user.branch;
-  sessionStorage.setItem('arana_session', JSON.stringify({ user, branch: user.branch, token }));
+  AppSession.remove();
+  AppSession.set({ user, branch: user.branch, token });
   await showApp();
 }
 
@@ -140,7 +140,7 @@ function logout() {
 }
 async function doLogout() {
   await DB.logoutSupabase();
-  sessionStorage.removeItem('arana_session');
+  AppSession.remove();
   currentUser = null;
   currentBranch = null;
   document.getElementById('app-shell').classList.add('hidden');
@@ -204,6 +204,9 @@ async function showApp() {
     menuPermissions = {};
   }
 
+  // ตั้งค่า % ค่าคอม / ช่องทาง (ข้อ 11, 30) — ถ้ายังไม่ติดตั้ง SQL 18 ใช้ค่าเริ่มต้น
+  await loadAppSettings();
+
   // Build nav
   buildNav();
 
@@ -227,6 +230,7 @@ const ROUTES = {
   audit: { label: 'Audit Room', icon: 'shield-check', roles: ['Audit', 'CommissionAudit', 'StockAudit', 'Admin'], render: () => renderAudit(getPage()) },
   balance: { label: 'สต๊อกคงเหลือ', icon: 'layers', roles: ['Audit', 'Admin'], render: () => renderBalance(getPage()) },
   reports: { label: 'รายงานผลงานพนักงาน', icon: 'bar-chart-3', roles: ['Frontdesk', 'Admin'], render: () => renderReports(getPage()) },
+  settings: { label: 'ตั้งค่า', icon: 'settings', roles: ['Admin', 'Audit', 'CommissionAudit'], render: () => renderSettings(getPage()) },
   admin: { label: 'ผู้ดูแลระบบ', icon: 'user-cog', roles: ['Admin'], render: () => renderAdmin(getPage()) },
   admin_dashboard: { label: 'ระบบ Admin Dashboard', icon: 'layout-dashboard', roles: ['Admin'], render: () => renderAdminDashboard(getPage()) },
 };
@@ -250,7 +254,7 @@ function buildNav() {
     { label: null, routes: ['opd', 'deposit', 'history'] },
     { label: 'คลังสินค้า', routes: ['inventory-out', 'inventory-in', 'inventory-transfer', 'stockcard', 'weeklycount'] },
     { label: 'Audit Zone', routes: ['audit_dashboard', 'audit', 'balance', 'reports'] },
-    { label: 'ผู้ดูแลระบบ', routes: ['admin'] }, // คลังรูปภาพแทน Admin Dashboard (ข้อ 25) / System Logs เอาออก (ข้อ 27)
+    { label: 'ผู้ดูแลระบบ', routes: ['settings', 'admin'] }, // คลังรูปภาพแทน Admin Dashboard (ข้อ 25) / System Logs เอาออก (ข้อ 27)
   ];
 
   let html = '';
@@ -317,7 +321,7 @@ function navigate(route) {
     else if (route.startsWith('inventory-') || route === 'stockcard' || route === 'weeklycount' || route === 'balance') parentCategory = 'คลังสินค้า';
     else if (route === 'reports') parentCategory = 'รายงาน';
     else if (route === 'audit' || route === 'audit_dashboard') parentCategory = 'ห้องตรวจสอบ';
-    else if (route === 'admin') parentCategory = 'ผู้ดูแลระบบ';
+    else if (route === 'admin' || route === 'settings') parentCategory = 'ผู้ดูแลระบบ';
 
     headerCard.innerHTML = `
       <div class="apsx-page-header">
@@ -369,9 +373,8 @@ function getPage() {
 function changeBranch(branch) {
   currentBranch = branch;
   document.getElementById('topbar-branch-name').textContent = branch;
-  const sess = JSON.parse(sessionStorage.getItem('arana_session') || '{}');
-  sess.branch = branch;
-  sessionStorage.setItem('arana_session', JSON.stringify(sess));
+  const sess = AppSession.get();
+  if (sess) AppSession.set({ ...sess, branch });
   if (currentRoute) navigate(currentRoute);
   Toast.show(`เปลี่ยนสาขาเป็น ${branch}`, 'info');
 }

@@ -21,6 +21,32 @@ function parseQty(val) {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) / 1000 : null;
 }
 
+// Login is remembered on this device for 24 hours, across tabs (the server session also lasts 24h).
+const AppSession = {
+  KEY: 'arana_session',
+  TTL_MS: 24 * 60 * 60 * 1000,
+  get() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch { s = null; }
+    if (!s) {
+      // A tab logged in before this change kept the session in sessionStorage: move it over.
+      try {
+        const old = sessionStorage.getItem(this.KEY);
+        if (old) { s = JSON.parse(old); this.set(s); sessionStorage.removeItem(this.KEY); }
+      } catch (e) { /* storage blocked */ }
+    }
+    if (!s) return null;
+    if (s.expires && s.expires < Date.now()) { this.remove(); return null; }
+    return s;
+  },
+  set(s) {
+    try { localStorage.setItem(this.KEY, JSON.stringify({ ...s, expires: s.expires || Date.now() + this.TTL_MS })); } catch (e) { /* storage blocked */ }
+  },
+  remove() {
+    try { localStorage.removeItem(this.KEY); sessionStorage.removeItem(this.KEY); } catch (e) { /* storage blocked */ }
+  }
+};
+
 const DB = {
 
   // ── Helpers ──────────────────────────────────────────────
@@ -29,8 +55,7 @@ const DB = {
   _genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
 
   _sessionToken() {
-    try { return JSON.parse(sessionStorage.getItem('arana_session') || '{}').token || null; }
-    catch { return null; }
+    return (AppSession.get() || {}).token || null;
   },
 
   async _appRpc(action, payload = {}) {
@@ -43,7 +68,7 @@ const DB = {
     });
     if (error) {
       if (/SESSION_(INVALID|EXPIRED|REQUIRED)/.test(error.message || '')) {
-        sessionStorage.removeItem('arana_session');
+        AppSession.remove();
       }
       throw error;
     }
@@ -172,7 +197,7 @@ const DB = {
     const { data, error } = await sb.rpc(fnName, { p_session_token: token, ...payload });
     if (error) {
       if (/SESSION_(INVALID|EXPIRED|REQUIRED)/.test(error.message || '')) {
-        sessionStorage.removeItem('arana_session');
+        AppSession.remove();
       }
       throw error;
     }
@@ -469,9 +494,13 @@ const DB = {
   },
 
   // ── มัดจำ/ปิดการขายออนไลน์ ──────────────────────────────
+  // มัดจำบันทึกให้สาขาไหนก็ได้ (SQL ไฟล์ 18) — ก่อนติดตั้ง ใช้แบบเดิม (สาขาตัวเอง)
   async createDepositSupabase(payload) {
-    const data = await this._appRpc('create_deposit', { p_payload: payload });
-    return data;
+    try { return await this.createDepositAnyBranchSupabase(payload); }
+    catch (error) {
+      if (!(error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '')))) throw error;
+    }
+    return await this._appRpc('create_deposit', { p_payload: payload });
   },
 
   async getPendingDepositsSupabase() {
@@ -629,6 +658,34 @@ const DB = {
       p_id: a.id || null, p_bank_name: a.bank_name, p_account_no: a.account_no, p_account_name: a.account_name,
       p_note: a.note || null, p_is_active: a.is_active !== false, p_sort_order: Number(a.sort_order || 0)
     });
+  },
+
+  // ── รอบ 2 (SQL ไฟล์ 18): ตั้งค่า / มัดจำข้ามสาขา / ขอแก้ไข / ปิดรอบ / ประวัติการใช้งาน ──
+  async getAppSettingsSupabase() {
+    try { return (await this._positionRpc('get_app_settings')) || null; }
+    catch (error) { console.warn('get_app_settings:', error && error.message); return null; }
+  },
+  async saveAppSettingSupabase(key, value) {
+    return await this._positionRpc('admin_save_app_setting', { p_key: key, p_value: value });
+  },
+  async createDepositAnyBranchSupabase(payload) {
+    return await this._positionRpc('create_deposit_any_branch', { p_payload: payload });
+  },
+  async submitBillEditSupabase(billId, payload, reason) {
+    return await this._positionRpc('submit_bill_edit', { p_bill_id: billId, p_payload: payload, p_reason: reason });
+  },
+  async listBillEditsSupabase(status) {
+    return (await this._positionRpc('list_bill_edits', { p_status: status === undefined ? 'รออนุมัติ' : status })) || [];
+  },
+  async decideBillEditSupabase(requestId, approve, note) {
+    return await this._positionRpc('decide_bill_edit', { p_request_id: requestId, p_approve: !!approve, p_note: note || null });
+  },
+  async commissionPeriodStatusSupabase() { return await this._positionRpc('commission_period_status'); },
+  async closeCommissionPeriodSupabase(periodEnd) {
+    return await this._positionRpc('close_commission_period', { p_period_end: periodEnd });
+  },
+  async adminActivityLogSupabase({ from, to, user, action } = {}) {
+    return (await this._positionRpc('admin_activity_log', { p_from: from || null, p_to: to || null, p_user: user || null, p_action: action || null })) || [];
   },
 
   // Own deposit commissions for "สรุปยอดของฉัน". Empty until the get_my_deposits SQL has been run.

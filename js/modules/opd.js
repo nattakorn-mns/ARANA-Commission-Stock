@@ -139,6 +139,9 @@ let opdProgramsCache = [];
 let opdProductsCache = [];
 
 const COM_PCTS = [0, 0.5, 0.65, 0.75, 1, 1.3, 1.5, 2, 2.5, 3, 5];
+// ตัวเลือก % และ % ขายสินค้า มาจากเมนูตั้งค่า (settings.js) — ถ้ายังไม่โหลดใช้ค่าเดิม
+const opdComPcts = () => typeof commissionPctList === 'function' ? commissionPctList() : COM_PCTS;
+const opdProductPct = () => typeof productCommissionPct === 'function' ? productCommissionPct() : 5;
 const PAY_TYPES = ['จ่ายเต็ม', 'มัดจำ', 'แบ่งชำระ', 'จ่ายเพิ่มจากมัดจำ'];
 const INSTALLMENTS = [
   { value: '', label: '— เลือกงวด —' },
@@ -227,6 +230,10 @@ async function renderOPD(container) {
           <input id="opd-deposit-search" class="form-input" placeholder="ค้นหาด้วยชื่อลูกค้า เบอร์โทร HN หรือเลขมัดจำ" oninput="opdSearchDeposits(this.value)" onfocus="if(!this.value.trim())opdAutoDeposits()" />
           <div id="opd-deposit-results" style="margin-top:8px;"></div>
           <div id="opd-deposit-info" class="alert-box alert-success" style="display:none;margin-top:8px;"></div>
+        </div>
+        <div class="form-group opd-source">
+          <label class="form-label">ลูกค้ามาจาก</label>
+          <select id="opd-source" class="form-select">${opdSourceOptions('Walk-in หน้าร้าน')}</select>
         </div>
       </div>
     </div>
@@ -424,10 +431,26 @@ async function opdAutoDeposits() {
   opdRenderDeposits(rows, rows.length ? `ลูกค้านี้มีมัดจำค้างอยู่ ${rows.length} รายการ — กดเพื่อเชื่อม` : '');
 }
 
+// ข้อ 31: ทุกบิลมีป้าย "ลูกค้ามาจาก" — เชื่อมมัดจำแล้วตั้งให้เองตามคนรับมัดจำ (แอดมินออนไลน์ / หน้าร้าน) แก้ได้
+const OPD_SOURCES = ['Walk-in หน้าร้าน', 'ปิดจากแชท (แอดมิน)', 'ปิดจากแชท (หน้าร้าน)'];
+function opdSourceOptions(selected) {
+  const list = OPD_SOURCES.includes(selected) || !selected ? OPD_SOURCES : [selected, ...OPD_SOURCES];
+  return list.map(v => `<option value="${v.replace(/"/g, '&quot;')}" ${v === selected ? 'selected' : ''}>${v.replace(/</g, '&lt;')}</option>`).join('');
+}
+function opdSetSource(value) {
+  const sel = document.getElementById('opd-source');
+  if (sel) sel.innerHTML = opdSourceOptions(value);
+}
+function opdSourceFromDeposit(d) {
+  const who = d.created_by_role === 'OnlineSales' ? 'แอดมิน' : 'หน้าร้าน';
+  return `ปิดจากแชท (${who})` + (d.channel ? ' · ' + d.channel : '');
+}
+
 function opdSelectDeposit(depositId) {
   const d = (window._opdDepositResults || []).find(x => x.id === depositId);
   if (!d) return;
   opdState.linkedDepositId = d.id;
+  opdSetSource(opdSourceFromDeposit(d));
   const hnEl = document.getElementById('opd-hn'), nameEl = document.getElementById('opd-customer');
   if (!hnEl.value.trim() && d.hn) hnEl.value = d.hn;
   if (!nameEl.value.trim()) nameEl.value = d.customer_name;
@@ -443,6 +466,7 @@ function opdSelectDeposit(depositId) {
 
 function opdClearDeposit() {
   opdState.linkedDepositId = null;
+  if (/^ปิดจากแชท/.test(document.getElementById('opd-source')?.value || '')) opdSetSource('Walk-in หน้าร้าน');
   if (document.getElementById('opd-deposit-search')) document.getElementById('opd-deposit-search').value = '';
   if (document.getElementById('opd-deposit-results')) document.getElementById('opd-deposit-results').innerHTML = '';
   if (document.getElementById('opd-deposit-info')) document.getElementById('opd-deposit-info').style.display = 'none';
@@ -621,7 +645,7 @@ function opdRenderSales() {
 function opdBuildSaleCard(s) {
   const isProduct = s.type === 'product';
   const isUpsell  = s.type === 'upsell';
-  const labels    = { upsell:'อัพเซลส์', crosssell:'ขายเพิ่ม (Cross-sell)', product:'ขายสินค้า 5%' };
+  const labels    = { upsell:'อัพเซลส์', crosssell:'ขายเพิ่ม (Cross-sell)', product:'ขายสินค้า ' + opdProductPct() + '%' };
   const badgeColor = { upsell:'hsl(270,55%,42%)', crosssell:'hsl(145,55%,35%)', product:'hsl(38,80%,40%)' };
   const programs  = opdProgramsCache.map(p => ({ code: p.code, name: p.name, extra: '฿' + formatCurrency(p.price) }));
   const needInstallment = (s.payType === 'แบ่งชำระ');
@@ -746,11 +770,11 @@ function opdBuildSaleCard(s) {
             oninput="opdSaleBaseManual('${s.id}',this.value)" />
         </div>
         <div class="form-group">
-          <label class="form-label">% ค่าคอม ${isProduct ? '<span style="color:var(--amber-600);font-size:0.72rem;">(5% ตายตัว)</span>' : ''}</label>
+          <label class="form-label">% ค่าคอม ${isProduct ? '<span style="color:var(--amber-600);font-size:0.72rem;">(' + opdProductPct() + '% ตายตัว)</span>' : ''}</label>
           ${isProduct
-            ? `<input type="text" class="form-input" value="5%" readonly style="background:var(--gray-50);" />`
+            ? `<input type="text" class="form-input" value="${opdProductPct()}%" readonly style="background:var(--gray-50);" />`
             : `<select class="form-select" onchange="opdSaleCommPct('${s.id}',this.value)">
-                ${COM_PCTS.map(p => `<option value="${p}" ${s.commissionPct==p?'selected':''}>${p}%</option>`).join('')}
+                ${opdComPcts().map(p => `<option value="${p}" ${s.commissionPct==p?'selected':''}>${p}%</option>`).join('')}
                </select>`
           }
         </div>
@@ -867,7 +891,7 @@ function opdCalcSale(s) {
   }
   
   if (s.type === 'product') {
-    s.commissionPct = 5;
+    s.commissionPct = opdProductPct();
     s.commissionBase = s.amountPaid;
   } else if (s.type === 'upsell') {
     if (s.payType === 'จ่ายเพิ่มจากมัดจำ') {
@@ -980,6 +1004,7 @@ function opdRenderSupplies() {
   if (orphans.length) html += groupHtml('', 'ไม่ระบุโปรแกรม / ใช้ร่วม', orphans);
   else html += `<button type="button" class="supply-orphan-link" onclick="opdAddSupply('')">+ เบิกแบบไม่ระบุโปรแกรม (ของใช้ร่วม)</button>`;
 
+  container.innerHTML = html;
   document.getElementById('supplies-count').textContent = opdState.supplies.length;
   lucide.createIcons();
 }
@@ -1119,6 +1144,7 @@ async function opdSubmit() {
   const payload = {
     hn, customer_name: customerName, date, branch_name: branch, created_by: currentUser.id,
     linked_deposit_id: opdState.isShared ? null : opdState.linkedDepositId,
+    customer_source: document.getElementById('opd-source')?.value || 'Walk-in หน้าร้าน',
     ...opdLinesPayload(),
     images: opdState.photos.map(p => ({ data: p.data, name: p.name }))
   };
@@ -1147,7 +1173,7 @@ function opdLinesPayload() {
     sales: opdState.sales
       .filter(s => s.newProgram || num(s.newPrice))
       .map(s => ({
-        type: s.type, old_program: s.oldProgram || '', old_price: num(s.oldPrice), new_program: s.newProgram || '', new_price: num(s.newPrice),
+        type: s.type, ...opdSaleProgramFields(s), old_price: num(s.oldPrice), new_price: num(s.newPrice),
         pay_type: s.payType || '', installment_no: s.installmentNo || null,
         commission_base_manual: !!s.commissionBaseManual, commission_note: s.commissionNote || '',
         amount_paid: num(s.amountPaid), commission_base: num(s.commissionBase), commission_pct: num(s.commissionPct), commission_amt: num(s.commissionAmt)
@@ -1158,18 +1184,41 @@ function opdLinesPayload() {
   };
 }
 
+// ข้อ 7: รายการขายเก็บ "ชื่อโปรแกรม" ไว้แสดง และเก็บรหัสโปรแกรมแยกไว้ข้างหลัง (พนักงานไม่เห็นรหัส)
+function opdSaleProgramFields(s) {
+  const known = code => {
+    const all = [...opdProgramsCache, ...opdState.services, ...(opdState.sharedBillServices || [])];
+    const p = all.find(x => (x.code || x.programCode) === code);
+    return p ? (p.name || p.programName || '') : '';
+  };
+  const pick = (value, isFreeText) => {
+    const v = String(value || '');
+    if (!v || isFreeText || v === 'walkin') return { name: v, code: '' };
+    const code = v.replace(/^(shared|svc):/, '');
+    const name = known(code);
+    return name ? { name, code } : { name: v, code: '' };
+  };
+  const nw = pick(s.newProgram, s.type === 'product');
+  const old = pick(s.oldProgram, s.oldProgramManual);
+  return { old_program: old.name, old_program_code: old.code, new_program: nw.name, new_program_code: nw.code };
+}
+
 function opdEditSnapshot(hn, customerName, date) {
   const lines = opdLinesPayload();
-  return { commission: JSON.stringify([hn, customerName, date, lines.services, lines.sales]), supplies: JSON.stringify(lines.supplies) };
+  const source = document.getElementById('opd-source')?.value || '';
+  return { commission: JSON.stringify([hn, customerName, date, source, lines.services, lines.sales]), supplies: JSON.stringify(lines.supplies) };
 }
 
 // Edit: each part (ค่ามือ/ค่าคอม, รายการเบิก) is sent only if it changed; the server puts that part back to "รอตรวจสอบ".
+// ข้อ 29: ทุกการแก้ไขต้องใส่เหตุผล → มีผลทันที (รายงานรายวันใช้ยอดใหม่) แล้วรอคุณออมอนุมัติ
 async function opdSubmitEdit(payload) {
   const em = opdState.editMode;
   const now = opdEditSnapshot(payload.hn, payload.customer_name, payload.date);
   const editCommission = now.commission !== em.snapshot.commission;
   const editSupplies = now.supplies !== em.snapshot.supplies;
   if (!editCommission && !editSupplies && !payload.images.length) { Toast.show('ยังไม่ได้แก้ไขอะไร', 'warning'); return; }
+  const full = { ...payload, edit_commission: editCommission, edit_supplies: editSupplies };
+  if (em.useRequestFlow !== false) { opdAskEditReason(full); return; }
   const locked = (editCommission && em.commissionLocked) || (editSupplies && em.suppliesLocked);
   if (locked && em.requestStatus !== 'อนุมัติแล้ว') {
     Toast.show('ส่วนที่อนุมัติแล้วต้องกด "ขอแก้ไข" จากหน้าสรุปยอดของฉัน และรอแอดมิน/บัญชีอนุมัติก่อน', 'error', 6000);
@@ -1178,6 +1227,45 @@ async function opdSubmitEdit(payload) {
   await DB.editOpdBillSupabase(em.billId, { ...payload, edit_commission: editCommission, edit_supplies: editSupplies });
   const parts = [editCommission ? 'ค่ามือ/ค่าคอม' : '', editSupplies ? 'รายการเบิก' : ''].filter(Boolean).join(' และ ');
   Toast.show(parts ? `บันทึกการแก้ไขแล้ว ✓ — ${parts} กลับเข้าคิวรอตรวจ` : 'เพิ่มรูปแล้ว ✓', 'success', 5000);
+  opdState.editMode = null;
+  navigate('history');
+}
+
+function opdAskEditReason(payload) {
+  window._opdPendingEdit = payload;
+  openModal(`<div class="modal" style="max-width:460px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="pencil"></i>เหตุผลที่แก้ไข</h3></div>
+    <div class="modal-body">
+      <p style="margin:0 0 10px;font-size:.85rem;color:var(--gray-600);">การแก้ไขมีผลทันที แล้วส่งให้คุณออมอนุมัติ — ถ้าไม่อนุมัติ ระบบจะคืนข้อมูลเดิมให้</p>
+      <textarea id="opd-edit-reason" class="form-input" rows="3" placeholder="เช่น ใส่ราคาผิด / เลือกโปรแกรมผิด"></textarea>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button>
+      <button class="btn btn-primary" id="opd-edit-send" onclick="opdSendEdit()"><i data-lucide="send"></i> บันทึกการแก้ไข</button></div></div>`);
+  setTimeout(() => document.getElementById('opd-edit-reason')?.focus(), 50);
+}
+
+async function opdSendEdit() {
+  const reason = (document.getElementById('opd-edit-reason')?.value || '').trim();
+  if (!reason) { Toast.show('กรุณาระบุเหตุผลที่แก้ไข', 'error'); return; }
+  const em = opdState.editMode, payload = window._opdPendingEdit;
+  if (!em || !payload) return;
+  const btn = document.getElementById('opd-edit-send');
+  if (btn) btn.disabled = true;
+  try {
+    await DB.submitBillEditSupabase(em.billId, payload, reason);
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    if (e && (e.code === 'PGRST202' || /Could not find the function/i.test(e.message || ''))) {
+      // ยังไม่ได้ติดตั้ง SQL ไฟล์ 18 → ใช้วิธีแก้แบบเดิม
+      closeModalDirect(); em.useRequestFlow = false; await opdSubmitEdit(payload); return;
+    }
+    const map = { PERIOD_CLOSED: 'รอบค่าคอมนี้ปิดแล้ว แก้ไขไม่ได้', REQUEST_ALREADY_OPEN: 'การแก้ไขครั้งก่อนของบิลนี้ยังรอคุณออมอนุมัติ' };
+    const code = Object.keys(map).find(k => (e.message || '').includes(k));
+    Toast.show('บันทึกไม่สำเร็จ: ' + (code ? map[code] : DB.stockErrorText(e)), 'error', 6000);
+    return;
+  }
+  closeModalDirect();
+  window._opdPendingEdit = null;
+  Toast.show('บันทึกการแก้ไขแล้ว ✓ — รอคุณออมอนุมัติ', 'success', 5000);
   opdState.editMode = null;
   navigate('history');
 }
@@ -1300,15 +1388,16 @@ async function opdEditBill(billId) {
     sharedBillServices: (detail.services || []).filter(s => !mine(s)).map(s => ({ programCode: s.program_code, programName: s.program_name, price: s.price })),
     services,
     sales: (detail.sales || []).filter(mine).map(s => ({
-      id: uid('sale_'), type: String(s.sale_type || '').toLowerCase(), oldProgram: s.old_program_name || '', oldProgramManual: false, oldPrice: Number(s.old_price) || 0,
-      newProgram: s.new_program_name || '', newPrice: Number(s.new_price) || 0, payType: s.pay_type || 'จ่ายเต็ม', installmentNo: s.installment_no || '',
+      id: uid('sale_'), type: String(s.sale_type || '').toLowerCase(), oldProgram: s.old_program_code || s.old_program_name || '', oldProgramManual: false, oldPrice: Number(s.old_price) || 0,
+      newProgram: s.new_program_code || s.new_program_name || '', newPrice: Number(s.new_price) || 0, payType: s.pay_type || 'จ่ายเต็ม', installmentNo: s.installment_no || '',
       amountPaid: Number(s.amount_paid) || 0, commissionBase: Number(s.commission_base) || 0, commissionBaseManual: !!s.commission_base_manual,
       commissionNote: s.commission_note || '', commissionPct: Number(s.commission_pct) || 0, commissionAmt: Number(s.commission_amt) || 0 })),
     supplies: (detail.supplies || []).filter(mine).map(s => ({ id: uid('sup_'), programCode: s.program_code || firstProgram, programName: s.program_name || '',
       productCode: s.product_code, productName: s.product_name, qty: Number(s.qty) || 0, unit: s.unit || '' })),
     editMode: { billId, isOwner: detail.bill.created_by === currentUser.id, commissionLocked: !!es.commission_locked, suppliesLocked: !!es.supplies_locked,
       requestStatus: es.request_status || null, existingPhotos: (detail.images || []).length,
-      header: { hn: detail.bill.hn || '', customerName: detail.bill.customer_name || '', date: String(detail.bill.bill_date || '').slice(0, 10) } }
+      header: { hn: detail.bill.hn || '', customerName: detail.bill.customer_name || '', date: String(detail.bill.bill_date || '').slice(0, 10),
+        customerSource: detail.bill.customer_source || '' } }
   };
   navigate('opd');
 }
@@ -1318,6 +1407,8 @@ function opdApplyEditMode() {
   const em = opdState.editMode; if (!em) return;
   const set = (id, v) => { const el = document.getElementById(id); if (el) { el.value = v; if (!em.isOwner) el.disabled = true; } };
   set('opd-hn', em.header.hn); set('opd-customer', em.header.customerName); set('opd-date', em.header.date);
+  if (em.header.customerSource) opdSetSource(em.header.customerSource);
+  const src = document.getElementById('opd-source'); if (src && !em.isOwner) src.disabled = true;
   document.querySelectorAll('input[name="bill-mode"]').forEach(r => { r.disabled = true; r.closest('label')?.style.setProperty('display', 'none'); });
   document.getElementById('opd-draft-btn')?.remove();
   const btn = document.getElementById('opd-submit-btn'); if (btn) btn.innerHTML = '<i data-lucide="save"></i> บันทึกการแก้ไข';
@@ -1327,7 +1418,8 @@ function opdApplyEditMode() {
   const banner = document.createElement('div');
   banner.className = 'alert-box alert-warning'; banner.style.marginBottom = '16px';
   banner.innerHTML = `<i data-lucide="pencil"></i><span>กำลังแก้ไขบิล <strong>${em.header.hn}</strong> — ${em.header.customerName}<br>
-    ค่ามือ/ค่าคอม: ${partText(em.commissionLocked)} · รายการเบิก: ${partText(em.suppliesLocked)}<br>
+    ${em.useRequestFlow === false ? `ค่ามือ/ค่าคอม: ${partText(em.commissionLocked)} · รายการเบิก: ${partText(em.suppliesLocked)}<br>`
+      : 'แก้แล้วกดบันทึก ระบบจะถามเหตุผล — ข้อมูลใหม่มีผลทันที แล้วรอคุณออมอนุมัติ<br>'}
     ส่วนที่แก้จะกลับไปรอตรวจใหม่ ส่วนที่ไม่แก้คงสถานะเดิม · รูปเดิม ${em.existingPhotos} รูปยังอยู่ ถ่ายเพิ่มได้
     <br><button class="btn btn-ghost btn-sm" data-view-ok style="margin-top:6px;" onclick="opdReset();navigate('history')">ยกเลิกการแก้ไข</button></span>`;
   const form = document.getElementById('opd-form'); if (form) form.insertBefore(banner, form.firstChild);

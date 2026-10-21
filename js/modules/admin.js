@@ -26,6 +26,9 @@ function renderAdmin(container) {
       <button class="tab-btn" id="adm-tab-notify" onclick="admSwitch('notify')">
         <i data-lucide="bell"></i>แจ้งเตือน
       </button>
+      <button class="tab-btn" id="adm-tab-activity" onclick="admSwitch('activity')">
+        <i data-lucide="history"></i>ประวัติการใช้งาน
+      </button>
       <button class="tab-btn" id="adm-tab-aiplan" onclick="admSwitch('aiplan')">
         <i data-lucide="sparkles"></i>AI ช่วยตรวจ (แผนพัฒนา)
       </button>
@@ -52,7 +55,61 @@ function admRender() {
   else if (adminTab === 'erpsync') admRenderErpSync(body);
   else if (adminTab === 'notify') admRenderNotify(body);
   else if (adminTab === 'aiplan') admRenderAiPlan(body);
+  else if (adminTab === 'activity') admRenderActivity(body);
   else admRenderUsers(body);
+}
+
+// ข้อ 27: ประวัติการใช้งานจริงจากระบบกลาง (เข้าระบบ / อนุมัติ / แก้ไข / ตั้งค่า) — ล่าสุด 1,000 รายการ
+let admActivityRows = [];
+function admRenderActivity(body) {
+  const today = todayISO();
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  body.innerHTML = `
+    <div class="filter-bar">
+      <div class="filter-group"><label class="filter-label">จากวันที่</label><input type="date" class="filter-input" id="act-from" value="${weekAgo}" onchange="admLoadActivity()" /></div>
+      <div class="filter-group"><label class="filter-label">ถึงวันที่</label><input type="date" class="filter-input" id="act-to" value="${today}" onchange="admLoadActivity()" /></div>
+      <div class="filter-group"><label class="filter-label">ค้นหา</label><input type="text" class="filter-input" id="act-search" placeholder="ชื่อ / การกระทำ / รายละเอียด" oninput="admShowActivity()" /></div>
+      <div class="filter-group"><label class="filter-label">การกระทำ</label><select class="filter-select" id="act-action" onchange="admShowActivity()"><option value="">ทั้งหมด</option></select></div>
+    </div>
+    <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap" id="act-wrap"><div class="loading-placeholder"><div class="spinner"></div></div></div></div>`;
+  lucide.createIcons();
+  admLoadActivity();
+}
+async function admLoadActivity() {
+  const wrap = document.getElementById('act-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div></div>';
+  try {
+    admActivityRows = await DB.adminActivityLogSupabase({ from: document.getElementById('act-from')?.value, to: document.getElementById('act-to')?.value });
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>ยังดูประวัติไม่ได้</h4><p>${/Could not find the function|PGRST202/.test(e.message || '') ? 'ต้องติดตั้งฐานข้อมูลรอบ 2 (SQL ไฟล์ 18) ก่อน' : (e.hint || e.message || e)}</p></div>`;
+    lucide.createIcons(); return;
+  }
+  const sel = document.getElementById('act-action');
+  if (sel) {
+    const cur = sel.value;
+    const actions = [...new Set(admActivityRows.map(r => r.action).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">ทั้งหมด</option>' + actions.map(a => `<option ${a === cur ? 'selected' : ''}>${a}</option>`).join('');
+  }
+  admShowActivity();
+}
+function admShowActivity() {
+  const wrap = document.getElementById('act-wrap');
+  if (!wrap) return;
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const q = (document.getElementById('act-search')?.value || '').toLowerCase();
+  const act = document.getElementById('act-action')?.value || '';
+  const who = r => r.user_nickname ? `${r.user_name} (${r.user_nickname})` : (r.user_name || r.username || 'ระบบ');
+  const rows = admActivityRows.filter(r => (!act || r.action === act)
+    && (!q || [who(r), r.action, r.note, r.new_status, r.old_status].join(' ').toLowerCase().includes(q)));
+  if (!rows.length) { wrap.innerHTML = '<div class="empty-state"><i data-lucide="history"></i><h4>ไม่มีประวัติในช่วงนี้</h4></div>'; lucide.createIcons(); return; }
+  const when = t => new Date(t).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  wrap.innerHTML = `<table><thead><tr><th>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>สถานะ</th><th>รายละเอียด</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="nowrap">${when(r.created_at)}</td><td class="col-text">${esc(who(r))}</td><td>${esc(r.action)}</td>
+      <td class="nowrap">${r.old_status || r.new_status ? esc([r.old_status, r.new_status].filter(Boolean).join(' → ')) : '-'}</td>
+      <td class="col-text" style="max-width:420px;font-size:.82rem;word-break:break-word;">${esc(r.note || '-')}</td></tr>`).join('')}
+    </tbody></table>
+    ${admActivityRows.length >= 1000 ? '<p style="padding:8px 12px;font-size:.8rem;color:var(--gray-500);">แสดง 1,000 รายการล่าสุด — เลือกช่วงวันที่ให้แคบลงเพื่อดูเก่ากว่านี้</p>' : ''}`;
 }
 
 // ห้องรอไว้พัฒนา — ยังไม่มีปุ่มหรือตัวเลข จะได้ไม่ลืมแผน (เห็นเฉพาะผู้ดูแลระบบ)

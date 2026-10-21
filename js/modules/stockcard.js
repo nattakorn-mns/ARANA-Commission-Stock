@@ -118,12 +118,26 @@ async function scRenderTable() {
   if (search) logs = logs.filter(l => l.productCode?.toLowerCase().includes(search) || l.productName?.toLowerCase().includes(search));
   scShown = logs;
 
+  const banner = `<div class="sc-opening-note"><i data-lucide="info"></i>
+    <span>ยอดตั้งต้นของทุกรายการ <b>ตั้งตาม ERP วันที่ ${SC_OPENING_LABEL}</b> — ค้นหาสินค้า 1 รายการเพื่อดูบรรทัด "ยอดยกมา"</span></div>`;
+
   if (!logs.length) {
-    wrap.innerHTML = `<div class="empty-state"><i data-lucide="database"></i><h4>ไม่มีรายการ</h4><p>ลองเปลี่ยนตัวกรอง</p></div>`;
+    const filtered = search || type || dateFrom || dateTo;
+    wrap.innerHTML = banner + `<div class="empty-state"><i data-lucide="database"></i>
+      <h4>${filtered ? 'ไม่พบรายการตามที่ค้นหา' : 'ยังไม่มีการรับเข้า เบิกออก หรือโอน ที่สาขานี้'}</h4>
+      <p>${filtered ? 'ลองเปลี่ยนคำค้นหา ช่วงวันที่ หรือประเภท' : 'เมื่อมีการบันทึก รายการจะแสดงที่นี่'}${canSeeBalance ? ' · ยอดคงเหลือปัจจุบันดูได้ที่เมนู "สต๊อกคงเหลือ"' : ''}</p></div>`;
     lucide.createIcons(); return;
   }
 
-  wrap.innerHTML = `
+  // One product on screen → show its opening balance as the last (oldest) row.
+  const codes = new Set(logs.map(l => l.productCode));
+  const opening = canSeeBalance && codes.size === 1 ? scOpeningBalance(scCache.rows, [...codes][0]) : null;
+  const openingRow = opening == null ? '' : `<tr class="sc-opening-row">
+      <td class="nowrap">${dateFrom ? formatDate(dateFrom) : SC_OPENING_LABEL}</td>
+      <td colspan="5">${dateFrom ? 'ยอดยกมา' : `ยอดยกมา (ตั้งตาม ERP ${SC_OPENING_LABEL})`}</td>
+      <td class="num stock-bal">${opening}</td><td colspan="3"></td></tr>`;
+
+  wrap.innerHTML = banner + `
   <table>
     <thead>
       <tr>
@@ -161,9 +175,21 @@ async function scRenderTable() {
           <td>${where ? `<span class="badge" style="background:var(--${sourceColor}-50);color:var(--${sourceColor}-700);font-size:0.72rem;">${where}</span>` : '-'}</td>
         </tr>`;
       }).join('')}
+      ${openingRow}
     </tbody>
   </table>`;
   lucide.createIcons();
+}
+
+// Stock was set to the ERP balance on 18/10/2569 before staff started recording.
+const SC_OPENING_LABEL = '18/10/2569';
+
+// Balance before the oldest applied movement of one product (rows are newest first).
+function scOpeningBalance(rows, code) {
+  const applied = rows.filter(l => l.productCode === code && l.appliesToBalance && l.balanceAfter != null);
+  if (!applied.length) return null;
+  const oldest = applied[applied.length - 1];
+  return Math.round((oldest.balanceAfter - (oldest.direction === 'IN' ? 1 : -1) * (Number(oldest.qty) || 0)) * 1000) / 1000;
 }
 
 // The new server sends the balance after each row. The old one does not, so walk forward from the oldest row.
@@ -203,28 +229,26 @@ function scRenderWeekly(body) {
 
   body.innerHTML = `
   <div class="glass-card" style="margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+    <div class="wc-toolbar">
       <div class="form-group">
         <label class="form-label">สัปดาห์ที่นับ</label>
         <input type="date" class="filter-input" id="wc-week" value="${weekStart}" onchange="wcLoad()" />
       </div>
       <div class="form-group">
         <label class="form-label">หมวดหมู่</label>
-        <select class="filter-select" id="wc-cat" onchange="wcCategory=this.value;scRenderWeeklyTable()">
+        <select class="filter-select" id="wc-cat" onchange="wcCategory=this.value;wcPage=1;scRenderWeeklyTable()">
           ${catOptions.map(c => `<option value="${c}" ${c===wcCategory?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" style="flex:1;">
         <label class="form-label">ค้นหา</label>
-        <input type="text" class="filter-input" id="wc-search" placeholder="ชื่อสินค้า..." oninput="scRenderWeeklyTable()" style="width:100%;" />
+        <input type="text" class="filter-input" id="wc-search" placeholder="รหัส / ชื่อสินค้า..." oninput="wcPage=1;scRenderWeeklyTable()" style="width:100%;" />
       </div>
-    </div>
-    <div id="weekly-table-wrap"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px;">
       <button class="btn btn-primary" id="wc-save-btn" onclick="wcSaveAll()">
-        <i data-lucide="check-circle"></i> บันทึกรายการที่นับแล้ว
+        <i data-lucide="check-circle"></i> บันทึก <span id="wc-pending-count"></span>
       </button>
     </div>
+    <div id="weekly-table-wrap"></div>
   </div>
   <div id="wc-result-wrap"></div>`;
 
@@ -234,6 +258,8 @@ function scRenderWeekly(body) {
 async function wcLoad() {
   const week = document.getElementById('wc-week')?.value || getWeekStart();
   wcCounted = {};
+  wcEditing = new Set();
+  wcPage = 1;
   const wrap = document.getElementById('weekly-table-wrap');
   if (wrap) wrap.innerHTML = `<div class="loading-placeholder"><div class="spinner"></div></div>`;
   try {
@@ -262,34 +288,72 @@ function scRenderWeeklyTable() {
   if (cat !== 'ทั้งหมด') products = products.filter(p => p.category === cat);
   if (search) products = products.filter(p => p.name?.toLowerCase().includes(search) || p.code?.toLowerCase().includes(search));
 
-  const countOf = p => wcCounted[p.code] !== undefined ? wcCounted[p.code] : p.saved;
-  const counted = products.filter(p => countOf(p) !== undefined);
-  const notCounted = products.filter(p => countOf(p) === undefined);
+  // Not-counted items first, then counted ones; 20 rows per page across both groups.
+  const notCounted = products.filter(p => p.saved === undefined);
+  const counted = products.filter(p => p.saved !== undefined);
+  const all = [...notCounted, ...counted];
+  const pages = Math.max(1, Math.ceil(all.length / WC_PAGE_SIZE));
+  wcPage = Math.min(Math.max(1, wcPage), pages);
+  const shown = all.slice((wcPage - 1) * WC_PAGE_SIZE, wcPage * WC_PAGE_SIZE);
 
-  const renderSection = (list, title, isCounted) => `
-    <div class="count-section">
-      <div class="count-section-header ${isCounted?'counted':'not-counted'}">
-        <i data-lucide="${isCounted?'check-circle':'clock'}"></i>
-        ${title} (${list.length} รายการ)
-      </div>
-      ${list.length ? list.map(p => `
+  const input = p => `<input type="number" class="count-input" id="wc-input-${p.code}" placeholder="0" min="0" step="any" inputmode="decimal"
+      value="${wcCounted[p.code] ?? (wcEditing.has(p.code) ? p.saved : '')}" oninput="wcSetCount('${p.code}',this.value)" />`;
+  const row = p => {
+    const isSaved = p.saved !== undefined;
+    const editing = !isSaved || wcEditing.has(p.code);
+    return `
         <div class="count-row" id="count-row-${p.code}">
           <div class="count-row-info">
             <div class="count-row-code">${p.code}</div>
             <div class="count-row-name" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${p.name}</div>
           </div>
-          ${isCounted ? `
-            <span class="count-result-badge count-match" style="margin-right:4px;">นับแล้ว: ${countOf(p)}</span>
-          ` : `
-            <input type="number" class="count-input" id="wc-input-${p.code}" placeholder="0" min="0" step="any" inputmode="decimal"
-              value="" oninput="wcSetCount('${p.code}',this.value)" />
-          `}
+          ${editing ? input(p) : `<span class="count-result-badge count-match">นับแล้ว: ${p.saved}</span>
+            <button class="btn btn-ghost btn-sm" onclick="wcEdit('${p.code}')"><i data-lucide="pencil"></i> แก้ไข</button>`}
           <span class="count-unit">${p.unit||''}</span>
-        </div>`).join('') : `<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 12px;">ไม่มีรายการ</p>`}
-    </div>`;
+        </div>`;
+  };
+  const header = (isCounted, n) => `<div class="count-section-header ${isCounted?'counted':'not-counted'}">
+        <i data-lucide="${isCounted?'check-circle':'clock'}"></i> ${isCounted?'นับแล้ว':'ยังไม่นับ'} (${n} รายการ)</div>`;
 
-  wrap.innerHTML = renderSection(notCounted, 'ยังไม่นับ', false) + renderSection(counted, 'นับแล้ว', true);
+  const firstCounted = shown.findIndex(p => p.saved !== undefined);
+  let html = '<div class="count-section">';
+  if (!shown.length) html += `<p style="font-size:0.82rem;color:var(--gray-400);padding:8px 12px;">ไม่มีรายการ</p>`;
+  shown.forEach((p, i) => {
+    if (i === 0 && p.saved === undefined) html += header(false, notCounted.length);
+    if (i === firstCounted) html += header(true, counted.length);
+    html += row(p);
+  });
+  html += '</div>';
+  if (pages > 1) html += `<div class="wc-pager">
+      <button class="btn btn-ghost btn-sm" ${wcPage<=1?'disabled':''} onclick="wcGo(${wcPage-1})"><i data-lucide="chevron-left"></i> ก่อนหน้า</button>
+      <span>หน้า ${wcPage} / ${pages} · ทั้งหมด ${all.length} รายการ</span>
+      <button class="btn btn-ghost btn-sm" ${wcPage>=pages?'disabled':''} onclick="wcGo(${wcPage+1})">ถัดไป <i data-lucide="chevron-right"></i></button>
+    </div>`;
+  wrap.innerHTML = html;
+  wcUpdatePending();
   lucide.createIcons();
+}
+
+const WC_PAGE_SIZE = 20;
+let wcPage = 1;
+let wcEditing = new Set();
+
+function wcGo(page) {
+  wcPage = page;
+  scRenderWeeklyTable();
+  document.querySelector('.wc-toolbar')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function wcEdit(code) {
+  wcEditing.add(code);
+  scRenderWeeklyTable();
+  document.getElementById('wc-input-' + code)?.focus();
+}
+
+function wcUpdatePending() {
+  const n = Object.keys(wcCounted).length;
+  const el = document.getElementById('wc-pending-count');
+  if (el) el.textContent = n ? `(${n} รายการ)` : '';
 }
 
 function wcSetCount(code, val) {
@@ -298,6 +362,7 @@ function wcSetCount(code, val) {
   // 0 is a real count (item fully used up); fractions are allowed for ซีซี/ยูนิต.
   if (raw !== '' && Number.isFinite(n) && n >= 0) wcCounted[code] = Math.round(n * 1000) / 1000;
   else delete wcCounted[code];
+  wcUpdatePending();
 }
 
 async function wcSaveAll() {
@@ -336,6 +401,7 @@ async function wcSaveAll() {
     Toast.show(`บันทึกผลการนับ ${codes.length} รายการเข้าระบบกลางเรียบร้อย`, 'success');
   }
   wcCounted = {};
+  wcEditing = new Set();
   wcRenderResult(results);
   scRenderWeeklyTable();
 }

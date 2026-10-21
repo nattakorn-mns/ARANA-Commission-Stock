@@ -13,10 +13,12 @@ let depAccounts=[], depCanManage=false;
 const depAccountLabel=a=>`${a.bank_name} ${a.account_no} (${a.account_name})`;
 const depEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function depLoadAccounts(){
-  const select=document.getElementById('dep-payment-method');if(!select)return;
+  const select=document.getElementById('dep-payment-method');
   let res;
   try{res=await DB.listDepositAccountsSupabase();}
-  catch(e){console.error(e);select.innerHTML='<option value="">โหลดบัญชีไม่สำเร็จ — ลองรีเฟรชหน้า</option>';return;}
+  catch(e){console.error(e);if(select)select.innerHTML='<option value="">โหลดบัญชีไม่สำเร็จ — ลองรีเฟรชหน้า</option>';return;}
+  if(res&&!select){depAccounts=res.accounts||[];depCanManage=!!res.can_manage;return;} // หน้าตั้งค่า: โหลดรายการอย่างเดียว
+  if(!select)return;
   if(res===null){
     // Account settings not installed yet (SQL file 03): keep the previous sample choices so the form still works.
     select.innerHTML='<option value="">-- เลือกบัญชีรับเงิน --</option><option value="bank-demo-1">บัญชีรับเงิน A (ตัวอย่าง)</option><option value="bank-demo-2">บัญชีรับเงิน B (ตัวอย่าง)</option>';
@@ -30,8 +32,17 @@ async function depLoadAccounts(){
   const btn=document.getElementById('dep-account-manage');if(btn)btn.style.display=depCanManage?'inline-flex':'none';
   lucide.createIcons();
 }
+// จัดการบัญชีอยู่ที่เมนู "ตั้งค่า" (ข้อ 12) — ถ้าเปิดหน้าตั้งค่าอยู่ แสดงในหน้านั้น ไม่เปิดกล่อง
 function depManageAccounts(){
+  const inline=document.getElementById('set-accounts');
   const row=a=>`<tr><td>${depEsc(a.bank_name)}</td><td>${depEsc(a.account_no)}</td><td>${depEsc(a.account_name)}</td><td>${a.is_active?'<span class="badge badge-approved">ใช้งาน</span>':'<span class="badge badge-waiting">ปิดใช้</span>'}</td><td class="nowrap"><button class="btn btn-ghost btn-sm" data-write onclick="depEditAccount('${a.id}')">แก้ไข</button> <button class="btn btn-ghost btn-sm" data-write onclick="depToggleAccount('${a.id}')">${a.is_active?'ปิดใช้':'เปิดใช้'}</button></td></tr>`;
+  if(inline){
+    inline.innerHTML=`<p style="font-size:.82rem;color:var(--gray-500);margin:0 0 10px;">บัญชีที่ "ปิดใช้" จะไม่ขึ้นให้พนักงานเลือกในฟอร์มมัดจำ แต่ยอดมัดจำเก่ายังแสดงชื่อบัญชีเดิมอยู่</p>
+    <div class="table-wrap"><table><thead><tr><th>ธนาคาร</th><th>เลขบัญชี</th><th>ชื่อบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody>${depAccounts.length?depAccounts.map(row).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:16px;">ยังไม่มีบัญชี</td></tr>'}</tbody></table></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-primary" onclick="depEditAccount(null)"><i data-lucide="plus"></i> เพิ่มบัญชี</button></div>
+    <div id="dep-account-form" style="margin-top:14px;"></div>`;
+    lucide.createIcons();return;
+  }
   openModal(`<div class="modal" style="max-width:760px;width:95%;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="landmark"></i>บัญชีรับเงินมัดจำ</h3><button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
   <div class="modal-body"><p style="font-size:.82rem;color:var(--gray-500);margin:0 0 10px;">บัญชีที่ "ปิดใช้" จะไม่ขึ้นให้พนักงานเลือก แต่ยอดมัดจำเก่ายังแสดงชื่อบัญชีเดิมอยู่</p>
   <div class="table-wrap"><table><thead><tr><th>ธนาคาร</th><th>เลขบัญชี</th><th>ชื่อบัญชี</th><th>สถานะ</th><th></th></tr></thead><tbody>${depAccounts.length?depAccounts.map(row).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:16px;">ยังไม่มีบัญชี</td></tr>'}</tbody></table></div>
@@ -80,7 +91,7 @@ renderDeposits=async function(container){
   const payment=document.getElementById('dep-payment-method');
   if(payment){
     const label=payment.closest('.form-group').querySelector('.form-label');
-    label.innerHTML='บัญชีที่รับโอน <span class="required">*</span><button type="button" data-write id="dep-account-manage" class="btn btn-ghost btn-sm" style="display:none;margin-left:6px;padding:0 8px;font-size:.75rem;" onclick="depManageAccounts()"><i data-lucide="settings-2" style="width:13px;height:13px;"></i> จัดการบัญชี</button>';
+    label.innerHTML='บัญชีที่รับโอน <span class="required">*</span>'; // เพิ่ม/แก้บัญชีย้ายไปเมนู "ตั้งค่า" (ข้อ 12)
     payment.innerHTML='<option value="">กำลังโหลดบัญชี...</option>';
     depLoadAccounts();
   }

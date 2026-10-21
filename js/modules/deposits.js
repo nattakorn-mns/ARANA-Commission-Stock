@@ -8,7 +8,7 @@ let depositEvidence = [];
 async function renderDeposits(container) {
   depositEvidence = [];
   container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลดข้อมูล...</div>';
-  depositProgramsCache = await DB.getProgramsSupabase(currentBranch);
+  depositProgramsCache = currentUser.role === 'Frontdesk' ? await DB.getProgramsSupabase(currentBranch) : [];
 
   container.innerHTML = `
   <div class="opd-form">
@@ -22,7 +22,8 @@ async function renderDeposits(container) {
       <div class="opd-section-body">
         <div class="form-row">
           <div class="form-group"><label class="form-label">วันที่รับเงิน <span class="required">*</span></label><input id="dep-date" type="date" class="form-input" value="${todayISO()}" max="${todayISO()}" /></div>
-          <div class="form-group"><label class="form-label">สาขา</label><input class="form-input" value="${currentBranch}" readonly /></div>
+          <div class="form-group"><label class="form-label">สาขาที่ลูกค้าจะมาใช้บริการ <span class="required">*</span></label>
+            <select id="dep-branch" class="form-select" onchange="depBranchChanged(this.value)">${depBranchOptions()}</select></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">ชื่อลูกค้า <span class="required">*</span></label><input id="dep-customer" class="form-input" placeholder="ชื่อ-นามสกุล" /></div>
@@ -31,11 +32,11 @@ async function renderDeposits(container) {
         <div class="form-row">
           <div class="form-group"><label class="form-label">HN (ถ้ามี)</label><input id="dep-hn" class="form-input" placeholder="HN0001 (ลูกค้าใหม่เว้นว่างได้)" /></div>
           <div class="form-group"><label class="form-label">ช่องทางที่ปิดยอด <span class="required">*</span></label>
-            <select id="dep-channel" class="form-select"><option value="">-- เลือกช่องทาง --</option><option>LINE</option><option>Facebook</option><option>Instagram</option><option>โทรศัพท์</option><option>หน้าร้าน</option><option>อื่นๆ</option></select>
+            <select id="dep-channel" class="form-select"><option value="">-- เลือกช่องทาง --</option>${salesChannels().map(c => `<option>${String(c).replace(/</g, '&lt;')}</option>`).join('')}</select>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:16px;"><label class="form-label">โปรแกรมที่จอง <span class="required">*</span></label>
-          <select id="dep-program" class="form-select"><option value="">-- เลือกโปรแกรม --</option>${depositProgramsCache.map(p => `<option value="${p.code}" data-price="${p.price}">${p.erp_code || p.code} — ${p.name}</option>`).join('')}</select>
+          <select id="dep-program" class="form-select">${depProgramOptions()}</select>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">ราคาเต็มของโปรแกรม</label><input id="dep-package-price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" /></div>
@@ -46,7 +47,7 @@ async function renderDeposits(container) {
           <div class="form-group"><label class="form-label">เลขใบเสร็จ/เลขอ้างอิง</label><input id="dep-reference" class="form-input" placeholder="ช่วยป้องกันการส่งยอดซ้ำ" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">เปอร์เซ็นต์ค่าคอม</label><select id="dep-commission-pct" class="form-select" onchange="depUpdateCommission()">${[0,0.5,0.65,0.75,1,1.3,1.5,2,2.5,3,5].map(x=>`<option value="${x}">${x}%</option>`).join('')}</select></div>
+          <div class="form-group"><label class="form-label">เปอร์เซ็นต์ค่าคอม</label><select id="dep-commission-pct" class="form-select" onchange="depUpdateCommission()">${commissionPctList().map(x=>`<option value="${x}">${x}%</option>`).join('')}</select></div>
           <div class="form-group"><label class="form-label">ค่าคอมที่ได้รับ</label><input id="dep-commission-amount" class="form-input" value="0.00" readonly /></div>
         </div>
         <div class="form-group"><label class="form-label">วันที่นัดหมาย (ถ้ามี)</label><input id="dep-appointment-date" type="date" class="form-input" /></div>
@@ -75,6 +76,24 @@ async function renderDeposits(container) {
     if (price) document.getElementById('dep-package-price').value = price;
   });
   lucide.createIcons();
+}
+
+// สาขา: เลือกได้ทุกสาขา (แอดมินออนไลน์ปิดยอดให้ทุกสาขา) — ข้อ 15
+function depBranchOptions() {
+  const names = [...document.querySelectorAll('#branch-select option')].map(o => o.value).filter(Boolean);
+  const preset = currentUser.role === 'Frontdesk' ? currentBranch : '';
+  return '<option value="">-- เลือกสาขา --</option>' + names.map(n => `<option value="${n}" ${n === preset ? 'selected' : ''}>${n}</option>`).join('');
+}
+function depProgramOptions() {
+  if (!depositProgramsCache.length) return '<option value="">-- เลือกสาขาก่อน --</option>';
+  return '<option value="">-- เลือกโปรแกรม --</option>' + depositProgramsCache.map(p => `<option value="${p.code}" data-price="${p.price}">${p.name}</option>`).join('');
+}
+async function depBranchChanged(branch) {
+  const sel = document.getElementById('dep-program');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">กำลังโหลดโปรแกรม...</option>';
+  depositProgramsCache = branch ? await DB.getProgramsSupabase(branch) : [];
+  sel.innerHTML = depProgramOptions();
 }
 
 function depUpdateCommission() {
@@ -113,6 +132,8 @@ async function depSubmit() {
   const channel = document.getElementById('dep-channel')?.value;
   const amount = Number(document.getElementById('dep-amount')?.value || 0);
   const paymentMethod = document.getElementById('dep-payment-method')?.value;
+  const branchName = document.getElementById('dep-branch')?.value;
+  if (!branchName) { Toast.show('กรุณาเลือกสาขาที่ลูกค้าจะมาใช้บริการ', 'error'); document.getElementById('dep-branch')?.focus(); return; }
   if (!customerName || !programCode || !channel || amount <= 0 || !paymentMethod) { Toast.show('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบ', 'error'); return; }
   if (!depositEvidence.length) { Toast.show('กรุณาแนบหลักฐานการรับเงินอย่างน้อย 1 รูป', 'error'); return; }
 
@@ -122,7 +143,7 @@ async function depSubmit() {
     const program = depositProgramsCache.find(p => p.code === programCode);
     await DB.createDepositSupabase({
       deposit_date: document.getElementById('dep-date').value,
-      branch_name: currentBranch,
+      branch_name: branchName,
       customer_name: customerName,
       customer_phone: document.getElementById('dep-phone').value.trim(),
       hn: document.getElementById('dep-hn').value.trim(),

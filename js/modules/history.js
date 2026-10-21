@@ -266,17 +266,15 @@ function histRender() {
                   <button class="btn btn-ghost btn-icon btn-sm" title="ดูรายละเอียด" onclick="histViewBill('${b.id}')">
                     <i data-lucide="eye"></i>
                   </button>
-                  ${(b.status === 'ตีกลับ' || b.status === 'รอแก้ไข') ? `
+                  ${b.editState && b.editState.request_status === 'รออนุมัติ'
+                    ? '<span class="badge badge-pending" title="แก้ไขแล้ว รอคุณออมอนุมัติ">รออนุมัติการแก้ไข</span>'
+                    : (b.status !== 'ฉบับร่าง' ? `
                   <button class="btn btn-primary btn-sm" title="แก้ไขบิล" onclick="histDoEditBill('${b.id}')">
                     <i data-lucide="edit"></i> แก้ไขบิล
-                  </button>` : ''}
+                  </button>` : '')}
                   ${b.status === 'ฉบับร่าง' ? `
                   <button class="btn btn-primary btn-sm" title="ทำรายการต่อ" onclick="histDoEditBill('${b.id}')">
                     <i data-lucide="pencil"></i> ทำรายการต่อ
-                  </button>` : ''}
-                  ${(b.status === 'รอตรวจสอบ' || b.status === 'อนุมัติแล้ว') ? `
-                  <button class="btn btn-secondary btn-sm" title="ขอแก้ไข" onclick="histRequestEdit('${b.id}')">
-                    <i data-lucide="pencil"></i> ขอแก้ไข
                   </button>` : ''}
                   ${b.status === 'ตีกลับ' && b.auditNote ? `
                   <button class="btn btn-warning btn-sm" title="เหตุผลตีกลับ" onclick="histShowNote('${b.id}')">
@@ -487,11 +485,12 @@ function histEditActions(bill) {
   if (!es || !es.has_own_lines) return '';
   const statusText = s => s || '—';
   let html = `<span style="font-size:.78rem;color:var(--gray-500);margin-right:6px;">ค่ามือ/ค่าคอม: ${statusText(bill.commissionStatus || bill.status)} · รายการเบิก: ${statusText(bill.stockStatus)}</span>`;
-  if (es.request_status === 'รออนุมัติ') html += '<span class="badge badge-pending" style="margin-right:6px;">รออนุมัติคำขอแก้ไข</span>';
-  else if (es.last_request && es.last_request.status === 'ไม่อนุมัติ') html += `<span class="badge badge-rejected" style="margin-right:6px;" title="${String(es.last_request.decision_note || '').replace(/"/g, '&quot;')}">คำขอแก้ไขไม่อนุมัติ</span>`;
-  const canEditNow = !es.commission_locked || !es.supplies_locked || es.request_status === 'อนุมัติแล้ว';
-  if (canEditNow) html += `<button class="btn btn-primary" onclick="histDoEditBill('${bill.id}')"><i data-lucide="pencil"></i> แก้ไขบิล</button>`;
-  if ((es.commission_locked || es.supplies_locked) && !es.request_status) html += `<button class="btn btn-primary" onclick="histRequestEdit('${bill.id}')"><i data-lucide="send"></i> ขอแก้ไขส่วนที่อนุมัติแล้ว</button>`;
+  // ข้อ 29: แก้ได้ทุกเมื่อ (ใส่เหตุผลตอนบันทึก) ยกเว้นการแก้ไขครั้งก่อนยังรอคุณออมอนุมัติ
+  if (es.request_status === 'รออนุมัติ') html += '<span class="badge badge-pending" style="margin-right:6px;">แก้ไขแล้ว รอคุณออมอนุมัติ</span>';
+  else {
+    if (es.last_request && es.last_request.status === 'ไม่อนุมัติ') html += `<span class="badge badge-rejected" style="margin-right:6px;" title="${String(es.last_request.decision_note || '').replace(/"/g, '&quot;')}">การแก้ไขล่าสุดไม่อนุมัติ (คืนข้อมูลเดิมแล้ว)</span>`;
+    html += `<button class="btn btn-primary" onclick="histDoEditBill('${bill.id}')"><i data-lucide="pencil"></i> แก้ไขบิล</button>`;
+  }
   return html;
 }
 
@@ -537,7 +536,7 @@ function histShowNote(billId) {
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalDirect()">ปิด</button>
-      <button class="btn btn-warning" onclick="closeModalDirect();histRequestEdit('${billId}')"><i data-lucide="pencil"></i> ขอแก้ไข</button>
+      <button class="btn btn-warning" onclick="closeModalDirect();histDoEditBill('${billId}')"><i data-lucide="pencil"></i> แก้ไขบิล</button>
     </div>
   </div>`);
 }

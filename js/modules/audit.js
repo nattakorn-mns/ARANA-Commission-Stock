@@ -306,36 +306,50 @@ function audNavImg(dir, total) {
   audUpdateTransform();
 }
 
-// ── คำขอแก้ไขบิล (แอดมิน/บัญชี อนุมัติ) ─────────────────────────
+// ── คำขอแก้ไขบิล (ข้อ 29): พนักงานแก้แล้วมีผลทันที → คุณออมอนุมัติ / ไม่อนุมัติ = คืนข้อมูลเดิม ──
 function audCanAccessEditRequests() { return ['Admin', 'Audit', 'CommissionAudit', 'StockAudit'].includes(currentUser.role); }
+function audCanDecideEdits() { return ['Admin', 'CommissionAudit'].includes(currentUser.role); }
 let audEditRequests = [];
 let audEditFilter = 'รออนุมัติ';
+let audEditsNewFlow = true;
 
 async function audRenderEditRequests(body) {
   body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
-  try { audEditRequests = await DB.listBillEditRequestsSupabase(audEditFilter || null); }
-  catch (e) {
-    body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>โหลดคำขอแก้ไขไม่สำเร็จ</h4><p>${/UNKNOWN_ACTION/.test(e.message || '') ? 'ยังไม่ได้ติดตั้ง SQL ไฟล์ 04' : DB.stockErrorText(e)}</p></div>`;
-    lucide.createIcons(); return;
+  try {
+    audEditRequests = await DB.listBillEditsSupabase(audEditFilter || null);
+    audEditsNewFlow = true;
+  } catch (e) {
+    if (!(e && (e.code === 'PGRST202' || /Could not find the function/i.test(e.message || '')))) {
+      body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>โหลดคำขอแก้ไขไม่สำเร็จ</h4><p>${DB.stockErrorText(e)}</p></div>`;
+      lucide.createIcons(); return;
+    }
+    // ยังไม่ได้ติดตั้ง SQL ไฟล์ 18 → รายการคำขอแบบเดิม
+    audEditsNewFlow = false;
+    try { audEditRequests = await DB.listBillEditRequestsSupabase(audEditFilter || null); }
+    catch (e2) { body.innerHTML = `<div class="empty-state"><i data-lucide="alert-triangle"></i><h4>โหลดคำขอแก้ไขไม่สำเร็จ</h4><p>${DB.stockErrorText(e2)}</p></div>`; lucide.createIcons(); return; }
   }
   const esc = v => String(v ?? '-').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const parts = r => [r.commission_status === 'อนุมัติแล้ว' ? 'ค่ามือ/ค่าคอม' : '', r.supplies_approved ? 'รายการเบิก' : ''].filter(Boolean).join(', ') || '-';
+  const who = r => esc(r.requested_by_nickname ? `${r.requested_by_name} (${r.requested_by_nickname})` : r.requested_by_name);
+  const parts = r => [r.edit_commission ? 'ค่ามือ/ค่าคอม' : '', r.edit_supplies ? 'รายการเบิก' : ''].filter(Boolean).join(', ') || 'เพิ่มรูป';
+  const canDecide = audCanDecideEdits();
   body.innerHTML = `<div class="glass-card" style="margin-bottom:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-weight:700;color:var(--gray-700);">คำขอแก้ไขบิลที่อนุมัติแล้ว</span>
-      <span style="font-size:.8rem;color:var(--gray-500);">อนุมัติคำขอ = อนุญาตให้พนักงานแก้ ส่วนที่แก้จะกลับมารอตรวจใหม่ ส่วนที่ไม่แก้คงสถานะเดิม</span>
+      <span style="font-weight:700;color:var(--gray-700);">การแก้ไขบิลรออนุมัติ</span>
+      <span style="font-size:.8rem;color:var(--gray-500);">พนักงานแก้แล้ว ข้อมูลใหม่มีผลทันที · อนุมัติ = ใช้ข้อมูลใหม่ต่อ · ไม่อนุมัติ = ระบบคืนข้อมูลเดิมให้</span>
       <select class="filter-select" style="margin-left:auto;width:auto;" onchange="audEditFilter=this.value;audRenderEditRequests(document.getElementById('aud-body'))">
-        ${['รออนุมัติ', 'อนุมัติแล้ว', 'ใช้แล้ว', 'ไม่อนุมัติ', ''].map(s => `<option value="${s}" ${s === audEditFilter ? 'selected' : ''}>${s || 'ทั้งหมด'}</option>`).join('')}
+        ${['รออนุมัติ', 'อนุมัติแล้ว', 'ไม่อนุมัติ', ''].map(s => `<option value="${s}" ${s === audEditFilter ? 'selected' : ''}>${s || 'ทั้งหมด'}</option>`).join('')}
       </select></div>
-    <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่ขอ</th><th>บิล</th><th>สาขา</th><th>ผู้ขอ</th><th>ส่วนที่อนุมัติไปแล้ว</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead><tbody>
+    <div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table><thead><tr><th>วันที่แก้</th><th>บิล</th><th>สาขา</th><th>ผู้แก้</th><th>ส่วนที่แก้</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead><tbody>
     ${audEditRequests.length ? audEditRequests.map(r => `<tr>
       <td class="nowrap">${formatDate(r.created_at)}</td>
       <td><strong>${esc(r.hn)}</strong> — ${esc(r.customer_name)}<br><small>${formatDate(r.bill_date)}</small></td>
-      <td>${esc(r.branch_name)}</td><td>${esc(r.requested_by_name)}</td><td>${parts(r)}</td>
+      <td>${esc(r.branch_name)}</td><td>${who(r)}</td><td>${audEditsNewFlow ? parts(r) : '-'}</td>
       <td style="max-width:260px;font-size:.82rem;">${esc(r.reason)}${r.decision_note ? `<br><small style="color:var(--gray-500);">ผล: ${esc(r.decision_note)}</small>` : ''}</td>
       <td>${statusBadge(r.status)}</td>
-      <td class="nowrap"><button class="btn btn-ghost btn-sm" data-view-ok onclick="audViewEditRequestBill('${r.bill_id}')"><i data-lucide="eye"></i></button>
-        ${r.status === 'รออนุมัติ' ? `<button class="btn btn-success btn-sm" onclick="audDecideEdit('${r.id}', true)">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="audPromptDeclineEdit('${r.id}')">ไม่อนุมัติ</button>` : ''}</td>
-    </tr>`).join('') : '<tr><td colspan="8"><div class="empty-state">ไม่มีคำขอแก้ไข</div></td></tr>'}
+      <td class="nowrap">${audEditsNewFlow && r.old_payload
+          ? `<button class="btn btn-ghost btn-sm" data-view-ok onclick="audShowEditDiff('${r.id}')"><i data-lucide="git-compare"></i> ก่อน/หลัง</button>`
+          : `<button class="btn btn-ghost btn-sm" data-view-ok onclick="audViewEditRequestBill('${r.bill_id}')"><i data-lucide="eye"></i></button>`}
+        ${r.status === 'รออนุมัติ' && (canDecide || !audEditsNewFlow) ? `<button class="btn btn-success btn-sm" onclick="audDecideEdit('${r.id}', true)">อนุมัติ</button> <button class="btn btn-danger btn-sm" onclick="audPromptDeclineEdit('${r.id}')">ไม่อนุมัติ</button>` : ''}</td>
+    </tr>`).join('') : '<tr><td colspan="8"><div class="empty-state">ไม่มีรายการ</div></td></tr>'}
     </tbody></table></div></div>`;
   lucide.createIcons();
 }
@@ -344,11 +358,53 @@ function audViewEditRequestBill(billId) {
   if (audCanAccessCommission()) audOpenBill(billId); else audOpenStockRequest(billId);
 }
 
+// ก่อน/หลัง: เทียบทีละบรรทัด แถวที่เปลี่ยนไฮไลต์
+function audShowEditDiff(requestId) {
+  const r = audEditRequests.find(x => x.id === requestId);
+  if (!r) return;
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const o = r.old_payload || {}, n = r.new_payload || {};
+  const money = v => v == null || v === '' ? '-' : '฿' + formatCurrency(Number(v) || 0);
+  const svc = s => `${esc(s.program_name || s.program_code)} · ราคา ${money(s.price)} · ค่ามือ ${money(s.commission)}`;
+  const sale = s => `${esc(s.type === 'upsell' ? 'อัพเซลส์' : s.type === 'product' ? 'ขายสินค้า' : 'ขายเพิ่ม')}: ${esc(s.new_program)} ${money(s.new_price)} · ชำระ ${money(s.amount_paid)} · ${Number(s.commission_pct) || 0}% = ${money(s.commission_amt)}`;
+  const sup = s => `${esc(s.product_name || s.product_code)} × ${Number(s.qty) || 0}`;
+  const block = (title, a, b, fmt) => {
+    const left = (a || []).map(fmt), right = (b || []).map(fmt);
+    if (!left.length && !right.length) return '';
+    const rows = Math.max(left.length, right.length);
+    let html = `<tr><th colspan="2" style="text-align:left !important;background:var(--gray-50);">${title}</th></tr>`;
+    for (let i = 0; i < rows; i++) {
+      const changed = left[i] !== right[i];
+      html += `<tr${changed ? ' class="aud-diff-changed"' : ''}><td class="col-text">${left[i] || '<span style="color:var(--gray-400);">—</span>'}</td><td class="col-text">${right[i] || '<span style="color:var(--gray-400);">ลบออก</span>'}</td></tr>`;
+    }
+    return html;
+  };
+  const head = (label, a, b) => a === b ? '' : `<tr class="aud-diff-changed"><td class="col-text">${label}: ${esc(a || '-')}</td><td class="col-text">${label}: ${esc(b || '-')}</td></tr>`;
+  const headRows = head('HN', o.hn, n.hn) + head('ชื่อลูกค้า', o.customer_name, n.customer_name) + head('วันที่', String(o.date || '').slice(0, 10), String(n.date || '').slice(0, 10)) + head('ลูกค้ามาจาก', o.customer_source, n.customer_source);
+  openModal(`<div class="modal" style="max-width:860px;width:95%;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="git-compare"></i>ก่อน / หลังแก้ไข — ${esc(r.hn)} ${esc(r.customer_name)}</h3>
+    <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 10px;font-size:.85rem;"><b>เหตุผล:</b> ${esc(r.reason)} · <b>ผู้แก้:</b> ${esc(r.requested_by_name)} · ${formatDate(r.created_at)}</p>
+      <div class="table-wrap"><table class="aud-diff"><thead><tr><th>ก่อนแก้</th><th>หลังแก้ (ใช้อยู่ตอนนี้)</th></tr></thead><tbody>
+        ${headRows}
+        ${block('ค่ามือ', o.services, n.services, svc)}
+        ${block('อัพเซลส์ / ขายเพิ่ม / ขายสินค้า', o.sales, n.sales, sale)}
+        ${block('รายการเบิก', o.supplies, n.supplies, sup)}
+      </tbody></table></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" data-view-ok onclick="closeModalDirect();audViewEditRequestBill('${r.bill_id}')"><i data-lucide="eye"></i> เปิดบิลเต็ม</button>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ปิด</button>
+      ${r.status === 'รออนุมัติ' && audCanDecideEdits() ? `<button class="btn btn-danger" onclick="audPromptDeclineEdit('${r.id}')">ไม่อนุมัติ (คืนข้อมูลเดิม)</button><button class="btn btn-success" onclick="audDecideEdit('${r.id}', true)">อนุมัติ</button>` : ''}</div></div>`, { width: '880px' });
+}
+
 async function audDecideEdit(requestId, approve, note) {
   try {
-    await DB.decideBillEditRequestSupabase(requestId, approve, note || null);
+    if (audEditsNewFlow) await DB.decideBillEditSupabase(requestId, approve, note || null);
+    else await DB.decideBillEditRequestSupabase(requestId, approve, note || null);
     closeModalDirect();
-    Toast.show(approve ? 'อนุมัติคำขอแก้ไขแล้ว — พนักงานแก้บิลได้' : 'ไม่อนุมัติคำขอแก้ไขแล้ว', approve ? 'success' : 'error');
+    Toast.show(audEditsNewFlow
+      ? (approve ? 'อนุมัติการแก้ไขแล้ว ✓' : 'ไม่อนุมัติแล้ว — คืนข้อมูลเดิมให้แล้ว')
+      : (approve ? 'อนุมัติคำขอแก้ไขแล้ว — พนักงานแก้บิลได้' : 'ไม่อนุมัติคำขอแก้ไขแล้ว'), approve ? 'success' : 'error');
     audRenderEditRequests(document.getElementById('aud-body'));
   } catch (e) { Toast.show('ทำรายการไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
 }
