@@ -594,3 +594,5 @@ td.bal-has { color: var(--ink, #2b2226) !important; font-weight: 600; }
   .inv-row:has(> div:last-child:empty) > div:nth-child(1) { grid-column: 1 / 5 !important; }
   #inv-body .form-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
 }
+.count-input::placeholder { font-weight: 400 !important; font-size: .8rem !important; color: #c2b6bb !important; }
+.count-unit { color: var(--ink-3, #8a7c83) !important; }
