@@ -510,12 +510,13 @@ function opdCheckHn(value) {
     if (own.length === 1) {
       opdApplyHn(own[0]);
       const others = m.filter(x => x !== own[0]);
-      if (others.length) hint.innerHTML += '<div style="color:var(--gray-500);margin-top:2px;">ไม่ใช่คนนี้? เลือก: ' + others.map(x => `<a href="#" onclick="opdPickHn(${m.indexOf(x)});return false;" style="margin-right:8px;">${label(x)}</a>`).join('') + '</div>';
+      // รายชื่ออื่นขึ้นทีละบรรทัด กดง่ายในมือถือ (คุณออม 22/10)
+      if (others.length) hint.innerHTML += '<div class="hn-others"><span>ไม่ใช่คนนี้? เลือก:</span>' + others.map(x => `<button type="button" class="hn-pick" onclick="opdPickHn(${m.indexOf(x)})">${label(x)}${x.branch === currentBranch ? '' : ' <small>(ลูกค้าสาขาอื่น)</small>'}</button>`).join('') + '</div>';
       return;
     }
     // หลายคน หรือเป็นลูกค้าสาขาอื่น (มาใช้บริการต่างสาขา) → ให้น้องกดเลือกให้ตรงคน
     hint.innerHTML = '<div style="color:var(--gray-700);margin-bottom:2px;">พบ ' + m.length + ' คน — กดเลือกให้ตรงกับลูกค้า:</div>'
-      + m.map((x, i) => `<button type="button" class="btn btn-ghost btn-sm" style="display:block;width:100%;text-align:left;margin-bottom:2px;${x.branch === currentBranch ? '' : 'opacity:.85;'}" onclick="opdPickHn(${i})">${label(x)}${x.branch === currentBranch ? '' : ' <span style="color:var(--gray-500);">(ลูกค้าสาขาอื่น)</span>'}</button>`).join('');
+      + m.map((x, i) => `<button type="button" class="hn-pick" onclick="opdPickHn(${i})">${label(x)}${x.branch === currentBranch ? '' : ' <small>(ลูกค้าสาขาอื่น)</small>'}</button>`).join('');
   }, 500);
 }
 // ใส่ HN ตัวจริงตาม ERP + ชื่อ ลงฟอร์ม (ชื่อที่น้องพิมพ์เองไม่ทับ เว้นแต่น้องกดเลือกเอง)

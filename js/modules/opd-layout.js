@@ -37,6 +37,18 @@ renderOPD = async function(container) {
   area.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openOPDCamera();}};
   area.querySelector('p').innerHTML='เปิดกล้องถ่ายภาพ OPD<br><span>ถ่ายใหม่เท่านั้น · แนบได้หลายภาพ</span>';
   document.getElementById('photo-input').remove();
+  // จอคอม/ไอแพดแนวนอน: 2 คอลัมน์ ซ้าย = ลูกค้า · ค่ามือ · เบิก / ขวา = ค่าคอม · รูป · ปุ่มบันทึก (มือถือเรียงต่อกันตามเดิม)
+  const opdForm=document.getElementById('opd-form');
+  if(opdForm&&!opdForm.querySelector('.opd-col')){
+    const left=document.createElement('div'),right=document.createElement('div');
+    left.className='opd-col opd-col-left';right.className='opd-col opd-col-right';
+    const first=document.getElementById('customer-section');
+    first.before(left);
+    ['customer-section','services-section','supplies-section'].forEach(id=>{const el=document.getElementById(id);if(el)left.append(el);});
+    left.after(right);
+    ['sales-section','photos-section'].forEach(id=>{const el=document.getElementById(id);if(el)right.append(el);});
+    const actions=opdForm.querySelector('.opd-actions');if(actions)right.append(actions);
+  }
   if (opdState.editMode) opdApplyEditMode();
 };
 opdToggleSection=function(id){

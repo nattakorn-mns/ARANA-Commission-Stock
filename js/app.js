@@ -724,6 +724,13 @@ function alignTableColumns(root) {
   (root || document).querySelectorAll('table').forEach(table => {
     const heads = table.querySelectorAll('thead th');
     if (!heads.length) return;
+    // มือถือ: แต่ละแถวแสดงเป็นการ์ด — ใส่ชื่อคอลัมน์ไว้ในแต่ละช่อง (CSS ใช้ data-label)
+    const names = [...heads].map(th => th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      if (tr.children.length !== heads.length) return;
+      [...tr.children].forEach((td, i) => { if (td.dataset.label !== names[i]) td.dataset.label = names[i]; });
+    });
+    table.classList.add('card-table');
     const textCols = [];
     heads.forEach((th, i) => { if (TABLE_TEXT_HEADERS.test(th.textContent.trim())) { th.classList.add('col-text'); textCols.push(i); } });
     if (!textCols.length) return;

@@ -296,7 +296,7 @@ function scRenderWeeklyTable() {
   wcPage = Math.min(Math.max(1, wcPage), pages);
   const shown = all.slice((wcPage - 1) * WC_PAGE_SIZE, wcPage * WC_PAGE_SIZE);
 
-  const input = p => `<input type="number" class="count-input" id="wc-input-${p.code}" placeholder="0" min="0" step="any" inputmode="decimal"
+  const input = p => `<input type="number" class="count-input" id="wc-input-${p.code}" placeholder="นับได้" min="0" step="any" inputmode="decimal"
       value="${wcCounted[p.code] ?? (wcEditing.has(p.code) ? p.saved : '')}" oninput="wcSetCount('${p.code}',this.value)" />`;
   const row = p => {
     const isSaved = p.saved !== undefined;

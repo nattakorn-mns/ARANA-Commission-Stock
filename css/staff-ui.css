@@ -536,3 +536,43 @@ table.aud-diff td { font-size: .84rem; }
   .table-wrap table { font-size: .84rem; }
   .gal-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+/* มือถือ: ตารางแสดงเป็นการ์ด 1 ใบต่อแถว (ชื่อคอลัมน์ซ้าย ค่าขวา) — ไม่ต้องเลื่อนข้าง (คุณออม 22/10) */
+@media (max-width: 640px) {
+  .table-wrap:has(> table.card-table) { overflow: visible !important; border: none !important; background: transparent !important; padding: 8px !important; box-shadow: none !important; }
+  table.card-table { display: block; width: 100%; min-width: 0 !important; border-collapse: separate; font-size: .86rem; }
+  table.card-table thead { display: none; }
+  table.card-table tbody { display: grid; gap: 10px; }
+  table.card-table tr { display: grid; gap: 2px; background: var(--surface, #fff); border: 1px solid var(--gray-100); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  table.card-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 4px 0 !important; border: none !important; text-align: right !important; white-space: normal !important; max-width: none !important; min-width: 0; word-break: break-word; }
+  table.card-table td[data-label]::before { content: attr(data-label); flex: 0 0 auto; max-width: 45%; text-align: left; color: var(--gray-500); font-size: .78rem; font-weight: 500; padding-top: 1px; }
+  table.card-table td[data-label=""]::before { content: none; }
+  table.card-table td[data-label=""] { justify-content: flex-end; gap: 6px; flex-wrap: wrap; padding-top: 8px !important; }
+  table.card-table td:first-child { font-weight: 700; }
+  table.card-table td:empty { display: none; }
+  table.card-table td[colspan] { display: block; text-align: center !important; }
+  table.card-table tr.sc-opening-row td { background: transparent; }
+}
+
+/* รายชื่อ HN ให้เลือก ทีละบรรทัด */
+.hn-others { margin-top: 4px; color: var(--gray-500); display: grid; gap: 2px; }
+.hn-pick { display: block; width: 100%; text-align: left; padding: 7px 10px; margin: 0 0 3px; border: 1px solid var(--gray-100); border-radius: 8px; background: var(--surface, #fff); font: inherit; font-size: .82rem; color: var(--ink-1, #2b2226); cursor: pointer; line-height: 1.35; }
+.hn-pick:hover { border-color: var(--brand-soft-2, #e8c3cf); background: var(--brand-soft, #fbeef2); }
+.hn-pick small { color: var(--gray-500); }
+
+/* ตัวหนังสือหัวข้อช่องเข้มขึ้น อ่านง่ายในมือถือ/กลางแจ้ง */
+.form-label, .filter-label { color: var(--ink-2, #4a3d43) !important; font-weight: 600 !important; }
+.form-input::placeholder, .filter-input::placeholder, .sel-search-input::placeholder { color: #9b8f95 !important; }
+
+/* จอกว้าง (คอม / ไอแพดแนวนอน): ฟอร์ม OPD และมัดจำ 2 คอลัมน์ ไม่ต้องเลื่อนยาว */
+.opd-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+@media (min-width: 1100px) {
+  #opd-form { display: grid !important; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  #opd-form > :not(.opd-col) { grid-column: 1 / -1; }
+  #opd-form .opd-col-right .opd-actions { justify-content: flex-end; }
+  #deposit-preview-form { display: grid !important; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  #deposit-preview-form > .deposit-guidance { grid-column: 1 / -1; }
+  #deposit-preview-form > .deposit-data-section { grid-column: 1; grid-row: 2 / span 2; }
+  #deposit-preview-form > .deposit-evidence-section { grid-column: 2; grid-row: 2; }
+  #deposit-preview-form > .deposit-actions { grid-column: 2; grid-row: 3; align-self: start; }
+}
