@@ -576,3 +576,13 @@ table.aud-diff td { font-size: .84rem; }
   #deposit-preview-form > .deposit-evidence-section { grid-column: 2; grid-row: 2; }
   #deposit-preview-form > .deposit-actions { grid-column: 2; grid-row: 3; align-self: start; }
 }
+
+/* สต๊อกคงเหลือ: 0 สีจาง / ติดลบสีแดง / มีของตัวเข้ม · หัวตารางติดบนตอนเลื่อน (จอคอม/ไอแพด) */
+td.bal-zero { color: #b9aeb3 !important; }
+td.bal-neg { color: var(--red-600, #c62828) !important; font-weight: 700; }
+td.bal-has { color: var(--ink, #2b2226) !important; font-weight: 600; }
+@media (min-width: 641px) {
+  #bal-table-wrap { max-height: calc(100vh - 230px); overflow: auto; }
+  #bal-table-wrap thead th, #sc-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: var(--canvas, #faf6f7); }
+}
+#opd-form .opd-col-right .opd-actions { justify-content: flex-end !important; }

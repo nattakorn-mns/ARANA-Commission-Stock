@@ -532,7 +532,7 @@ async function balRender() {
             <td style="font-weight:600;">${p.name}</td>
             <td>${p.category||'-'}</td>
             <td>${p.unit||'-'}</td>
-            ${vals.map(v => `<td class="num ${v<=0?'text-red-500':''}">${v}</td>`).join('')}
+            ${vals.map(v => `<td class="num ${v < 0 ? 'bal-neg' : v === 0 ? 'bal-zero' : 'bal-has'}">${v}</td>`).join('')}
             <td class="num" style="font-weight:700;">${total}</td>
           </tr>`;
         } else {
