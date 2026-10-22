@@ -586,3 +586,11 @@ td.bal-has { color: var(--ink, #2b2226) !important; font-weight: 600; }
   #bal-table-wrap thead th, #sc-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: var(--canvas, #faf6f7); }
 }
 #opd-form .opd-col-right .opd-actions { justify-content: flex-end !important; }
+
+/* คลังสินค้าในมือถือ: ปุ่ม Excel 2 ปุ่มอยู่แถวเดียว · ช่องสินค้าเต็มแถวเมื่อยังไม่มีปุ่มลบ · วันที่/สาขาคู่กัน */
+@media (max-width: 640px) {
+  .inv-head-actions { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr; margin-top: 8px; }
+  .inv-head-actions .btn { justify-content: center; font-size: .74rem !important; padding: 6px 4px !important; white-space: nowrap; }
+  .inv-row:has(> div:last-child:empty) > div:nth-child(1) { grid-column: 1 / 5 !important; }
+  #inv-body .form-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+}
