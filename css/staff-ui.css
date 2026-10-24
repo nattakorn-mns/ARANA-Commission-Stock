@@ -596,3 +596,7 @@ td.bal-has { color: var(--ink, #2b2226) !important; font-weight: 600; }
 }
 .count-input::placeholder { font-weight: 400 !important; font-size: .8rem !important; color: #c2b6bb !important; }
 .count-unit { color: var(--ink-3, #8a7c83) !important; }
+
+/* แชร์เข้ากลุ่ม LINE */
+.stock-share-preview { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--canvas, #faf6f7); border: 1px solid var(--line, #ece3e7); font-family: var(--font); font-size: .9rem; white-space: pre-wrap; line-height: 1.6; user-select: all; }
+.btn.stock-share-line { background: #06c755 !important; border-color: #06c755 !important; color: #fff !important; }

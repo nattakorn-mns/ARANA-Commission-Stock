@@ -362,8 +362,12 @@ async function invSubmit() {
     Toast.show(res && res.duplicate
       ? 'ใบนี้บันทึกเข้าระบบไปแล้วก่อนหน้านี้ ✓ ไม่ได้บันทึกซ้ำ'
       : `บันทึกสำเร็จ — ${count} รายการ ⏳ รอบัญชีอนุมัติ${invTab === 'in' ? ' (สต็อกจะเพิ่มเมื่ออนุมัติ)' : ' (สต็อกจะถูกตัดเมื่ออนุมัติ)'}`, 'success', 5000);
+    // แชร์เข้ากลุ่ม LINE ของสาขา (เบิกใช้ / โอนออก / รับเข้า)
+    const share = res && !res.duplicate && typeof stockShareOffer === 'function'
+      ? { kind: invTab, count, date, branch: currentBranch, toBranch, poNo: invTab === 'in' ? invPoNo : null, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [] } : null;
     if (invTab === 'in') { invPoNo = ''; invPoRows = []; invOthers = []; await invLoadPos(); }
     invReset();
+    if (share) stockShareOffer(share);
   } catch (e) {
     console.error(e);
     Toast.show('บันทึกไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 6000);

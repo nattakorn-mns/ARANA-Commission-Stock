@@ -51,6 +51,7 @@ const Photos = {
     const list = Array.isArray(images) ? images : [];
     const raw = list.map(i => (typeof i === 'string' ? i : i && i.data) || '');
     const todo = raw.map((d, n) => /^data:image\//.test(d) ? n : -1).filter(n => n >= 0);
+    this.lastStored = [];
     if (!todo.length) return list;
     const full = await Promise.all(todo.map(n => this.compress(raw[n], this.FULL_SIDE, this.FULL_Q)));
     let paths = null;
@@ -65,6 +66,7 @@ const Photos = {
     }
     const out = raw.slice();
     todo.forEach((n, i) => { out[n] = paths ? paths[i] : full[i]; });
+    this.lastStored = paths ? paths.slice() : []; // ใช้ทำลิงก์แชร์เข้ากลุ่ม LINE
     return list.map((item, n) => typeof item === 'string' ? out[n] : { ...item, data: out[n] });
   },
 

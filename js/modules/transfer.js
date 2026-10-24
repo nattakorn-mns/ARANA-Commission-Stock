@@ -115,7 +115,10 @@ async function trfSubmit() {
     Toast.show('บันทึกไม่สำเร็จ: ' + trfErr(e), 'error', 6000); return;
   }
   Toast.show('บันทึกการรับโอนแล้ว ✓ รอบัญชีตรวจ', 'success', 4000);
-  renderTransferReceive(getPage());
+  await renderTransferReceive(getPage());
+  // แชร์เข้ากลุ่ม LINE รับเข้า/รับโอน ของสาขา
+  if (typeof stockShareOffer === 'function') stockShareOffer({ kind: 'receive', count: t.items.length, date: todayISO(), branch: currentBranch,
+    fromBranch: t.from_branch, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [] });
 }
 
 // ── ต้นทาง: ใบโอนที่บัญชีส่งกลับให้แก้ (แสดงบนหน้า "เบิกโอนข้ามสาขา") ──

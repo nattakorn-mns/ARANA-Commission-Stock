@@ -73,11 +73,12 @@ async function upload(token: string, kind: string, branch: string, images: { ful
   return json({ ok: true, paths: out });
 }
 
-async function sign(token: string, paths: string[]) {
+// days: ลิงก์แชร์เข้ากลุ่ม LINE เปิดได้นานสุด 30 วัน (ปกติ 1 ชม.)
+async function sign(token: string, paths: string[], days?: number) {
   await actor(token);
   const list = (Array.isArray(paths) ? paths : []).map((p) => String(p).replace(/^storage:/, "")).filter((p) => p && !p.includes("..")).slice(0, 200);
   if (!list.length) return json({ ok: true, urls: {} });
-  const { data, error } = await sb.storage.from(BUCKET).createSignedUrls(list, 3600);
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrls(list, days ? Math.min(Math.max(1, Math.floor(days)), 30) * 86400 : 3600);
   if (error) return json({ ok: false, error: error.message }, 500);
   const urls: Record<string, string | null> = {};
   (data || []).forEach((d) => { if (d.path) urls["storage:" + d.path] = d.signedUrl || null; });
@@ -142,7 +143,7 @@ Deno.serve(async (req) => {
   if (!token) return json({ ok: false, error: "SESSION_REQUIRED" }, 401);
   try {
     if (body.action === "upload") return await upload(token, String(body.kind || ""), String(body.branch || ""), body.images);
-    if (body.action === "sign") return await sign(token, body.paths);
+    if (body.action === "sign") return await sign(token, body.paths, Number(body.days) || undefined);
     if (body.action === "migrate") return await migrate(token, Number(body.limit) || 20);
     if (body.action === "prune") return await prune(token, String(body.month || ""));
     return json({ ok: false, error: "UNKNOWN_ACTION" }, 400);
