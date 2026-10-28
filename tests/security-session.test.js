@@ -66,6 +66,7 @@ const DB = context.__DB;
     'admin_stock_resync_preview', 'admin_stock_resync_apply',
     'save_staff_draft', 'list_my_drafts', 'get_staff_draft', 'delete_staff_draft', 'list_open_drafts',
     'list_my_stock_requests', 'cancel_my_stock_request', 'mark_stock_shared', 'get_my_deposit', 'cancel_my_deposit', 'list_share_report',
+    'confirm_daily_summary', 'my_daily_confirm',
     'list_deposit_accounts', 'admin_save_deposit_account',
     'list_open_pos_for_receiving', 'lookup_erp_customer', 'list_customer_deposits', 'list_programs_for_branch', 'list_receive_other_items', 'decide_receive_other_item', 'dispense_compare',
     'get_app_settings', 'admin_save_app_setting', 'create_deposit_any_branch', 'submit_bill_edit', 'list_bill_edits', 'decide_bill_edit',

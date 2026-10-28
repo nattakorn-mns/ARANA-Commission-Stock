@@ -337,6 +337,9 @@ const DB = {
   // ดึงข้อมูลจาก ERP (SQL ไฟล์ 09)
   async adminErpSyncStatusSupabase() { return await this._positionRpc('admin_erp_sync_status'); },
   async adminErpSyncNowSupabase() { return await this._positionRpc('admin_erp_sync_now'); },
+  // ยืนยันยอดส่งสรุปรายวัน (SQL ไฟล์ 27)
+  async confirmDailySummarySupabase(date) { return (await this._positionRpc('confirm_daily_summary', { p_date: date || null })) || []; },
+  async myDailyConfirmSupabase(date) { return (await this._positionRpc('my_daily_confirm', { p_date: date || null })) || []; },
   // ใบของฉัน / ยกเลิกเอง / ติดตามการแชร์ (SQL ไฟล์ 26)
   async listMyStockRequestsSupabase(kind, days) { return (await this._positionRpc('list_my_stock_requests', { p_kind: kind, p_days: days || 7 })) || []; },
   async cancelMyStockRequestSupabase(id, reason) { return await this._positionRpc('cancel_my_stock_request', { p_request_id: id, p_reason: reason }); },

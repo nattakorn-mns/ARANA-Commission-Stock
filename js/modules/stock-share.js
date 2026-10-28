@@ -53,7 +53,7 @@ async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch
 function stockShareMark(method) {
   const ref = stockShareRef;
   if (ref && DB.markStockSharedSupabase) DB.markStockSharedSupabase(ref.requestId, ref.kind, method)
-    .then(() => { if (typeof mineLoad === 'function' && mineKind === ref.kind) mineLoad(ref.kind); }).catch(e => console.warn('mark share', e));
+    .then(() => { if (typeof mineSumStockRender === 'function') mineSumStockRender(); }).catch(e => console.warn('mark share', e));
 }
 async function stockShareSend() {
   const text = stockShareText;

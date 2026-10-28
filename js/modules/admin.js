@@ -1162,7 +1162,7 @@ function ntfTopicsHtml() {
   const { channels, rooms } = ntfData;
   return `<div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
     <span>ติ๊กเลือกห้องที่จะให้ส่งแต่ละเรื่อง เลือกได้หลายห้อง (เช่น ช่วงทดลองส่งทั้งกลุ่มเทสและกลุ่มจริง) · ไม่เลือกห้อง = ไม่ส่ง · แก้แล้วกด <b>บันทึก</b> ของเรื่องนั้น
-    <br>เวลาส่ง: ข้อความทันทีภายใน 2 นาที · สรุปสต็อก 23:00 · สรุปรายคน 23:00 · ฉบับแก้ไข 06:00</span></div>
+    <br>เวลาส่ง: ข้อความทันทีภายใน 2 นาที · สรุปรายคน = น้องกดยืนยันยอดเอง · สรุปสต็อก + สรุปสิ้นวัน 23:30</span></div>
   <div class="ntf-grid">${channels.map(c => `
     <div class="glass-card ntf-card${c.is_active ? '' : ' ntf-off'}">
       <div class="ntf-card-head"><strong>${ntfEsc(c.label)}</strong></div>
@@ -1181,8 +1181,7 @@ function ntfTopicsHtml() {
     <span style="font-weight:700;color:var(--gray-700);">สร้างสรุปตอนนี้:</span>
     <input type="date" class="filter-input" id="ntf-build-date" value="${todayISO()}">
     <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('stock_daily')">สรุปสต็อก</button>
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_daily')">สรุปค่ามือ/ค่าคอมรายคน</button>
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_addendum')">ฉบับแก้ไข</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('day_end')">สรุปสิ้นวัน (ตีกลับ / ยังไม่ยืนยันยอด)</button>
     <span style="font-size:.78rem;color:var(--gray-500);">สรุปวันเดียวกันสร้างซ้ำไม่ได้ (กันส่งซ้ำ)</span>
   </div>`;
 }

@@ -1,6 +1,6 @@
 /**
  * ARANA Staff — ใบของฉัน + แก้ไข/ยกเลิก + ติดตามการแชร์ (คุณออม 29/10, SQL ไฟล์ 26)
- *  - หน้าเบิกใช้ / รับเข้า / โอนออก / รับโอน: "ใบของฉัน 7 วันล่าสุด" → แชร์อีกครั้ง · แก้ไข · ยกเลิก (เฉพาะใบที่บัญชียังไม่ตรวจ)
+ *  - สรุปยอดของฉัน → แท็บคลังสินค้า: ใบของฉัน → ⋯ ดู · แชร์อีกครั้ง · แก้ไข · ยกเลิก (แก้/ยกเลิกเฉพาะใบที่บัญชียังไม่ตรวจ)
  *    แก้ไข = เปิดใบเดิมในฟอร์ม (รายการ + รูปครบ) → บันทึกใบใหม่สำเร็จ ใบเดิมถูกยกเลิกให้อัตโนมัติ
  *  - สรุปยอดของฉัน: มัดจำที่บัญชียังไม่ยืนยัน → แก้ไข · ยกเลิก
  *  - ห้องตรวจสอบ → "การแชร์เข้ากลุ่ม": ใบไหนกดแชร์แล้ว / ใครยังไม่แชร์
@@ -15,37 +15,6 @@ let mineKind = null;
 let mineCancel = null;
 
 // ---------- ใบของฉัน ----------
-async function mineLoad(kind) {
-  mineKind = kind;
-  const host = kind === 'receive' ? document.getElementById('trf-body') : document.getElementById('inv-body');
-  if (!host) return;
-  let rows;
-  try { rows = await DB.listMyStockRequestsSupabase(kind); } catch (e) { if (!mineMissing(e)) console.warn('mine', e); return; }
-  if (mineKind !== kind) return;
-  mineRows = rows;
-  document.getElementById('mine-card')?.remove();
-  if (!rows.length) return;
-  const box = document.createElement('div');
-  box.id = 'mine-card'; box.className = 'glass-card mine-card';
-  const notShared = rows.filter(r => !r.cancelled && !r.shared).length;
-  box.innerHTML = `<div class="mine-head"><i data-lucide="list-checks"></i> ใบ${MINE_WORD[kind]}ของฉัน 7 วันล่าสุด
-      ${notShared ? `<span class="mine-unshared">ยังไม่แชร์เข้ากลุ่ม ${notShared} ใบ</span>` : ''}</div>
-    <div class="table-wrap" style="border:none;"><table><tbody>${rows.slice(0, 15).map(r => {
-      const items = (r.lines || []).filter(l => Number(l.qty) > 0);
-      const names = items.slice(0, 2).map(l => mineEsc(l.product_name)).join(', ') + (items.length > 2 ? ` +${items.length - 2}` : '') + ((r.others || []).length ? ` · อื่นๆ ${r.others.length}` : '');
-      return `<tr class="${r.cancelled ? 'mine-cancelled' : ''}">
-        <td class="nowrap">${formatDate(r.log_date)}</td>
-        <td>${names || '-'}${r.to_branch ? ` → ${mineEsc(r.to_branch)}` : ''}${r.from_branch ? ` (จาก${mineEsc(r.from_branch)})` : ''}${r.po_no ? ` · ${mineEsc(r.po_no)}` : ''}</td>
-        <td><span class="badge ${r.cancelled ? '' : r.status === 'อนุมัติแล้ว' ? 'badge-approved' : r.status === 'ตีกลับ' ? 'badge-rejected' : 'badge-waiting'}">${mineEsc(r.status || '-')}</span></td>
-        <td>${r.cancelled ? '' : r.shared ? `<span class="mine-shared">✓ แชร์แล้ว</span>` : '<span class="mine-unshared">ยังไม่แชร์</span>'}</td>
-        <td class="nowrap">${r.cancelled ? '' : `<button class="btn btn-ghost btn-sm" onclick="mineShare('${r.request_id}')"><i data-lucide="send"></i> แชร์</button>`}
-          ${r.editable ? `<button class="btn btn-ghost btn-sm" onclick="mineEdit('${r.request_id}')"><i data-lucide="pencil"></i> แก้ไข</button>
-          <button class="btn btn-ghost btn-sm ntf-danger" onclick="mineAskCancel('stock','${r.request_id}')"><i data-lucide="x-circle"></i> ยกเลิก</button>` : ''}</td></tr>`;
-    }).join('')}</tbody></table></div>`;
-  host.appendChild(box);
-  lucide.createIcons();
-}
-
 function mineShare(id) {
   const r = mineRows.find(x => x.request_id === id);
   if (!r) return;
@@ -97,19 +66,11 @@ async function mineDoCancel() {
     closeModalDirect();
     Toast.show('ยกเลิกแล้ว ✓', 'success');
     if (c.type === 'deposit') { summaryDeposits = await DB.getMyDepositsSupabase(); sumRender(); }
-    else if (mineKind) mineLoad(mineKind); else mineSumStockRender();
+    else mineSumStockRender();
   } catch (e) { Toast.show('ยกเลิกไม่สำเร็จ: ' + ((e && e.hint) || DB.stockErrorText(e)), 'error', 6000); }
 }
 
 // ---------- ต่อเข้ากับหน้าเดิม ----------
-if (typeof invRender === 'function') {
-  const mineOrigInvRender = invRender;
-  invRender = function () { mineOrigInvRender(); mineLoad(invTab); };
-}
-if (typeof trfRenderList === 'function') {
-  const mineOrigTrfList = trfRenderList;
-  trfRenderList = function () { mineOrigTrfList(); mineLoad('receive'); };
-}
 // ส่งใบใหม่สำเร็จ → ยกเลิกใบเดิมที่เปิดมาแก้ / มัดจำเดิม
 if (typeof Drafts !== 'undefined') {
   const mineOrigSubmitted = Drafts.submitted.bind(Drafts);
@@ -133,9 +94,32 @@ if (typeof Drafts !== 'undefined') {
 function mineDepositActions(id) {
   const d = (summaryDeposits || []).find(x => x.id === id);
   if (!d || d.payment_status !== 'รอตรวจสอบ' || d.linked_bill_id || d.commission_status === 'ยกเลิก') return '';
-  return `<div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="mineEditDeposit('${id}')"><i data-lucide="pencil"></i> แก้ไข</button>
-    <button class="btn btn-ghost btn-sm ntf-danger" onclick="mineAskCancel('deposit','${id}')"><i data-lucide="x-circle"></i> ยกเลิก</button></div>`;
+  return rowMenu([['pencil', 'แก้ไข', `mineEditDeposit('${id}')`], ['x-circle', 'ยกเลิก', `mineAskCancel('deposit','${id}')`, 'danger']]);
 }
+
+// เมนู ⋯ ท้ายแถว (คุณออม 29/10): กดแล้วเลือก ดู / แชร์ / แก้ไข / ยกเลิก — ตารางไม่รก
+const ROW_MENUS = [];
+function rowMenu(items) {
+  const list = items.filter(Boolean);
+  if (!list.length) return '';
+  ROW_MENUS.push(list);
+  return `<button type="button" class="row-menu-btn" title="จัดการ" aria-label="จัดการ" onclick="rowMenuOpen(event, ${ROW_MENUS.length - 1})">⋯</button>`;
+}
+function rowMenuClose() { document.getElementById('row-menu-pop')?.remove(); }
+function rowMenuOpen(e, i) {
+  e.stopPropagation();
+  rowMenuClose();
+  const pop = document.createElement('div');
+  pop.id = 'row-menu-pop'; pop.className = 'row-menu-pop';
+  pop.innerHTML = ROW_MENUS[i].map(([icon, label, act, cls]) => `<button type="button" class="${cls === 'danger' ? 'danger' : ''}" onclick="rowMenuClose();${act}"><i data-lucide="${icon}"></i> ${label}</button>`).join('');
+  document.body.appendChild(pop);
+  const r = e.currentTarget.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+  pop.style.top = (r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
+  lucide.createIcons();
+}
+document.addEventListener('click', e => { if (!e.target.closest || !e.target.closest('#row-menu-pop')) rowMenuClose(); });
+window.addEventListener('scroll', rowMenuClose, true);
 async function mineEditDeposit(id) {
   let d;
   try { d = await DB.getMyDepositSupabase(id); } catch (e) { Toast.show('เปิดมัดจำไม่สำเร็จ: ' + ((e && e.hint) || DB.stockErrorText(e)), 'error'); return; }
@@ -262,6 +246,8 @@ if (typeof renderHistory === 'function') {
           <button data-tab="comm" onclick="mineSumSwitch('comm')"><i data-lucide="badge-dollar-sign"></i> ค่ามือ / ค่าคอม</button>
           <button data-tab="stock" onclick="mineSumSwitch('stock')"><i data-lucide="package"></i> คลังสินค้า</button></div>`);
       page.insertAdjacentHTML('beforeend', '<div id="sum-stock" class="sum-stock"></div>');
+      page.querySelector('.sum-main-tabs').insertAdjacentHTML('afterend', '<div id="sum-confirm" class="sum-confirm"></div>');
+      mineConfirmBar();
       mineSumSwitch(mineSumTab);
     }
     return out;
@@ -312,10 +298,11 @@ async function mineSumStockRender() {
           <td data-label="สาขา">${mineEsc(r.branch || '')}${r.to_branch ? ' → ' + mineEsc(r.to_branch) : ''}${r.from_branch ? ' ← ' + mineEsc(r.from_branch) : ''}</td>
           <td data-label="สถานะ"><span class="badge ${r.cancelled ? '' : r.status === 'อนุมัติแล้ว' || r.status === 'รับครบ' ? 'badge-approved' : r.status === 'ตีกลับ' ? 'badge-rejected' : 'badge-waiting'}">${mineEsc(r.status || '-')}</span></td>
           <td data-label="แชร์" class="sum-share-cell">${r.cancelled ? '' : r.shared ? '<span class="share-yes" title="แชร์แล้ว">✓</span>' : '<span class="share-no" title="ยังไม่แชร์">✗</span>'}</td>
-          <td class="nowrap" data-label="จัดการ"><button class="btn btn-ghost btn-icon btn-sm" title="ดูรายการและรูป" onclick="mineView('${r.request_id}','${r.kind}')"><i data-lucide="eye"></i></button>
-            ${r.cancelled ? '' : `<button class="btn btn-ghost btn-sm" onclick="mineShare('${r.request_id}')"><i data-lucide="send"></i> แชร์</button>`}
-            ${r.editable ? `<button class="btn btn-ghost btn-sm" onclick="mineEdit('${r.request_id}')"><i data-lucide="pencil"></i> แก้ไข</button>
-            <button class="btn btn-ghost btn-sm ntf-danger" onclick="mineAskCancel('stock','${r.request_id}')"><i data-lucide="x-circle"></i> ยกเลิก</button>` : ''}</td></tr>`;
+          <td data-label="จัดการ">${rowMenu([
+            ['eye', 'ดูรายการและรูป', `mineView('${r.request_id}','${r.kind}')`],
+            !r.cancelled && ['send', 'แชร์เข้ากลุ่มอีกครั้ง', `mineShare('${r.request_id}')`],
+            r.editable && ['pencil', 'แก้ไข', `mineEdit('${r.request_id}')`],
+            r.editable && ['x-circle', 'ยกเลิก', `mineAskCancel('stock','${r.request_id}')`, 'danger']])}</td></tr>`;
       }).join('')}</tbody></table></div></div>`
     : '<div class="empty-state"><i data-lucide="inbox"></i><h4>ยังไม่มีรายการคลังสินค้าในช่วงนี้</h4><p>แสดงย้อนหลังได้สูงสุด 31 วัน</p></div>'}`;
   lucide.createIcons();
@@ -330,4 +317,31 @@ function mineView(id, kind) {
       ${(r.others || []).map(o => `<tr><td>${mineEsc(o.name)} <small>(อื่นๆ)</small></td><td class="num">${Number(o.qty)}</td><td>${mineEsc(o.unit || '')}</td></tr>`).join('')}</tbody></table></div>
       <div class="photo-thumbnails" style="margin-top:10px;">${(r.images || []).map(m => `<img data-photo="${mineEsc(m)}" data-photo-thumb="1" class="photo-thumb" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="Photos.open('${mineEsc(m)}')">`).join('')}</div></div></div>`);
   lucide.createIcons();
+}
+
+// ---------- ยืนยันยอด ส่งสรุปรายวัน (SQL ไฟล์ 27) ----------
+async function mineConfirmBar() {
+  const el = document.getElementById('sum-confirm');
+  if (!el) return;
+  let st = [];
+  try { st = await DB.myDailyConfirmSupabase(); } catch (e) { if (mineMissing(e) || /my_daily_confirm/.test(e.message || '')) { el.remove(); return; } }
+  const waiting = st.some(x => x.status === 'รออนุมัติแก้ไข'), sent = st.length > 0, changed = st.some(x => x.changed);
+  const time = sent ? new Date(st.map(x => x.at).sort().at(-1)).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) : '';
+  el.innerHTML = `<div class="sum-confirm-text">${waiting ? '⏳ ขอแก้ไขสรุปรายวันแล้ว — รอผู้ตรวจอนุมัติ ระบบจะส่งยอดใหม่ให้เอง'
+      : sent ? (changed ? `⚠️ ส่งสรุปไปแล้วเมื่อ ${time} แต่ยอดเปลี่ยน — กดยืนยันอีกครั้งเพื่อส่งฉบับแก้ไข` : `✓ ยืนยันยอดวันนี้แล้ว (${time})`)
+      : 'เลิกงานแล้ว ตรวจยอดวันนี้ให้ครบ แล้วกดยืนยัน — ระบบส่งสรุปเข้ากลุ่มให้'}</div>
+    <button class="btn ${sent && !changed ? 'btn-ghost' : 'btn-primary'}" onclick="mineConfirmAsk()"${waiting ? ' disabled' : ''}><i data-lucide="send-horizontal"></i> ยืนยันยอด ส่งสรุปรายวัน</button>`;
+  el.classList.toggle('done', sent && !changed && !waiting);
+  lucide.createIcons();
+}
+function mineConfirmAsk() {
+  confirmDialog('ยืนยันยอดค่ามือ/ค่าคอมของวันนี้ แล้วส่งสรุปเข้ากลุ่ม?<br><small>ถ้าแก้รายการทีหลัง กดยืนยันอีกครั้งได้ — ถ้ามีคำขอแก้ไขรออนุมัติ กลุ่มจะเห็นแค่ "ขอแก้ไข" จนกว่าจะอนุมัติ</small>', () => mineConfirmSend());
+}
+async function mineConfirmSend() {
+  try {
+    const res = await DB.confirmDailySummarySupabase();
+    const word = { sent: 'ส่งสรุปเข้ากลุ่มแล้ว ✓', resent: 'ส่งสรุปฉบับแก้ไขแล้ว ✓', unchanged: 'ยอดไม่เปลี่ยน — ไม่ได้ส่งซ้ำ', requested: 'ส่ง "ขอแก้ไขสรุปรายวัน" แล้ว — รออนุมัติ', waiting: 'ยังรออนุมัติการแก้ไขอยู่' };
+    Toast.show(res.map(r => (res.length > 1 ? r.branch + ': ' : '') + (word[r.result] || r.result)).join(' · '), 'success', 6000);
+  } catch (e) { Toast.show((e && e.hint) || ('ส่งไม่สำเร็จ: ' + DB.stockErrorText(e)), 'error', 6000); }
+  mineConfirmBar();
 }
