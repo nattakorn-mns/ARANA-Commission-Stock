@@ -82,5 +82,7 @@ await check('accounting fixes a back-dated เบิก in ERP → re-set picks 
 await check('guards: branch with no ERP balance; non-admin', async () => {
   await assert.rejects(preview('นครสวรรค์'), /ERP_NO_BRANCH/);
   await assert.rejects(q1(`select public.admin_stock_resync_preview('other', 'แม่สอด')`), /FORBIDDEN|ROLE|permission/i);
+  await db.exec(`update users set role = 'Audit' where username = 'acct'`);
+  assert.ok((await preview('แม่สอด')).rows, 'accounting can use it');
 });
 report();
