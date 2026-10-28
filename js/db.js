@@ -337,6 +337,9 @@ const DB = {
   // ดึงข้อมูลจาก ERP (SQL ไฟล์ 09)
   async adminErpSyncStatusSupabase() { return await this._positionRpc('admin_erp_sync_status'); },
   async adminErpSyncNowSupabase() { return await this._positionRpc('admin_erp_sync_now'); },
+  // ตั้งยอดสต๊อกตาม ERP ใหม่ รายสาขา (SQL ไฟล์ 24)
+  async adminStockResyncPreviewSupabase(branch) { return await this._positionRpc('admin_stock_resync_preview', { p_branch_name: branch }); },
+  async adminStockResyncApplySupabase(branch, snapshot) { return Number(await this._positionRpc('admin_stock_resync_apply', { p_branch_name: branch, p_snapshot: snapshot })) || 0; },
 
   async setStockLogErpSyncResultSupabase(logId, status, ref, error) {
     await this._positionRpc('set_stock_log_erp_sync_result', { p_log_id: logId, p_status: status, p_ref: ref || null, p_error: error || null });

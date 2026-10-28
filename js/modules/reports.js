@@ -53,6 +53,7 @@ function renderReports(container) {
           <option value="พิษณุโลก">พิษณุโลก</option>
           <option value="กำแพงเพชร">กำแพงเพชร</option>
           <option value="แม่สอด">แม่สอด</option>
+          <option value="นครสวรรค์">นครสวรรค์</option>
         </select>
       </div>
       <div class="filter-group">
