@@ -1025,82 +1025,263 @@ async function admSyncStockLog(logId) {
   admRenderErpSync(document.getElementById('adm-body'));
 }
 
-// ── แท็บ แจ้งเตือน (Telegram / LINE) ─────────────────────────
+// ── แท็บ แจ้งเตือน (คุณออม 28/10, SQL ไฟล์ 23) ─────────────────
+// ห้อง / กลุ่ม (เพิ่มเอง) · เรื่องที่ส่ง (ติ๊กเลือกห้อง) · รูปแบบข้อความ (แก้เอง + ดูตัวอย่าง) · ข้อความล่าสุด
+let ntfSub = 'rooms';
+let ntfData = null;
+let ntfDeleteId = null;
+const ntfEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NTF_PROVIDER = { telegram: 'Telegram', line: 'LINE' };
+const NTF_SECRET_HINT = { TG_BOT_TOKEN: 'บอท Commission' };
+const ntfErr = e => (e && e.hint) || DB.stockErrorText(e);
+
 async function admRenderNotify(body) {
   body.innerHTML = '<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
-  let channels, queue;
-  try { [channels, queue] = await Promise.all([DB.adminNotifyChannelsSupabase(), DB.adminNotifyQueueSupabase(100)]); }
-  catch (e) {
-    // ยังไม่ได้ตั้งค่า (คุณออม 18/10): บอกให้ชัดว่าแท็บนี้มีไว้ทำอะไร และยังไม่ได้เปิดใช้ ไม่ขึ้นข้อผิดพลาดทางเทคนิค
+  try {
+    const [channels, rooms, queue, defaults] = await Promise.all([DB.adminNotifyChannelsSupabase(), DB.adminNotifyRoomsSupabase(),
+      DB.adminNotifyQueueSupabase(100), DB.adminNotifyTemplateDefaultsSupabase(), loadAppSettings()]);
+    ntfData = { channels, rooms, queue, defaults };
+  } catch (e) {
+    const missing = /admin_notify_(rooms|template_defaults)|function .* does not exist|Could not find the function/i.test((e && e.message) || '');
     body.innerHTML = `<div class="glass-card" style="max-width:720px;">
-      <div class="section-header" style="margin-bottom:10px;"><span class="section-title">แจ้งเตือน LINE / Telegram — ยังไม่ได้เปิดใช้</span></div>
-      <p style="margin:0 0 10px;color:var(--ink-2);">รอตั้งค่าหลังเริ่มใช้งานจริง เมื่อเปิดแล้วระบบจะส่งข้อความเข้ากลุ่มให้อัตโนมัติ</p>
-      <ul style="margin:0;padding-left:20px;line-height:1.9;color:var(--ink-2);">
-        <li>Telegram "อัพเซลรายลูกค้า" — ทุกรายการขาย / คำขอแก้ไข ทันที</li>
-        <li>Telegram "สรุปรายงาน" — สรุปผลงานรายคน ทุกวัน 23:00</li>
-        <li>LINE — เบิก/โอน, รับเข้า/รับโอน, มัดจำแต่ละสาขา และแจ้งแอดมินเมื่อลูกค้าที่นัดไว้มาใช้บริการ</li>
-      </ul>
+      <div class="section-header" style="margin-bottom:10px;"><span class="section-title">แจ้งเตือน LINE / Telegram — ${missing ? 'รออัปเดตฐานข้อมูล' : 'ยังไม่ได้เปิดใช้'}</span></div>
+      <p style="margin:0;color:var(--ink-2);">${missing ? 'หน้านี้ต้องรัน SQL ไฟล์ 23 (ห้องแจ้งเตือน + รูปแบบข้อความ) ใน Supabase ก่อน' : 'โหลดข้อมูลไม่สำเร็จ: ' + ntfEsc(ntfErr(e))}</p>
     </div>`;
     lucide.createIcons(); return;
   }
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const quota = c => c.monthly_quota ? `${c.used_this_month}/${c.monthly_quota} ข้อความเดือนนี้` : `${c.used_this_month} ข้อความเดือนนี้`;
-  const quotaColor = c => !c.monthly_quota ? 'var(--gray-500)' : c.used_this_month >= c.monthly_quota * 0.8 ? 'var(--red-500,#dc2626)' : 'var(--green-600)';
-  const badge = s => `<span class="badge ${{ 'ส่งแล้ว': 'badge-approved', 'รอส่ง': 'badge-waiting', 'ส่งไม่สำเร็จ': 'badge-rejected', 'ข้าม': 'badge-waiting' }[s] || ''}">${esc(s)}</span>`;
-  body.innerHTML = `
-  <div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
-    <span>คีย์ของบอทเก็บไว้ฝั่งเซิร์ฟเวอร์ (Secrets ของ Edge Function) หน้านี้ใส่ได้เฉพาะ "ไอดีห้อง" — Telegram: chat id ของกลุ่ม (ขึ้นต้นด้วย -100) · LINE: group id (ขึ้นต้นด้วย C)
-    <br>เวลาส่งสรุป: สต็อก 23:00 · ค่ามือ/ค่าคอม 23:59 · ฉบับเพิ่มเติม (ส่งช้า/แก้ไข) 06:00 · ข้อความทันทีส่งภายใน 2 นาที</span></div>
-  <div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;"><span class="section-title">ห้องแจ้งเตือน</span></div>
-    <div class="table-wrap" style="border:none;border-radius:0;"><table>
-      <thead><tr><th>ห้อง</th><th>ช่องทาง</th><th>ไอดีห้อง</th><th>ใช้ไป</th><th>รอส่ง / ไม่สำเร็จ</th><th>เปิดใช้</th><th></th></tr></thead>
-      <tbody>${channels.map(c => `<tr>
-        <td><strong>${esc(c.label)}</strong><br><small style="color:var(--gray-500);">secret: ${esc(c.secret_name)}</small></td>
-        <td>${c.provider === 'telegram' ? 'Telegram' : 'LINE'}</td>
-        <td><input class="form-input" id="ntf-target-${esc(c.key)}" value="${esc(c.target_id || '')}" placeholder="${c.provider === 'telegram' ? '-1001234567890' : 'Cxxxxxxxx'}" style="min-width:200px;font-family:monospace;"></td>
-        <td style="color:${quotaColor(c)};font-weight:600;">${quota(c)}</td>
-        <td>${c.pending} / <span style="color:${c.failed ? 'var(--red-500,#dc2626)' : 'inherit'}">${c.failed}</span></td>
-        <td><input type="checkbox" id="ntf-active-${esc(c.key)}" ${c.is_active ? 'checked' : ''}></td>
-        <td class="nowrap"><button class="btn btn-primary btn-sm" onclick="admNotifySave('${esc(c.key)}')">บันทึก</button> <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyTest('${esc(c.key)}')">ทดสอบส่ง</button></td>
-      </tr>`).join('')}</tbody></table></div>
-  </div>
-  <div class="glass-card" style="padding:14px 16px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <span style="font-weight:700;color:var(--gray-700);">สร้างสรุปตอนนี้:</span>
-    <input type="date" class="filter-input" id="ntf-build-date" value="${todayISO()}">
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('stock_daily')">สรุปสต็อก (LINE)</button>
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_daily')">สรุปค่ามือ/ค่าคอม (Telegram)</button>
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_addendum')">ฉบับเพิ่มเติม</button>
-    <span style="font-size:.78rem;color:var(--gray-500);">สรุปวันเดียวกันสร้างซ้ำไม่ได้ (กันส่งซ้ำ)</span>
-  </div>
-  <div class="glass-card" style="padding:0;overflow:hidden;">
-    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;display:flex;justify-content:space-between;align-items:center;">
-      <span class="section-title">ข้อความล่าสุด (${queue.length})</span>
-      <button class="btn btn-ghost btn-sm" data-view-ok onclick="admRenderNotify(document.getElementById('adm-body'))"><i data-lucide="refresh-cw"></i> รีเฟรช</button></div>
-    <div class="table-wrap" style="border:none;border-radius:0;"><table>
-      <thead><tr><th>เวลา</th><th>ห้อง</th><th>ประเภท</th><th>ข้อความ</th><th>สถานะ</th><th>ครั้งที่</th><th>ข้อผิดพลาด</th></tr></thead>
-      <tbody>${queue.length ? queue.map(q => `<tr>
-        <td class="nowrap">${formatDateTime(q.created_at)}</td><td>${esc(q.channel_key)}</td><td>${esc(q.kind)}</td>
-        <td style="max-width:360px;font-size:.8rem;white-space:pre-wrap;">${esc(q.preview)}</td>
-        <td>${badge(q.status)}</td><td>${q.attempts}</td><td style="font-size:.78rem;color:var(--red-500,#dc2626);">${esc(q.last_error || '')}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:18px;">ยังไม่มีข้อความ</td></tr>'}</tbody></table></div>
-  </div>`;
+  const subs = [['rooms', 'users', 'ห้อง / กลุ่ม'], ['topics', 'list-checks', 'เรื่องที่ส่ง'], ['templates', 'file-text', 'รูปแบบข้อความ'], ['queue', 'inbox', 'ข้อความล่าสุด']];
+  body.innerHTML = `<div class="ntf-subtabs">${subs.map(([k, icon, label]) =>
+    `<button class="btn btn-sm ${k === ntfSub ? 'btn-primary' : 'btn-ghost'}" data-view-ok data-ntf-sub="${k}" onclick="admNotifySub('${k}')"><i data-lucide="${icon}"></i> ${label}</button>`).join('')}</div>
+    <div id="ntf-body"></div>`;
+  admNotifySub(ntfSub);
+}
+
+function admNotifySub(sub) {
+  ntfSub = sub;
+  document.querySelectorAll('[data-ntf-sub]').forEach(b => {
+    b.classList.toggle('btn-primary', b.dataset.ntfSub === sub); b.classList.toggle('btn-ghost', b.dataset.ntfSub !== sub);
+  });
+  const el = document.getElementById('ntf-body');
+  if (!el || !ntfData) return;
+  el.innerHTML = sub === 'topics' ? ntfTopicsHtml() : sub === 'templates' ? ntfTemplatesHtml() : sub === 'queue' ? ntfQueueHtml() : ntfRoomsHtml();
+  if (sub === 'templates') NOTIFY_TPL_META.forEach(m => admNotifyTplPreview(m.kind));
   lucide.createIcons();
 }
-async function admNotifySave(key) {
+function ntfReload() { admRenderNotify(document.getElementById('adm-body')); }
+const ntfTopicLabel = k => ((ntfData.channels.find(c => c.key === k) || {}).label) || k;
+
+// ---------- ห้อง / กลุ่ม ----------
+function ntfRoomsHtml() {
+  const { rooms } = ntfData;
+  return `<div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
+    <span>ห้อง = กลุ่ม Telegram หรือ LINE ที่ให้บอทส่งข้อความเข้า เพิ่มได้ไม่จำกัด แล้วไปเลือกที่แท็บ <b>เรื่องที่ส่ง</b> ว่าเรื่องไหนส่งเข้าห้องไหน
+    <br>เลขห้อง Telegram: เชิญบอทและ @getidsbot เข้ากลุ่ม แล้วดูเลขที่ขึ้นต้นด้วย -100 · LINE: group id ขึ้นต้นด้วย C
+    <br>บอทที่ใช้ส่ง = ชื่อ Secret ที่เก็บ token ไว้ใน Supabase (บอท Commission = TG_BOT_TOKEN) — หน้านี้ไม่เก็บ token</span></div>
+  <div style="margin-bottom:12px;"><button class="btn btn-primary btn-sm" onclick="admNotifyRoomForm()"><i data-lucide="plus"></i> เพิ่มห้อง</button></div>
+  ${rooms.length ? `<div class="ntf-grid">${rooms.map(r => `
+    <div class="glass-card ntf-card${r.is_active ? '' : ' ntf-off'}">
+      <div class="ntf-card-head"><strong>${ntfEsc(r.name)}</strong>
+        <span class="badge ${r.provider === 'line' ? 'badge-approved' : 'badge-waiting'}">${NTF_PROVIDER[r.provider] || r.provider}</span>
+        ${r.is_active ? '' : '<span class="badge badge-rejected">ปิดอยู่</span>'}</div>
+      <div class="ntf-kv"><span>เลขห้อง</span><code>${ntfEsc(r.target_id)}</code></div>
+      <div class="ntf-kv"><span>บอทที่ใช้ส่ง</span><span><code>${ntfEsc(r.secret_name)}</code>${NTF_SECRET_HINT[r.secret_name] ? ' · ' + NTF_SECRET_HINT[r.secret_name] : ''}</span></div>
+      <div class="ntf-kv"><span>ใช้กับเรื่อง</span><span>${r.channel_keys.length ? r.channel_keys.map(k => ntfEsc(ntfTopicLabel(k))).join('<br>') : '<span style="color:var(--gray-400);">ยังไม่ได้เลือก</span>'}</span></div>
+      <div class="ntf-kv"><span>เดือนนี้</span><span>ส่งแล้ว ${r.sent_this_month} · รอส่ง ${r.pending} · <span style="color:${r.failed ? 'var(--red-500,#dc2626)' : 'inherit'}">ไม่สำเร็จ ${r.failed}</span></span></div>
+      ${r.last_error ? `<div class="ntf-err">ข้อผิดพลาดล่าสุด: ${ntfEsc(r.last_error)}</div>` : ''}
+      ${r.note ? `<div class="ntf-note">${ntfEsc(r.note)}</div>` : ''}
+      <div class="ntf-actions">
+        <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyTestRoom('${r.id}')"><i data-lucide="send"></i> ทดสอบส่ง</button>
+        <button class="btn btn-ghost btn-sm" onclick="admNotifyRoomForm('${r.id}')"><i data-lucide="pencil"></i> แก้ไข</button>
+        <button class="btn btn-ghost btn-sm ntf-danger" onclick="admNotifyDeleteRoom('${r.id}')"><i data-lucide="trash-2"></i> ลบ</button>
+      </div>
+    </div>`).join('')}</div>`
+    : '<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">ยังไม่มีห้อง — กด "เพิ่มห้อง" เพื่อเริ่ม (เช่น กลุ่มเทส)</div>'}`;
+}
+
+function admNotifyRoomForm(id) {
+  const r = id ? ntfData.rooms.find(x => x.id === id) : { name: '', provider: 'telegram', target_id: '', secret_name: 'TG_BOT_TOKEN', note: '', is_active: true };
+  if (!r) return;
+  const secrets = [...new Set(['TG_BOT_TOKEN', ...ntfData.rooms.map(x => x.secret_name)])];
+  openModal(`<div class="modal" style="max-width:520px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="${id ? 'pencil' : 'plus'}"></i>${id ? 'แก้ไขห้อง' : 'เพิ่มห้อง'}</h3>
+      <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">ชื่อห้อง (ตั้งเองให้จำง่าย)</label>
+        <input class="form-input" id="ntf-r-name" value="${ntfEsc(r.name)}" placeholder="เช่น กลุ่มเทส, กลุ่มอัพเซลรายลูกค้า"></div>
+      <div class="form-group"><label class="form-label">ช่องทาง</label>
+        <select class="form-input" id="ntf-r-prov" onchange="admNotifyProvChange()">
+          <option value="telegram"${r.provider === 'telegram' ? ' selected' : ''}>Telegram</option><option value="line"${r.provider === 'line' ? ' selected' : ''}>LINE</option></select></div>
+      <div class="form-group"><label class="form-label">เลขห้อง</label>
+        <input class="form-input" id="ntf-r-target" value="${ntfEsc(r.target_id)}" style="font-family:monospace;" placeholder="${r.provider === 'line' ? 'Cxxxxxxxx' : '-1001234567890'}"></div>
+      <div class="form-group"><label class="form-label">บอทที่ใช้ส่ง (ชื่อ Secret ใน Supabase)</label>
+        <input class="form-input" id="ntf-r-secret" value="${ntfEsc(r.secret_name)}" list="ntf-secrets" style="font-family:monospace;text-transform:uppercase;">
+        <datalist id="ntf-secrets">${secrets.map(s => `<option value="${ntfEsc(s)}">${ntfEsc(NTF_SECRET_HINT[s] || '')}</option>`).join('')}</datalist>
+        <small style="color:var(--gray-500);">บอท Commission = TG_BOT_TOKEN · บอทใหม่: ตั้ง Secret ชื่อใหม่ใน Supabase ก่อน แล้วพิมพ์ชื่อนั้นที่นี่</small></div>
+      <div class="form-group"><label class="form-label">หมายเหตุ (ไม่บังคับ)</label>
+        <input class="form-input" id="ntf-r-note" value="${ntfEsc(r.note || '')}" placeholder="เช่น ใช้ทดลองก่อนย้ายไปกลุ่มจริง"></div>
+      <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="ntf-r-active"${r.is_active ? ' checked' : ''}> เปิดใช้ห้องนี้</label>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModalDirect()">ยกเลิก</button>
+      <button class="btn btn-primary" id="ntf-r-save" onclick="admNotifySaveRoom('${id || ''}')"><i data-lucide="save"></i> บันทึก</button></div></div>`);
+  lucide.createIcons();
+}
+function admNotifyProvChange() {
+  const prov = document.getElementById('ntf-r-prov').value, sec = document.getElementById('ntf-r-secret');
+  document.getElementById('ntf-r-target').placeholder = prov === 'line' ? 'Cxxxxxxxx' : '-1001234567890';
+  if (prov === 'line' && sec.value === 'TG_BOT_TOKEN') { sec.value = ''; sec.placeholder = 'เช่น LINE_TOKEN_STOCK'; }
+  if (prov === 'telegram' && !sec.value) sec.value = 'TG_BOT_TOKEN';
+}
+async function admNotifySaveRoom(id) {
+  const v = k => (document.getElementById('ntf-r-' + k)?.value || '').trim();
+  const btn = document.getElementById('ntf-r-save');
+  if (btn) btn.disabled = true;
   try {
-    await DB.adminNotifySetChannelSupabase(key, document.getElementById('ntf-target-' + key)?.value, document.getElementById('ntf-active-' + key)?.checked);
-    Toast.show('บันทึกห้องแล้ว ✓', 'success');
-  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+    await DB.adminNotifySaveRoomSupabase({ id: id || null, name: v('name'), provider: v('prov'), target_id: v('target'), secret_name: v('secret').toUpperCase(),
+      note: v('note'), is_active: !!document.getElementById('ntf-r-active')?.checked });
+    closeModalDirect();
+    Toast.show(id ? 'แก้ไขห้องแล้ว ✓' : 'เพิ่มห้องแล้ว ✓ ต่อไปเลือกที่แท็บ "เรื่องที่ส่ง"', 'success', 4000);
+    ntfReload();
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + ntfErr(e), 'error', 6000); if (btn) btn.disabled = false; }
+}
+function admNotifyDeleteRoom(id) {
+  const r = ntfData.rooms.find(x => x.id === id);
+  if (!r) return;
+  ntfDeleteId = id;
+  confirmDialog(`ลบห้อง "${ntfEsc(r.name)}"?<br><small>เรื่องที่เลือกห้องนี้ไว้จะไม่ส่งเข้าห้องนี้อีก · ข้อความที่ยังรอส่งเข้าห้องนี้จะถูกยกเลิก</small>`, () => admNotifyDeleteRoomNow());
+}
+async function admNotifyDeleteRoomNow() {
+  try { await DB.adminNotifyDeleteRoomSupabase(ntfDeleteId); Toast.show('ลบห้องแล้ว', 'success'); ntfReload(); }
+  catch (e) { Toast.show('ลบไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
+}
+async function admNotifyTestRoom(id) {
+  try { await DB.adminNotifyTestRoomSupabase(id); Toast.show('ใส่ข้อความทดสอบในคิวแล้ว จะเข้ากลุ่มภายใน 2 นาที', 'success', 5000); }
+  catch (e) { Toast.show('ทดสอบไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
+}
+
+// ---------- เรื่องที่ส่ง ----------
+function ntfTopicsHtml() {
+  const { channels, rooms } = ntfData;
+  return `<div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
+    <span>ติ๊กเลือกห้องที่จะให้ส่งแต่ละเรื่อง เลือกได้หลายห้อง (เช่น ช่วงทดลองส่งทั้งกลุ่มเทสและกลุ่มจริง) · ไม่เลือกห้อง = ไม่ส่ง · แก้แล้วกด <b>บันทึก</b> ของเรื่องนั้น
+    <br>เวลาส่ง: ข้อความทันทีภายใน 2 นาที · สรุปสต็อก 23:00 · สรุปรายคน 23:00 · ฉบับแก้ไข 06:00</span></div>
+  <div class="ntf-grid">${channels.map(c => `
+    <div class="glass-card ntf-card${c.is_active ? '' : ' ntf-off'}">
+      <div class="ntf-card-head"><strong>${ntfEsc(c.label)}</strong></div>
+      <label class="ntf-switch"><input type="checkbox" id="ntf-t-on-${c.key}"${c.is_active ? ' checked' : ''}> เปิดใช้เรื่องนี้</label>
+      <div class="ntf-room-list">${rooms.length ? rooms.map(r => `<label class="ntf-room-pick${r.is_active ? '' : ' ntf-off'}">
+          <input type="checkbox" data-topic="${c.key}" value="${r.id}"${c.room_ids.includes(r.id) ? ' checked' : ''}>
+          <span>${ntfEsc(r.name)} <small>${NTF_PROVIDER[r.provider] || ''}${r.is_active ? '' : ' · ปิดอยู่'}</small></span></label>`).join('')
+        : '<span style="color:var(--gray-400);">ยังไม่มีห้อง — เพิ่มที่แท็บ "ห้อง / กลุ่ม"</span>'}</div>
+      <div class="ntf-kv"><span>คิว</span><span>รอส่ง ${c.pending} · <span style="color:${c.failed ? 'var(--red-500,#dc2626)' : 'inherit'}">ไม่สำเร็จ ${c.failed}</span></span></div>
+      <div class="ntf-actions">
+        <button class="btn btn-primary btn-sm" onclick="admNotifySaveTopic('${c.key}')"><i data-lucide="save"></i> บันทึก</button>
+        <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyTest('${c.key}')"><i data-lucide="send"></i> ทดสอบส่ง</button>
+      </div>
+    </div>`).join('')}</div>
+  <div class="glass-card" style="padding:14px 16px;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <span style="font-weight:700;color:var(--gray-700);">สร้างสรุปตอนนี้:</span>
+    <input type="date" class="filter-input" id="ntf-build-date" value="${todayISO()}">
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('stock_daily')">สรุปสต็อก</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_daily')">สรุปค่ามือ/ค่าคอมรายคน</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('staff_addendum')">ฉบับแก้ไข</button>
+    <span style="font-size:.78rem;color:var(--gray-500);">สรุปวันเดียวกันสร้างซ้ำไม่ได้ (กันส่งซ้ำ)</span>
+  </div>`;
+}
+async function admNotifySaveTopic(key) {
+  const ids = [...document.querySelectorAll(`input[data-topic="${key}"]:checked`)].map(i => i.value);
+  try {
+    await DB.adminNotifySetTopicSupabase(key, ids, document.getElementById('ntf-t-on-' + key)?.checked);
+    Toast.show(ids.length ? `บันทึกแล้ว ✓ ส่งเข้า ${ids.length} ห้อง` : 'บันทึกแล้ว — เรื่องนี้ยังไม่ส่งเข้าห้องไหน', ids.length ? 'success' : 'warning', 4000);
+    ntfReload();
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
 }
 async function admNotifyTest(key) {
-  try { await DB.adminNotifyTestSupabase(key); Toast.show('ใส่ข้อความทดสอบในคิวแล้ว จะส่งภายใน 2 นาที — ดูสถานะในตารางด้านล่าง', 'success', 5000); admRenderNotify(document.getElementById('adm-body')); }
-  catch (e) { Toast.show('ทดสอบไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+  try {
+    const id = await DB.adminNotifyTestSupabase(key);
+    Toast.show(id ? 'ใส่ข้อความทดสอบในคิวแล้ว จะเข้าทุกห้องที่บันทึกไว้ภายใน 2 นาที' : 'เรื่องนี้ยังไม่ได้เลือกห้อง หรือปิดอยู่ — ติ๊กห้องแล้วกดบันทึกก่อน', id ? 'success' : 'warning', 5000);
+  } catch (e) { Toast.show('ทดสอบไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
 }
 async function admNotifyBuild(kind) {
   try {
     const n = await DB.adminNotifyBuildSupabase(kind, document.getElementById('ntf-build-date')?.value || null);
     Toast.show(n ? `สร้างสรุป ${n} ข้อความ เข้าคิวส่งแล้ว` : 'ไม่มีรายการในวันนั้น หรือสร้างไปแล้ว', n ? 'success' : 'warning', 4000);
-    admRenderNotify(document.getElementById('adm-body'));
-  } catch (e) { Toast.show('สร้างสรุปไม่สำเร็จ: ' + DB.stockErrorText(e), 'error', 5000); }
+  } catch (e) { Toast.show('สร้างสรุปไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
+}
+
+// ---------- รูปแบบข้อความ ----------
+const ntfTplDefault = kind => (ntfData && ntfData.defaults && ntfData.defaults[kind]) || NOTIFY_SHARE_DEFAULTS[kind] || '';
+const ntfTplCurrent = kind => notifyTemplate(kind, ntfData && ntfData.defaults);
+function ntfTemplatesHtml() {
+  const own = appSettings.notify_templates || {};
+  const card = m => {
+    const text = ntfTplCurrent(m.kind);
+    return `<div class="glass-card ntf-tpl">
+      <div class="ntf-card-head"><strong>${ntfEsc(m.title)}</strong>${own[m.kind] ? '<span class="badge badge-waiting">แก้แล้ว</span>' : ''}</div>
+      <div class="ntf-tpl-when">${ntfEsc(m.when)}${m.topic ? ' · เรื่อง: ' + ntfEsc(ntfTopicLabel(m.topic)) : ''}</div>
+      <div class="ntf-tpl-cols">
+        <div><label class="form-label">รูปแบบ</label>
+          <textarea class="form-input ntf-tpl-text" id="ntf-tx-${m.kind}" rows="${Math.min(18, Math.max(4, text.split('\n').length + 1))}" oninput="admNotifyTplPreview('${m.kind}')">${ntfEsc(text)}</textarea>
+          <div class="ntf-chips">${Object.keys(m.sample).map(k => `<button type="button" class="ntf-chip" onclick="admNotifyTplInsert('${m.kind}','${k}')">{${ntfEsc(k)}}</button>`).join('')}</div></div>
+        <div><label class="form-label">ตัวอย่างข้อความที่จะส่ง</label><pre class="stock-share-preview" id="ntf-pv-${m.kind}"></pre></div>
+      </div>
+      <div class="ntf-actions">
+        <button class="btn btn-primary btn-sm" onclick="admNotifyTplSave('${m.kind}')"><i data-lucide="save"></i> บันทึก</button>
+        <button class="btn btn-ghost btn-sm" onclick="admNotifyTplReset('${m.kind}')"><i data-lucide="rotate-ccw"></i> ใช้รูปแบบเดิม</button>
+      </div></div>`;
+  };
+  return `<div class="alert-box alert-info" style="margin-bottom:14px;"><i data-lucide="info"></i>
+    <span>แก้ข้อความในกล่องซ้าย แล้วดูตัวอย่างทางขวาได้ทันที · กดปุ่ม <b>{ชื่อข้อมูล}</b> เพื่อแทรกตรงตำแหน่งเคอร์เซอร์ · ข้อความอื่น (หัวข้อ อีโมจิ) แสดงตามที่พิมพ์
+    <br>บรรทัดแบบ "หัวข้อ: {ข้อมูล}" ถ้าไม่มีข้อมูล จะไม่แสดงบรรทัดนั้น · กด <b>บันทึก</b> แล้วข้อความต่อไปจะใช้รูปแบบใหม่ · กด "ใช้รูปแบบเดิม" แล้วบันทึก เพื่อกลับไปแบบเดิม</span></div>
+  <h4 class="ntf-group-title">ข้อความบอท (ส่งเข้ากลุ่มอัตโนมัติ)</h4>
+  ${NOTIFY_TPL_META.filter(m => m.group === 'bot').map(card).join('')}
+  <h4 class="ntf-group-title">ปุ่มแชร์เข้ากลุ่ม LINE (พนักงานกดเองหลังบันทึก)</h4>
+  ${NOTIFY_TPL_META.filter(m => m.group === 'share').map(card).join('')}`;
+}
+function admNotifyTplPreview(kind) {
+  const m = NOTIFY_TPL_META.find(x => x.kind === kind), tx = document.getElementById('ntf-tx-' + kind), pv = document.getElementById('ntf-pv-' + kind);
+  if (m && tx && pv) pv.textContent = notifyFill(tx.value, m.sample) || '(ข้อความว่าง — จะไม่ส่ง)';
+}
+function admNotifyTplInsert(kind, key) {
+  const tx = document.getElementById('ntf-tx-' + kind);
+  if (!tx) return;
+  const s = tx.selectionStart ?? tx.value.length, e = tx.selectionEnd ?? s, ins = '{' + key + '}';
+  tx.value = tx.value.slice(0, s) + ins + tx.value.slice(e);
+  tx.focus(); tx.selectionStart = tx.selectionEnd = s + ins.length;
+  admNotifyTplPreview(kind);
+}
+function admNotifyTplReset(kind) {
+  const tx = document.getElementById('ntf-tx-' + kind);
+  if (!tx) return;
+  tx.value = ntfTplDefault(kind);
+  admNotifyTplPreview(kind);
+  Toast.show('ใส่รูปแบบเดิมในกล่องแล้ว — กดบันทึกเพื่อใช้', 'info', 4000);
+}
+async function admNotifyTplSave(kind) {
+  const text = (document.getElementById('ntf-tx-' + kind)?.value || '').replace(/\r/g, '').trim();
+  if (text.length > 2000) { Toast.show('รูปแบบยาวเกิน 2,000 ตัวอักษร', 'error'); return; }
+  const all = { ...(appSettings.notify_templates || {}) };
+  if (!text || text === ntfTplDefault(kind).trim()) delete all[kind]; else all[kind] = text;
+  try {
+    await DB.saveAppSettingSupabase('notify_templates', all);
+    appSettings.notify_templates = all;
+    Toast.show(all[kind] ? 'บันทึกรูปแบบแล้ว ✓ ข้อความต่อไปใช้รูปแบบนี้' : 'กลับไปใช้รูปแบบเดิมแล้ว ✓', 'success', 4000);
+    admNotifySub('templates');
+  } catch (e) { Toast.show('บันทึกไม่สำเร็จ: ' + ntfErr(e), 'error', 5000); }
+}
+
+// ---------- ข้อความล่าสุด ----------
+function ntfQueueHtml() {
+  const { queue } = ntfData;
+  const badge = s => `<span class="badge ${{ 'ส่งแล้ว': 'badge-approved', 'รอส่ง': 'badge-waiting', 'ส่งไม่สำเร็จ': 'badge-rejected', 'ข้าม': 'badge-waiting' }[s] || ''}">${ntfEsc(s)}</span>`;
+  return `<div class="glass-card" style="padding:0;overflow:hidden;">
+    <div class="section-header" style="padding:14px 16px;border-bottom:1px solid var(--gray-100);margin:0;display:flex;justify-content:space-between;align-items:center;">
+      <span class="section-title">ข้อความล่าสุด (${queue.length})</span>
+      <button class="btn btn-ghost btn-sm" data-view-ok onclick="ntfReload()"><i data-lucide="refresh-cw"></i> รีเฟรช</button></div>
+    <div class="table-wrap" style="border:none;border-radius:0;"><table>
+      <thead><tr><th>เวลา</th><th>ห้อง</th><th>ประเภท</th><th>ข้อความ</th><th>สถานะ</th><th>ครั้งที่</th><th>ข้อผิดพลาด</th></tr></thead>
+      <tbody>${queue.length ? queue.map(q => `<tr>
+        <td class="nowrap">${formatDateTime(q.created_at)}</td><td>${ntfEsc(q.room_name || q.channel_key)}</td><td>${ntfEsc(q.kind)}</td>
+        <td style="max-width:360px;font-size:.8rem;white-space:pre-wrap;">${ntfEsc(q.preview)}</td>
+        <td>${badge(q.status)}</td><td>${q.attempts}</td><td style="font-size:.78rem;color:var(--red-500,#dc2626);">${ntfEsc(q.last_error || '')}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:18px;">ยังไม่มีข้อความ</td></tr>'}</tbody></table></div>
+  </div>`;
 }

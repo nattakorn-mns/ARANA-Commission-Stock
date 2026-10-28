@@ -62,6 +62,7 @@ const DB = context.__DB;
     'admin_set_menu_permission', 'admin_set_user_position', 'admin_list_users_with_position',
     'list_stock_logs_erp_sync', 'set_stock_log_erp_sync_result', 'get_my_deposits',
     'admin_erp_sync_status', 'admin_erp_sync_now', 'admin_notify_channels', 'admin_notify_set_channel', 'admin_notify_queue', 'admin_notify_test', 'admin_notify_build',
+    'admin_notify_rooms', 'admin_notify_save_room', 'admin_notify_delete_room', 'admin_notify_set_topic', 'admin_notify_test_room', 'admin_notify_template_defaults',
     'list_deposit_accounts', 'admin_save_deposit_account',
     'list_open_pos_for_receiving', 'lookup_erp_customer', 'list_customer_deposits', 'list_programs_for_branch', 'list_receive_other_items', 'decide_receive_other_item', 'dispense_compare',
     'get_app_settings', 'admin_save_app_setting', 'create_deposit_any_branch', 'submit_bill_edit', 'list_bill_edits', 'decide_bill_edit',

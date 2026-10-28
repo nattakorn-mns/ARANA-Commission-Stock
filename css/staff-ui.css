@@ -600,3 +600,34 @@ td.bal-has { color: var(--ink, #2b2226) !important; font-weight: 600; }
 /* แชร์เข้ากลุ่ม LINE */
 .stock-share-preview { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--canvas, #faf6f7); border: 1px solid var(--line, #ece3e7); font-family: var(--font); font-size: .9rem; white-space: pre-wrap; line-height: 1.6; user-select: all; }
 .btn.stock-share-line { background: #06c755 !important; border-color: #06c755 !important; color: #fff !important; }
+
+/* ผู้ดูแลระบบ → แจ้งเตือน: ห้อง / เรื่องที่ส่ง / รูปแบบข้อความ (SQL ไฟล์ 23) */
+.ntf-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.ntf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.ntf-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.ntf-card.ntf-off, .ntf-room-pick.ntf-off { opacity: .6; }
+.ntf-card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ntf-kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: .85rem; }
+.ntf-kv > span:first-child { color: var(--gray-500); }
+.ntf-kv code { font-size: .82rem; word-break: break-all; }
+.ntf-err { font-size: .78rem; color: var(--red-500, #dc2626); }
+.ntf-note { font-size: .8rem; color: var(--gray-600); }
+.ntf-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.btn.ntf-danger { color: var(--red-500, #dc2626); }
+.ntf-switch { display: flex; gap: 8px; align-items: center; font-size: .88rem; }
+.ntf-room-list { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--line, #ece3e7); border-radius: 10px; }
+.ntf-room-pick { display: flex; gap: 8px; align-items: center; font-size: .88rem; padding: 4px 0; cursor: pointer; }
+.ntf-room-pick small { color: var(--gray-500); }
+.ntf-group-title { margin: 18px 0 10px; font-size: 1rem; color: var(--gray-700); }
+.ntf-tpl { padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ntf-tpl-when { font-size: .8rem; color: var(--gray-500); }
+.ntf-tpl-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ntf-tpl-text { font-family: var(--font); font-size: .88rem; line-height: 1.6; resize: vertical; width: 100%; }
+.ntf-tpl .stock-share-preview { min-height: 100%; user-select: text; }
+.ntf-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.ntf-chip { border: 1px solid var(--line, #ece3e7); background: var(--canvas, #faf6f7); border-radius: 999px; padding: 2px 9px; font-size: .76rem; cursor: pointer; color: var(--gray-700); }
+.ntf-chip:hover { border-color: var(--primary, #b4637a); }
+@media (max-width: 768px) {
+  .ntf-grid, .ntf-tpl-cols { grid-template-columns: 1fr; }
+  .ntf-kv { grid-template-columns: 84px 1fr; }
+}

@@ -9,7 +9,8 @@ const APP_SETTINGS_DEFAULT = {
   // ข้อ 32: กติกาค่าคอมปิดจากแชท
   chat_commission: { tiers: [{ max: 500, amount: 199 }, { max: 999.99, amount: 499 }, { max: null, amount: 1000 }], surgery_amount: 1999,
     admin_pct: 3, admin_live_pct: 1, admin_appt_pct: 1, store_deposit_pct: 1, store_rest_pct: 1, store_appt_pct: 0.5 },
-  notify_admin_tag: ''
+  notify_admin_tag: '',
+  notify_templates: {} // รูปแบบข้อความที่ตั้งเอง (SQL ไฟล์ 23) — ว่าง = ใช้ค่าเดิม
 };
 let appSettings = JSON.parse(JSON.stringify(APP_SETTINGS_DEFAULT));
 
@@ -23,6 +24,7 @@ async function loadAppSettings() {
     if (Array.isArray(s.channels) && s.channels.length) appSettings.channels = s.channels;
     if (s.chat_commission && typeof s.chat_commission === 'object') appSettings.chat_commission = { ...appSettings.chat_commission, ...s.chat_commission };
     if (typeof s.notify_admin_tag === 'string') appSettings.notify_admin_tag = s.notify_admin_tag;
+    if (s.notify_templates && typeof s.notify_templates === 'object' && !Array.isArray(s.notify_templates)) appSettings.notify_templates = s.notify_templates;
   }
 }
 

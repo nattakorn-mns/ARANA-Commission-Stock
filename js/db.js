@@ -324,6 +324,15 @@ const DB = {
   async adminNotifyQueueSupabase(limit) { return (await this._positionRpc('admin_notify_queue', { p_limit: limit || 100 })) || []; },
   async adminNotifyTestSupabase(key) { return await this._positionRpc('admin_notify_test', { p_key: key }); },
   async adminNotifyBuildSupabase(kind, date) { return Number(await this._positionRpc('admin_notify_build', { p_kind: kind, p_date: date || null })) || 0; },
+  // สมุดรายชื่อห้อง + เลือกห้องต่อเรื่อง + รูปแบบข้อความ (SQL ไฟล์ 23)
+  async adminNotifyRoomsSupabase() { return (await this._positionRpc('admin_notify_rooms')) || []; },
+  async adminNotifySaveRoomSupabase(room) { return await this._positionRpc('admin_notify_save_room', { p_room: room }); },
+  async adminNotifyDeleteRoomSupabase(id) { await this._positionRpc('admin_notify_delete_room', { p_id: id }); },
+  async adminNotifySetTopicSupabase(key, roomIds, isActive) {
+    await this._positionRpc('admin_notify_set_topic', { p_key: key, p_room_ids: roomIds || [], p_is_active: !!isActive });
+  },
+  async adminNotifyTestRoomSupabase(id) { return await this._positionRpc('admin_notify_test_room', { p_room_id: id }); },
+  async adminNotifyTemplateDefaultsSupabase() { return (await this._positionRpc('admin_notify_template_defaults')) || {}; },
 
   // ดึงข้อมูลจาก ERP (SQL ไฟล์ 09)
   async adminErpSyncStatusSupabase() { return await this._positionRpc('admin_erp_sync_status'); },

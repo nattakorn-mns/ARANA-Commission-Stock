@@ -15,12 +15,13 @@ function stockShareName() {
 }
 
 // เรียกหลังบันทึกสำเร็จ — markers = รูปที่เก็บใน Storage ของใบนี้ (ถ้าไม่มี ส่งเฉพาะข้อความ)
+// รูปแบบข้อความตั้งเองได้ที่ ผู้ดูแลระบบ → แจ้งเตือน → รูปแบบข้อความ (SQL ไฟล์ 23)
 async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch, poNo, markers }) {
-  const line2 = `${stockShareName()} - ${STOCK_SHARE_WORD[kind] || 'บันทึก'} ${count} รายการ`
-    + (kind === 'transfer' && toBranch ? ` ไปสาขา${toBranch}` : '')
-    + (kind === 'receive' && fromBranch ? ` จากสาขา${fromBranch}` : '')
-    + (kind === 'in' && poNo ? ` (${poNo})` : '');
-  const head = `วันที่ ${stockShareDate(date)} สาขา${branch || currentBranch}\n${line2}`;
+  const tpl = notifyTemplate('share_' + (STOCK_SHARE_WORD[kind] ? kind : 'out'));
+  const vars = { วันที่: stockShareDate(date), สาขา: branch || currentBranch, ชื่อ: stockShareName(), จำนวน: String(count),
+    ไปสาขา: toBranch || '', จากสาขา: fromBranch || '', เลขPO: poNo || '' };
+  const fill = links => notifyFill(tpl, { ...vars, ลิงก์รูป: links });
+  const head = fill('');
   stockShareText = head;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   openModal(`<div class="modal" style="max-width:440px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="check-circle"></i>บันทึกแล้ว</h3>
@@ -40,9 +41,9 @@ async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch
       links = list.map(m => j.urls && j.urls[m]).filter(Boolean);
     } catch (e) { console.warn('stockShare links', e); }
   }
-  stockShareText = head + (links.length ? '\n' + links.map((u, i) => links.length > 1 ? `รูป ${i + 1}: ${u}` : `ดูรูป: ${u}`).join('\n') : '');
+  stockShareText = fill(links.map((u, i) => links.length > 1 ? `รูป ${i + 1}: ${u}` : `ดูรูป: ${u}`).join('\n'));
   const pre = document.getElementById('stock-share-preview');
-  if (pre) pre.textContent = head + (links.length ? '\n' + links.map((_, i) => links.length > 1 ? `รูป ${i + 1}: (ลิงก์)` : 'ดูรูป: (ลิงก์)').join('\n') : '');
+  if (pre) pre.textContent = fill(links.map((_, i) => links.length > 1 ? `รูป ${i + 1}: (ลิงก์)` : 'ดูรูป: (ลิงก์)').join('\n'));
   const btn = document.getElementById('stock-share-btn');
   if (btn) btn.disabled = false;
 }
