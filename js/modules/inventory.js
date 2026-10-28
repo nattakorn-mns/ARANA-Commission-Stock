@@ -4,6 +4,9 @@
  */
 
 let invTab = 'out';
+// วันเริ่มใช้ระบบสต๊อกพร้อมกันทุกสาขา (ตั้งยอดตาม ERP คืน 31/10) — ห้ามบันทึกย้อนหลังก่อนวันนี้
+const STOCK_START_DATE = '2026-11-01';
+const invMinDate = () => (todayISO() >= STOCK_START_DATE ? STOCK_START_DATE : '');
 let invRows = [];
 let invPhotos = [];
 let invProductsCache = [];
@@ -73,7 +76,7 @@ function invRender() {
     <div class="form-row" style="margin-bottom:16px;">
       <div class="form-group">
         <label class="form-label">วันที่ <span class="required">*</span></label>
-        <input id="inv-date" type="date" class="form-input" value="${todayISO()}" max="${todayISO()}" />
+        <input id="inv-date" type="date" class="form-input" value="${todayISO()}" max="${todayISO()}"${invMinDate() ? ` min="${invMinDate()}"` : ''} />
       </div>
       <div class="form-group">
         <label class="form-label">สาขาที่เบิก</label>
@@ -314,6 +317,7 @@ function invRemovePhoto(id) { invPhotos = invPhotos.filter(p => p.id !== id); in
 async function invSubmit() {
   const date = document.getElementById('inv-date')?.value;
   if (!date) { Toast.show('กรุณาเลือกวันที่', 'error'); return; }
+  if (invMinDate() && date < invMinDate()) { Toast.show('เริ่มใช้ระบบสต๊อกวันที่ 01/11/2569 — บันทึกย้อนหลังก่อนวันนั้นไม่ได้', 'error', 5000); return; }
 
   let receiving = null;
   if (invTab === 'in') {

@@ -667,3 +667,5 @@ tr.draft-row, tr.draft-row td { background: #ffff00 !important; color: #dc2626 !
 tr.draft-row td { border-bottom: 1px solid #e5e500; }
 .draft-tag { background: #dc2626; color: #ffff00; }
 .btn.draft-btn { border-color: #dc2626 !important; color: #dc2626 !important; background: #ffff00 !important; }
+
+.draft-nav-badge { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: #ffff00; color: #dc2626; border: 1px solid #dc2626; font-size: .75rem; font-weight: 700; white-space: nowrap; }

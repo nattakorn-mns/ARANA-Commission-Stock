@@ -28,6 +28,7 @@ const Drafts = {
 
   async refresh() {
     if (this.disabled || typeof currentUser === 'undefined' || !currentUser) return;
+    if (this._user !== currentUser.id) { this._user = currentUser.id; this._loginShown = false; } // เปลี่ยนคนเข้าสู่ระบบ → เตือนใหม่
     try { this.list = await DB.listMyDraftsSupabase(); }
     catch (e) { if (this.missing(e)) this.disabled = true; this.list = []; }
     this.paint();
@@ -48,6 +49,16 @@ const Drafts = {
       pill.classList.toggle('draft-pill-late', this.isLate());
     }
     document.querySelectorAll('[data-draft-card]').forEach(el => { el.outerHTML = this.cardHtml(el.dataset.draftCard); });
+    // ป้ายตัวเลขข้างชื่อเมนู (สรุปยอดของฉัน = ร่างทั้งหมด)
+    document.querySelectorAll('.draft-nav-badge').forEach(b => b.remove());
+    const counts = {};
+    this.list.forEach(d => { const r = (DRAFT_KINDS[d.kind] || {}).route; if (r) counts[r] = (counts[r] || 0) + 1; });
+    if (this.list.length) counts.history = this.list.length;
+    Object.entries(counts).forEach(([route, n]) => {
+      const nav = document.getElementById('nav-' + route);
+      if (nav) nav.insertAdjacentHTML('beforeend', `<span class="draft-nav-badge" title="แบบร่างค้าง">ร่าง ${n}</span>`);
+    });
+    if (this.list.length && !this._loginShown) { this._loginShown = true; this.showAll(true); }
     if (typeof lucide !== 'undefined') lucide.createIcons();
     if (this.list.length && this.isLate() && Date.now() - this._warnedAt > 30 * 60e3) {
       this._warnedAt = Date.now();
@@ -74,8 +85,8 @@ const Drafts = {
       <div class="draft-card-head"><i data-lucide="file-clock"></i> แบบร่างที่ยังไม่ได้ส่ง ${rows.length} ใบ <span>— ส่งได้ถึง 23:59 วันนี้ เที่ยงคืนร่างจะถูกลบ</span></div>
       <div class="table-wrap" style="border:none;"><table><tbody>${this.rowsHtml(rows)}</tbody></table></div></div>`;
   },
-  showAll() {
-    openModal(`<div class="modal" style="max-width:640px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="file-clock"></i>แบบร่างค้าง</h3>
+  showAll(onLogin) {
+    openModal(`<div class="modal" style="max-width:640px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="file-clock"></i>${onLogin ? `คุณมีแบบร่างค้าง ${this.list.length} ใบ` : 'แบบร่างค้าง'}</h3>
       <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
       <div class="modal-body"><p style="margin:0 0 8px;font-size:.85rem;color:var(--gray-600);">ร่างยังไม่ใช่รายการจริง (ยังไม่ตัดสต๊อก บัญชียังไม่เห็น) — ส่งได้ถึง 23:59 วันนี้</p>
       <div class="table-wrap"><table><tbody>${this.rowsHtml(this.list) || '<tr><td>ไม่มีแบบร่างค้าง</td></tr>'}</tbody></table></div></div></div>`);
