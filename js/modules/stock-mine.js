@@ -96,7 +96,8 @@ async function mineDoCancel() {
     else await DB.cancelMyStockRequestSupabase(c.id, reason);
     closeModalDirect();
     Toast.show('ยกเลิกแล้ว ✓', 'success');
-    if (c.type === 'deposit') { summaryDeposits = await DB.getMyDepositsSupabase(); sumRender(); } else mineLoad(mineKind);
+    if (c.type === 'deposit') { summaryDeposits = await DB.getMyDepositsSupabase(); sumRender(); }
+    else if (mineKind) mineLoad(mineKind); else mineSumStockRender();
   } catch (e) { Toast.show('ยกเลิกไม่สำเร็จ: ' + ((e && e.hint) || DB.stockErrorText(e)), 'error', 6000); }
 }
 
@@ -245,4 +246,88 @@ async function mineJoinBill(id) {
   await opdSelectSharedBill(id);
   document.getElementById('opd-sameday-warn')?.remove();
   Toast.show('พ่วงกับบิลเดิมแล้ว ✓', 'success');
+}
+
+// ---------- สรุปยอดของฉัน: แท็บ "ค่ามือ / ค่าคอม" กับ "คลังสินค้า" (คุณออม 29/10) ----------
+let mineSumTab = 'comm';
+let mineSumRows = [];
+if (typeof renderHistory === 'function') {
+  const mineOrigRenderHistory = renderHistory;
+  renderHistory = function (container) {
+    const out = mineOrigRenderHistory.apply(this, arguments);
+    const page = container.querySelector('.summary-preview');
+    const welcome = page && page.querySelector('.summary-welcome');
+    if (welcome && !page.querySelector('.sum-main-tabs')) {
+      welcome.insertAdjacentHTML('afterend', `<div class="sum-main-tabs">
+          <button data-tab="comm" onclick="mineSumSwitch('comm')"><i data-lucide="badge-dollar-sign"></i> ค่ามือ / ค่าคอม</button>
+          <button data-tab="stock" onclick="mineSumSwitch('stock')"><i data-lucide="package"></i> คลังสินค้า</button></div>`);
+      page.insertAdjacentHTML('beforeend', '<div id="sum-stock" class="sum-stock"></div>');
+      mineSumSwitch(mineSumTab);
+    }
+    return out;
+  };
+}
+function mineSumSwitch(tab) {
+  mineSumTab = tab;
+  const page = document.querySelector('.summary-preview');
+  if (!page) return;
+  page.classList.toggle('show-stock', tab === 'stock');
+  page.querySelectorAll('.sum-main-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  if (tab === 'stock') mineSumStockRender();
+  lucide.createIcons();
+}
+async function mineSumStockRender() {
+  const el = document.getElementById('sum-stock');
+  if (!el || mineSumTab !== 'stock') return;
+  const days = { today: 1, week: 7, month: 31, year: 31, all: 31 }[summaryLayoutPeriod] || 7;
+  el.innerHTML = '<div class="glass-card" style="padding:24px;text-align:center;color:var(--gray-400);">กำลังโหลด...</div>';
+  let rows = [];
+  try {
+    const lists = await Promise.all(['out', 'in', 'transfer', 'receive'].map(k => DB.listMyStockRequestsSupabase(k, days)));
+    rows = lists.flat();
+  } catch (e) {
+    el.innerHTML = `<div class="glass-card" style="padding:18px;">${mineMissing(e) ? 'แท็บนี้ต้องรัน SQL ไฟล์ 26 ใน Supabase ก่อน' : mineEsc((e && e.hint) || DB.stockErrorText(e))}</div>`;
+    return;
+  }
+  const today = todayISO();
+  if (summaryLayoutPeriod === 'today') rows = rows.filter(r => r.log_date === today);
+  if (summaryLayoutBranch) rows = rows.filter(r => r.branch === summaryLayoutBranch);
+  rows.sort((a, b) => String(b.at || b.log_date).localeCompare(String(a.at || a.log_date)));
+  mineSumRows = rows; mineRows = rows; mineKind = null;
+  const live = rows.filter(r => !r.cancelled);
+  const count = k => live.filter(r => r.kind === k).length;
+  const unshared = live.filter(r => !r.shared).length;
+  el.innerHTML = `<div class="sum-stock-kpis">
+      ${['out', 'in', 'transfer', 'receive'].map(k => `<div class="sum-stock-kpi kind-${k}"><span>${MINE_WORD[k]}</span><strong>${count(k)}</strong><small>ใบ</small></div>`).join('')}
+      <div class="sum-stock-kpi ${unshared ? 'kpi-miss' : 'kpi-ok'}"><span>ยังไม่แชร์เข้ากลุ่ม</span><strong>${unshared}</strong><small>ใบ</small></div></div>
+    ${rows.length ? `<div class="glass-card" style="padding:0;overflow:hidden;"><div class="table-wrap" style="border:none;border-radius:0;"><table class="sum-stock-table">
+      <thead><tr><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th>สาขา</th><th>สถานะ</th><th title="แชร์เข้ากลุ่ม LINE">แชร์</th><th>จัดการ</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const items = (r.lines || []).filter(l => Number(l.qty) > 0);
+        const names = items.slice(0, 2).map(l => `${mineEsc(l.product_name)} <b>${Number(l.qty)}</b>`).join(', ') + (items.length > 2 ? ` +${items.length - 2}` : '') + ((r.others || []).length ? ` · อื่นๆ ${r.others.length}` : '');
+        return `<tr class="${r.cancelled ? 'mine-cancelled' : ''}">
+          <td class="nowrap" data-label="วันที่">${formatDate(r.log_date)}</td>
+          <td data-label="ประเภท"><span class="mine-kind kind-${r.kind}">${MINE_WORD[r.kind]}</span></td>
+          <td data-label="รายการ">${names || '-'}${r.po_no ? ` <small>(${mineEsc(r.po_no)})</small>` : ''}</td>
+          <td data-label="สาขา">${mineEsc(r.branch || '')}${r.to_branch ? ' → ' + mineEsc(r.to_branch) : ''}${r.from_branch ? ' ← ' + mineEsc(r.from_branch) : ''}</td>
+          <td data-label="สถานะ"><span class="badge ${r.cancelled ? '' : r.status === 'อนุมัติแล้ว' || r.status === 'รับครบ' ? 'badge-approved' : r.status === 'ตีกลับ' ? 'badge-rejected' : 'badge-waiting'}">${mineEsc(r.status || '-')}</span></td>
+          <td data-label="แชร์" class="sum-share-cell">${r.cancelled ? '' : r.shared ? '<span class="share-yes" title="แชร์แล้ว">✓</span>' : '<span class="share-no" title="ยังไม่แชร์">✗</span>'}</td>
+          <td class="nowrap" data-label="จัดการ"><button class="btn btn-ghost btn-icon btn-sm" title="ดูรายการและรูป" onclick="mineView('${r.request_id}','${r.kind}')"><i data-lucide="eye"></i></button>
+            ${r.cancelled ? '' : `<button class="btn btn-ghost btn-sm" onclick="mineShare('${r.request_id}')"><i data-lucide="send"></i> แชร์</button>`}
+            ${r.editable ? `<button class="btn btn-ghost btn-sm" onclick="mineEdit('${r.request_id}')"><i data-lucide="pencil"></i> แก้ไข</button>
+            <button class="btn btn-ghost btn-sm ntf-danger" onclick="mineAskCancel('stock','${r.request_id}')"><i data-lucide="x-circle"></i> ยกเลิก</button>` : ''}</td></tr>`;
+      }).join('')}</tbody></table></div></div>`
+    : '<div class="empty-state"><i data-lucide="inbox"></i><h4>ยังไม่มีรายการคลังสินค้าในช่วงนี้</h4><p>แสดงย้อนหลังได้สูงสุด 31 วัน</p></div>'}`;
+  lucide.createIcons();
+}
+function mineView(id, kind) {
+  const r = (mineRows || []).find(x => x.request_id === id && x.kind === kind);
+  if (!r) return;
+  openModal(`<div class="modal" style="max-width:560px;"><div class="modal-header"><h3 class="modal-title"><i data-lucide="package"></i>${MINE_WORD[r.kind]} ${formatDate(r.log_date)}</h3>
+      <button class="modal-close btn btn-ghost btn-icon btn-sm" onclick="closeModalDirect()"><i data-lucide="x"></i></button></div>
+    <div class="modal-body"><div class="table-wrap"><table><thead><tr><th>สินค้า</th><th class="num">จำนวน</th><th>หน่วย</th></tr></thead>
+      <tbody>${(r.lines || []).map(l => `<tr><td>${mineEsc(l.product_name)}</td><td class="num">${Number(l.qty)}</td><td>${mineEsc(l.unit || '')}</td></tr>`).join('')}
+      ${(r.others || []).map(o => `<tr><td>${mineEsc(o.name)} <small>(อื่นๆ)</small></td><td class="num">${Number(o.qty)}</td><td>${mineEsc(o.unit || '')}</td></tr>`).join('')}</tbody></table></div>
+      <div class="photo-thumbnails" style="margin-top:10px;">${(r.images || []).map(m => `<img data-photo="${mineEsc(m)}" data-photo-thumb="1" class="photo-thumb" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="Photos.open('${mineEsc(m)}')">`).join('')}</div></div></div>`);
+  lucide.createIcons();
 }

@@ -25,11 +25,11 @@ function sumRows() {
     const fee = sv.reduce((n,x) => n + Number(x.commission || 0), 0), status = b.status || 'รอตรวจสอบ';
     const programs = sv.map(x => x.programName || x.programCode).filter(Boolean);
     // The service fee belongs to the bill, so it gets one row of its own; sale rows never repeat it.
-    if (sv.length || !sl.length) rows.push({ id:b.id, date:b.date, branch:b.branch, customer:b.customerName, program:programs.join(', ') || '-', source:'ค่ามือ', fee, pct:null, base:0, earned:0, full:0, status });
+    if (sv.length || !sl.length) rows.push({ es:b.editState, id:b.id, date:b.date, branch:b.branch, customer:b.customerName, program:programs.join(', ') || '-', source:'ค่ามือ', fee, pct:null, base:0, earned:0, full:0, status });
     sl.forEach(x => {
       const base = Number(x.commissionBase || x.amountPaid || 0), earned = Number(x.commissionAmt || 0);
       const pct = x.commissionPct != null && x.commissionPct !== '' ? Number(x.commissionPct) : (base ? Math.round(earned / base * 10000) / 100 : null);
-      rows.push({ id:b.id, date:b.date, branch:b.branch, customer:b.customerName, program:x.newProgram || programs.join(', ') || '-', source:x.type === 'upsell' ? 'อัพเซลส์' : x.type === 'crosssell' ? 'ขายเพิ่ม' : 'ขายสินค้า', fee:0, pct, base, earned, full:Number(x.amountPaid || x.commissionBase || 0), status });
+      rows.push({ es:b.editState, id:b.id, date:b.date, branch:b.branch, customer:b.customerName, program:x.newProgram || programs.join(', ') || '-', source:x.type === 'upsell' ? 'อัพเซลส์' : x.type === 'crosssell' ? 'ขายเพิ่ม' : 'ขายสินค้า', fee:0, pct, base, earned, full:Number(x.amountPaid || x.commissionBase || 0), status });
     });
   });
   return rows.concat(sumDepositRows());
@@ -55,10 +55,20 @@ function sumRender() {
   set('sum-fee',total('fee')); setOk('sum-fee-ok',total('fee',null,approved));
   [['sum-upsell','อัพเซลส์'],['sum-cross','ขายเพิ่ม'],['sum-product','ขายสินค้า'],['sum-deposit','มัดจำทางแชท']].forEach(([id,s]) => { set(id,total('earned',bySource(s))); setOk(id+'-ok',total('earned',bySource(s),approved)); });
   set('sum-total-fee',total('fee')); set('sum-total-comm',total('earned')); set('sum-perf-upsell',total('full',bySource('อัพเซลส์'))); set('sum-perf-cross',total('full',bySource('ขายเพิ่ม'))); set('sum-perf-product',total('full',bySource('ขายสินค้า'))); set('sum-perf-total',total('full'));
-  el.innerHTML = rows.length ? `<div class="summary-table-scroll"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ชื่อลูกค้า</th><th>ชื่อโปรแกรม</th><th>ค่ามือ</th><th>คอมมิชชั่น</th><th>คิด %</th><th>ยอดที่ได้</th><th>%ค่าคอมที่ได้</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${rows.map(x => `<tr><td data-label="วันที่">${sumDate(x.date)}</td><td data-label="สาขา">${sumEsc(x.branch)}</td><td data-label="ชื่อลูกค้า"><strong>${sumEsc(x.customer)}</strong></td><td data-label="ชื่อโปรแกรม"><small>${sumEsc(x.program)}</small></td><td data-label="ค่ามือ" class="num">${x.fee ? sumFmt(x.fee) : '—'}</td><td data-label="คอมมิชชั่น"><span class="summary-type">${sumEsc(x.source)}</span></td><td data-label="คิด %" class="num">${x.pct == null ? '—' : sumEsc(x.pct + '%')}</td><td data-label="ยอดที่ได้" class="num">${x.source === 'ค่ามือ' ? '—' : sumFmt(x.base)}</td><td data-label="%ค่าคอมที่ได้" class="num emphasis">${x.source === 'ค่ามือ' ? '—' : sumFmt(x.earned)}</td><td data-label="สถานะ"><span class="summary-status ${sumStatusClass(x.status)}">${sumEsc(x.status)}</span></td><td>${x.kind === 'deposit' ? (typeof mineDepositActions === 'function' ? mineDepositActions(x.id) : '') : `<button class="btn btn-ghost btn-icon btn-sm" onclick="histViewBill('${x.id}')"><i data-lucide="eye"></i></button>`}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty-state"><i data-lucide="inbox"></i><h4>ยังไม่มีรายการในตัวกรองนี้</h4><p>ลองเปลี่ยนช่วงเวลา สาขา หรือสถานะ</p></div>`;
+  const seenBills = new Set();
+  el.innerHTML = rows.length ? `<div class="summary-table-scroll"><table><thead><tr><th>วันที่</th><th>สาขา</th><th>ชื่อลูกค้า</th><th>ชื่อโปรแกรม</th><th>ค่ามือ</th><th>คอมมิชชั่น</th><th>คิด %</th><th>ยอดที่ได้</th><th>%ค่าคอมที่ได้</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${rows.map(x => `<tr><td data-label="วันที่">${sumDate(x.date)}</td><td data-label="สาขา">${sumEsc(x.branch)}</td><td data-label="ชื่อลูกค้า"><strong>${sumEsc(x.customer)}</strong></td><td data-label="ชื่อโปรแกรม"><small>${sumEsc(x.program)}</small></td><td data-label="ค่ามือ" class="num">${x.fee ? sumFmt(x.fee) : '—'}</td><td data-label="คอมมิชชั่น"><span class="summary-type">${sumEsc(x.source)}</span></td><td data-label="คิด %" class="num">${x.pct == null ? '—' : sumEsc(x.pct + '%')}</td><td data-label="ยอดที่ได้" class="num">${x.source === 'ค่ามือ' ? '—' : sumFmt(x.base)}</td><td data-label="%ค่าคอมที่ได้" class="num emphasis">${x.source === 'ค่ามือ' ? '—' : sumFmt(x.earned)}</td><td data-label="สถานะ"><span class="summary-status ${sumStatusClass(x.status)}">${sumEsc(x.status)}</span></td><td>${x.kind === 'deposit' ? (typeof mineDepositActions === 'function' ? mineDepositActions(x.id) : '') : `<div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-icon btn-sm" title="ดูรายละเอียด" onclick="histViewBill('${x.id}')"><i data-lucide="eye"></i></button>${sumEditButton(x, seenBills)}</div>`}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty-state"><i data-lucide="inbox"></i><h4>ยังไม่มีรายการในตัวกรองนี้</h4><p>ลองเปลี่ยนช่วงเวลา สาขา หรือสถานะ</p></div>`;
   lucide.createIcons();
 }
-function sumPeriod(v) { summaryLayoutPeriod = v; sumRender(); }
+// ขอแก้ไขค่ามือ/ค่าคอมจากเมนูนี้ได้เลย (คุณออม 29/10) — ปุ่มเดียวต่อบิล บนแถวแรกของบิลนั้น
+function sumEditButton(x, seen) {
+  if (seen.has(x.id)) return '';
+  seen.add(x.id);
+  const es = x.es;
+  if (!es || !es.has_own_lines) return '';
+  if (es.request_status === 'รออนุมัติ') return '<span class="badge badge-pending" title="แก้ไขแล้ว รอคุณออมอนุมัติ">รออนุมัติแก้ไข</span>';
+  return `<button class="btn btn-ghost btn-sm" onclick="histDoEditBill('${x.id}')"><i data-lucide="pencil"></i> แก้ไข</button>`;
+}
+function sumPeriod(v) { summaryLayoutPeriod = v; sumRender(); if (typeof mineSumStockRender === 'function') mineSumStockRender(); }
 function sumBranch(v) { summaryLayoutBranch = v; sumRender(); }
 function sumTab(v,b) { summaryLayoutStatus = v; document.querySelectorAll('#sum-layout-tabs button').forEach(x => x.classList.remove('active')); b.classList.add('active'); sumRender(); }
 renderHistory = function(container) {

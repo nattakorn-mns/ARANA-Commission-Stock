@@ -679,3 +679,23 @@ tr.draft-row td { border-bottom: 1px solid #e5e500; }
 tr.mine-cancelled td { color: var(--gray-500); text-decoration: line-through; }
 tr.mine-row-miss td { background: #fff1f2; }
 .opd-reason-chips { margin-top: 6px; }
+
+/* สรุปยอดของฉัน: แท็บค่ามือ/ค่าคอม | คลังสินค้า */
+.sum-main-tabs { display: flex; gap: 8px; margin: 0 0 14px; flex-wrap: wrap; }
+.sum-main-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 999px; border: 1px solid var(--line, #ece3e7); background: #fff; font-weight: 700; color: var(--ink-2, #5c4a54); cursor: pointer; font-size: 1rem; }
+.sum-main-tabs button.active { background: var(--brand, #b83e6b); border-color: var(--brand, #b83e6b); color: #fff; }
+.sum-main-tabs svg { width: 18px; height: 18px; }
+.sum-stock { display: none; }
+.summary-preview.show-stock > :not(.summary-welcome):not(.sum-main-tabs):not(.sum-stock):not([data-draft-card]) { display: none !important; }
+.summary-preview.show-stock .sum-stock { display: block; }
+.sum-stock-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.sum-stock-kpi { background: #fff; border: 1px solid var(--line, #ece3e7); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; }
+.sum-stock-kpi strong { font-size: 1.5rem; }
+.sum-stock-kpi.kind-out { border-top: 3px solid #f97316; } .sum-stock-kpi.kind-in { border-top: 3px solid #3b82f6; }
+.sum-stock-kpi.kind-transfer, .sum-stock-kpi.kind-receive { border-top: 3px solid #8b5cf6; }
+.sum-stock-kpi.kpi-miss { border-top: 3px solid #dc2626; color: #dc2626; } .sum-stock-kpi.kpi-ok { border-top: 3px solid #16a34a; }
+.mine-kind { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.mine-kind.kind-out { background: #ffedd5; color: #c2410c; } .mine-kind.kind-in { background: #dbeafe; color: #1d4ed8; }
+.mine-kind.kind-transfer, .mine-kind.kind-receive { background: #ede9fe; color: #6d28d9; }
+.sum-share-cell { text-align: center; }
+.share-yes { color: #16a34a; font-size: 1.3rem; font-weight: 800; } .share-no { color: #dc2626; font-size: 1.3rem; font-weight: 800; }
