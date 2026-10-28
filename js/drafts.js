@@ -98,7 +98,7 @@ const Drafts = {
     try {
       const id = this.current && this.current.kind === kind ? this.current.id : null;
       const r = await DB.saveStaffDraftSupabase({ p_id: id, p_kind: kind, p_branch_name: payload.branch || currentBranch, p_title: title, p_payload: payload });
-      this.current = { id: r.id, kind };
+      this.current = { ...(this.current && this.current.kind === kind ? this.current : {}), id: r.id, kind };
       Toast.show('บันทึกร่างแล้ว ✓ กลับมาทำต่อได้ถึง 23:59 วันนี้ (ยังไม่ส่งให้บัญชี)', 'success', 5000);
       await this.refresh();
       return true;

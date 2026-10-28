@@ -669,3 +669,13 @@ tr.draft-row td { border-bottom: 1px solid #e5e500; }
 .btn.draft-btn { border-color: #dc2626 !important; color: #dc2626 !important; background: #ffff00 !important; }
 
 .draft-nav-badge { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: #ffff00; color: #dc2626; border: 1px solid #dc2626; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+
+/* ใบของฉัน + การแชร์ (SQL ไฟล์ 26) */
+.mine-card { padding: 0; margin-top: 16px; overflow: hidden; }
+.mine-head { padding: 10px 14px; font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line, #ece3e7); }
+.mine-head svg { width: 18px; height: 18px; }
+.mine-shared { color: var(--green-600, #16a34a); font-weight: 600; white-space: nowrap; }
+.mine-unshared { color: #dc2626; font-weight: 700; white-space: nowrap; }
+tr.mine-cancelled td { color: var(--gray-500); text-decoration: line-through; }
+tr.mine-row-miss td { background: #fff1f2; }
+.opd-reason-chips { margin-top: 6px; }

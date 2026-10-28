@@ -337,6 +337,13 @@ const DB = {
   // ดึงข้อมูลจาก ERP (SQL ไฟล์ 09)
   async adminErpSyncStatusSupabase() { return await this._positionRpc('admin_erp_sync_status'); },
   async adminErpSyncNowSupabase() { return await this._positionRpc('admin_erp_sync_now'); },
+  // ใบของฉัน / ยกเลิกเอง / ติดตามการแชร์ (SQL ไฟล์ 26)
+  async listMyStockRequestsSupabase(kind) { return (await this._positionRpc('list_my_stock_requests', { p_kind: kind, p_days: 7 })) || []; },
+  async cancelMyStockRequestSupabase(id, reason) { return await this._positionRpc('cancel_my_stock_request', { p_request_id: id, p_reason: reason }); },
+  async markStockSharedSupabase(id, kind, method) { await this._positionRpc('mark_stock_shared', { p_request_id: id, p_kind: kind, p_method: method }); },
+  async getMyDepositSupabase(id) { return await this._positionRpc('get_my_deposit', { p_id: id }); },
+  async cancelMyDepositSupabase(id, reason) { await this._positionRpc('cancel_my_deposit', { p_id: id, p_reason: reason }); },
+  async listShareReportSupabase(from, to, branch) { return (await this._positionRpc('list_share_report', { p_from: from, p_to: to, p_branch: branch || null })) || []; },
   // บันทึกร่าง (SQL ไฟล์ 25)
   async listMyDraftsSupabase() { return (await this._positionRpc('list_my_drafts')) || []; },
   async saveStaffDraftSupabase(p) { return await this._positionRpc('save_staff_draft', p); },

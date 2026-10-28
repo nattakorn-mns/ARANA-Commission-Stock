@@ -368,7 +368,7 @@ async function invSubmit() {
       : `บันทึกสำเร็จ — ${count} รายการ ⏳ รอบัญชีอนุมัติ${invTab === 'in' ? ' (สต็อกจะเพิ่มเมื่ออนุมัติ)' : ' (สต็อกจะถูกตัดเมื่ออนุมัติ)'}`, 'success', 5000);
     // แชร์เข้ากลุ่ม LINE ของสาขา (เบิกใช้ / โอนออก / รับเข้า)
     const share = res && !res.duplicate && typeof stockShareOffer === 'function'
-      ? { kind: invTab, count, date, branch: currentBranch, toBranch, poNo: invTab === 'in' ? invPoNo : null, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [] } : null;
+      ? { kind: invTab, count, date, branch: currentBranch, toBranch, poNo: invTab === 'in' ? invPoNo : null, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [], requestId: invRequestId } : null;
     if (invTab === 'in') { invPoNo = ''; invPoRows = []; invOthers = []; await invLoadPos(); }
     invReset();
     if (share) stockShareOffer(share);

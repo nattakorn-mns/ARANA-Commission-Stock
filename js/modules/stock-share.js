@@ -4,6 +4,7 @@
  */
 const STOCK_SHARE_WORD = { out: 'ส่งเบิก', transfer: 'โอนออก', in: 'รับเข้า', receive: 'รับโอน' };
 let stockShareText = '';
+let stockShareRef = null; // { requestId, kind } — บันทึกว่ากดแชร์แล้ว (SQL ไฟล์ 26)
 
 function stockShareDate(iso) {
   const [y, m, d] = String(iso || todayISO()).slice(0, 10).split('-');
@@ -16,7 +17,8 @@ function stockShareName() {
 
 // เรียกหลังบันทึกสำเร็จ — markers = รูปที่เก็บใน Storage ของใบนี้ (ถ้าไม่มี ส่งเฉพาะข้อความ)
 // รูปแบบข้อความตั้งเองได้ที่ ผู้ดูแลระบบ → แจ้งเตือน → รูปแบบข้อความ (SQL ไฟล์ 23)
-async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch, poNo, markers }) {
+async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch, poNo, markers, requestId }) {
+  stockShareRef = requestId ? { requestId, kind } : null;
   const tpl = notifyTemplate('share_' + (STOCK_SHARE_WORD[kind] ? kind : 'out'));
   const vars = { วันที่: stockShareDate(date), สาขา: branch || currentBranch, ชื่อ: stockShareName(), จำนวน: String(count),
     ไปสาขา: toBranch || '', จากสาขา: fromBranch || '', เลขPO: poNo || '' };
@@ -48,8 +50,14 @@ async function stockShareOffer({ kind, count, date, branch, toBranch, fromBranch
   if (btn) btn.disabled = false;
 }
 
+function stockShareMark(method) {
+  const ref = stockShareRef;
+  if (ref && DB.markStockSharedSupabase) DB.markStockSharedSupabase(ref.requestId, ref.kind, method)
+    .then(() => { if (typeof mineLoad === 'function' && mineKind === ref.kind) mineLoad(ref.kind); }).catch(e => console.warn('mark share', e));
+}
 async function stockShareSend() {
   const text = stockShareText;
+  stockShareMark('line');
   try {
     if (navigator.share) { await navigator.share({ text }); closeModalDirect(); return; }
   } catch (e) {
@@ -60,6 +68,7 @@ async function stockShareSend() {
 }
 
 async function stockShareCopy() {
+  stockShareMark('copy');
   try { await navigator.clipboard.writeText(stockShareText); Toast.show('คัดลอกแล้ว ✓ วางในกลุ่ม LINE ได้เลย', 'success'); }
   catch (e) { const pre = document.getElementById('stock-share-preview'); if (pre) { pre.textContent = stockShareText; const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } }
 }

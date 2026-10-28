@@ -118,7 +118,7 @@ async function trfSubmit() {
   await renderTransferReceive(getPage());
   // แชร์เข้ากลุ่ม LINE รับเข้า/รับโอน ของสาขา
   if (typeof stockShareOffer === 'function') stockShareOffer({ kind: 'receive', count: t.items.length, date: todayISO(), branch: currentBranch,
-    fromBranch: t.from_branch, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [] });
+    fromBranch: t.from_branch, markers: (typeof Photos !== 'undefined' && Photos.lastStored) || [], requestId: t.request_id });
 }
 
 // ── ต้นทาง: ใบโอนที่บัญชีส่งกลับให้แก้ (แสดงบนหน้า "เบิกโอนข้ามสาขา") ──
