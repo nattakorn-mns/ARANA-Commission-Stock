@@ -41,6 +41,10 @@ await check('27 runs twice; checks 6 / 0 / 2', async () => {
   const r = (await db.exec(sql27)).at(-1).rows[0];
   assert.deepEqual(Object.values(r).map(Number), [6, 0, 2]);
 });
+await check('28 + 29 (diff in ฉบับแก้ไข) run after 27', async () => {
+  for (const f of ['28_สรุปสิ้นวันเฉพาะคนที่ยังไม่ยืนยันยอด.sql', '29_สรุปฉบับแก้ไขบอกส่วนต่าง.sql', '29_สรุปฉบับแก้ไขบอกส่วนต่าง.sql'])
+    await db.exec(fs.readFileSync(SQL_1012 + f, 'utf8'));
+});
 
 let billId;
 await check('confirm: first press sends the summary; again with no change sends nothing; new item → ฉบับแก้ไข with numbers', async () => {
@@ -51,7 +55,7 @@ await check('confirm: first press sends the summary; again with no change sends 
   assert.deepEqual(await confirm('front'), ['unchanged']);
   await bill('front', { hn: 'HN0002', services: [{ program_code: 'PG1', price: 1, commission: 50 }] });
   assert.deepEqual(await confirm('front'), ['resent']);
-  assert.match((await msgs('staff_addendum')).at(-1), /^\[สรุปรายวัน — ฉบับแก้ไข\]\n[\s\S]*◾ค่ามือ: 150\n/);
+  assert.match((await msgs('staff_addendum')).at(-1), /^\[สรุปรายวัน — ฉบับแก้ไข\]\n[\s\S]*◾ค่ามือ: 150 \(\+50\)\n◾อัพเซลล์: 0\n/);
   assert.equal((await q1(`select public.my_daily_confirm('front') r`)).r[0].status, 'ส่งแล้ว');
 });
 
@@ -69,7 +73,7 @@ await check('edit after confirming: edited lines waiting → "[ขอแก้�
   await q1(`select public.decide_bill_edit('acct', $1, true)`, [req]);
   const fixed = (await msgs('staff_addendum')).at(-1);
   assert.equal((await msgs('staff_addendum')).length, before + 1);
-  assert.match(fixed, /◾ค่ามือ: 350\n◾อัพเซลล์: 0\n◾ขายเพิ่ม: 1,000/);
+  assert.match(fixed, /◾ค่ามือ: 350 \(\+200\)\n◾อัพเซลล์: 0\n◾ขายเพิ่ม: 1,000 \(\+1,000\)/);
   assert.match((await msgs('edit_approved')).at(-1), /⛔หมายเหตุ: ลูกค้าเพิ่ม \(ขอแก้: ใส่ยอดผิด\)/);
 });
 
