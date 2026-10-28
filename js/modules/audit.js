@@ -13,6 +13,7 @@ function renderAudit(container) {
     ${canStock ? AUD_STOCK_TABS.map(t => `<button class="tab-btn ${auditTab===t.tab?'active':''}" id="aud-tab-${t.tab}" onclick="audSwitch('${t.tab}')"><i data-lucide="${t.icon}"></i>${t.label}<span class="badge badge-pending" id="aud-count-${t.kind}" style="display:none;margin-left:6px;padding:1px 8px;"></span></button>`).join('') : ''}
     ${audCanAccessEditRequests() ? `<button class="tab-btn" id="aud-tab-edits" onclick="audSwitch('edits')"><i data-lucide="file-pen-line"></i>คำขอแก้ไขบิล</button>` : ''}
     ${['Admin','Audit'].includes(currentUser.role) ? `<button class="tab-btn" id="aud-tab-compare" onclick="audSwitch('compare')"><i data-lucide="git-compare"></i>เทียบเบิกระบบ ARANA</button><button class="tab-btn" id="aud-tab-log" onclick="audSwitch('log')"><i data-lucide="clock"></i>ประวัติการอนุมัติ</button>` : ''}
+    <button class="tab-btn" id="aud-tab-drafts" onclick="audSwitch('drafts')"><i data-lucide="file-clock"></i>แบบร่างค้าง</button>
     ${canStock ? `<button class="tab-btn" id="aud-tab-resync" onclick="audSwitch('resync')"><i data-lucide="refresh-ccw"></i>ตั้งยอดตาม ERP</button>` : ''}
   </div><div id="aud-body"></div></div>`;
   audRender(); lucide.createIcons();
@@ -38,7 +39,8 @@ function audRender() {
   else if (auditTab.startsWith('stock-')) audRenderStock(body, auditTab.slice(6));
   else if (auditTab === 'edits') audRenderEditRequests(body);
   else if (auditTab === 'compare') audRenderCompare(body);
-  else if (auditTab === 'resync') rsyRender(body); else audRenderLog(body);
+  else if (auditTab === 'resync') rsyRender(body);
+  else if (auditTab === 'drafts') draftsRenderAudit(body); else audRenderLog(body);
 }
 // ── TAB 1: Commission Audit ─────────────────────────────────────
 async function audRenderOPD(body) {

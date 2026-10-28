@@ -74,8 +74,8 @@ function trfOpenCount(requestId) {
     <div class="opd-section">
       <div class="opd-section-head always-open"><h3><i data-lucide="camera"></i>รูปของที่รับ <span class="required">*</span></h3><span class="opd-section-count" id="trf-photo-count">0</span></div>
       <div class="opd-section-body">
-        <div class="photo-upload-area" id="trf-photo-area" onclick="document.getElementById('trf-photo-input').click()"><i data-lucide="camera"></i><p>ถ่ายรูปของที่ได้รับ<br><span style="font-size:.75rem;">อย่างน้อย 1 รูป</span></p></div>
-        <input id="trf-photo-input" type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="trfHandlePhotos(event)" />
+        <div class="photo-upload-area" id="trf-photo-area" onclick="document.getElementById('trf-photo-input').click()"><i data-lucide="camera"></i><p>ถ่ายหรือแนบรูปของที่ได้รับ<br><span style="font-size:.75rem;">อย่างน้อย 1 รูป · รูปที่แนบต้องมีวันที่กำกับ</span></p></div>
+        <input id="trf-photo-input" type="file" accept="image/*" multiple style="display:none;" onchange="trfHandlePhotos(event)" />
         <div class="photo-thumbnails" id="trf-thumbs"></div>
         <div class="form-group" style="margin-top:12px;"><label class="form-label">หมายเหตุ (ถ้ามี)</label><textarea id="trf-note" class="form-input" rows="2" placeholder="เช่น กล่องบุบ 1 กล่อง"></textarea></div>
       </div>

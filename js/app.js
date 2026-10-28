@@ -209,6 +209,7 @@ async function showApp() {
 
   // Build nav
   buildNav();
+  if (typeof Drafts !== 'undefined') Drafts.refresh(); // บันทึกร่างค้าง (SQL ไฟล์ 25)
 
   // Default route (ลิงก์คลังรูปที่คัดลอกไปวางใน LINE → เปิดหน้าคลังรูป)
   navigate(window._galleryLink && canAccess('gallery') ? 'gallery' : 'opd');

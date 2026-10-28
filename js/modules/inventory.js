@@ -120,7 +120,7 @@ function invRender() {
     </div>
     <div class="photo-upload-area" id="inv-photo-area" onclick="document.getElementById('inv-photo-input').click()">
       <i data-lucide="camera"></i>
-      <p>คลิกแนบรูปภาพใบเบิก / ใบส่งสินค้า<br><span style="font-size:0.75rem;">อย่างน้อย 1 ภาพ (บังคับ)</span></p>
+      <p>ถ่ายหรือแนบรูปภาพใบเบิก / ใบส่งสินค้า<br><span style="font-size:0.75rem;">อย่างน้อย 1 ภาพ (บังคับ) · รูปที่แนบต้องมีวันที่กำกับ</span></p>
     </div>
     <input id="inv-photo-input" type="file" multiple accept="image/*" style="display:none;" onchange="invHandlePhotos(event)" />
     <div class="photo-thumbnails" id="inv-thumbs" style="margin-top:10px;"></div>
