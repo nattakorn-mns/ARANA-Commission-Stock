@@ -78,12 +78,15 @@ await check('no per-item ตีกลับ message; 23:30 day-end lists returns
   const b2 = await bill('other');
   await db.exec(`update bills set commission_status = 'ตีกลับ', commission_audit_date = now(), commission_audit_note = 'รูปไม่ชัด' where id = '${b2}'`);
   assert.equal((await msgs('rejected')).length, before);
+  assert.match((await q1(`select private.day_end_returns(current_date, 'comm') t`)).t, /▪ แม่สอด: สาขาอื่น \(ซี\) 1 รายการ/);
+  // SQL 28: Telegram ส่งแค่รายชื่อคนที่ยังไม่กดยืนยันยอด
+  const s28 = fs.readFileSync(SQL_1012 + '28_สรุปสิ้นวันเฉพาะคนที่ยังไม่ยืนยันยอด.sql', 'utf8');
+  await db.exec(s28);
+  assert.equal(Number(Object.values((await db.exec(s28)).at(-1).rows[0])[0]), 1);
   assert.equal((await q1(`select public.admin_notify_build('acct', 'day_end', null) n`)).n, 1);
   const t = (await msgs('day_end')).at(-1);
-  assert.match(t, /^📋 สรุปสิ้นวัน /);
-  assert.match(t, /↩️ ตีกลับ ยังค้างแก้ไข \(ค่ามือ\/ค่าคอม\/มัดจำ\)\n▪ แม่สอด: สาขาอื่น \(ซี\) 1 รายการ/);
-  assert.match(t, /⏳ ยังไม่กดยืนยันยอดวันนี้\n▪ แม่สอด: สาขาอื่น \(ซี\)$/);
-  assert.doesNotMatch(t, /พนักงาน \(เอ\)/, 'confirmed person not listed');
+  assert.match(t, /^📋 สรุปสิ้นวัน .*\n⏳ ยังไม่กดยืนยันยอด ส่งสรุปรายวัน\n▪ แม่สอด: สาขาอื่น \(ซี\)$/);
+  assert.doesNotMatch(t, /ตีกลับ|พนักงาน \(เอ\)/, 'no returns; confirmed person not listed');
 });
 
 await check('stock daily (LINE) carries its own returns; self-cancelled ones are not counted', async () => {

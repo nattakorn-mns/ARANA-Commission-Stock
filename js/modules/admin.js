@@ -1181,7 +1181,7 @@ function ntfTopicsHtml() {
     <span style="font-weight:700;color:var(--gray-700);">สร้างสรุปตอนนี้:</span>
     <input type="date" class="filter-input" id="ntf-build-date" value="${todayISO()}">
     <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('stock_daily')">สรุปสต็อก</button>
-    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('day_end')">สรุปสิ้นวัน (ตีกลับ / ยังไม่ยืนยันยอด)</button>
+    <button class="btn btn-ghost btn-sm" data-write onclick="admNotifyBuild('day_end')">สรุปสิ้นวัน (ยังไม่ยืนยันยอด)</button>
     <span style="font-size:.78rem;color:var(--gray-500);">สรุปวันเดียวกันสร้างซ้ำไม่ได้ (กันส่งซ้ำ)</span>
   </div>`;
 }

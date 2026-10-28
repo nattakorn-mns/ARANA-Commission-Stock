@@ -94,7 +94,7 @@ if (typeof Drafts !== 'undefined') {
 function mineDepositActions(id) {
   const d = (summaryDeposits || []).find(x => x.id === id);
   if (!d || d.payment_status !== 'รอตรวจสอบ' || d.linked_bill_id || d.commission_status === 'ยกเลิก') return '';
-  return rowMenu([['pencil', 'แก้ไข', `mineEditDeposit('${id}')`], ['x-circle', 'ยกเลิก', `mineAskCancel('deposit','${id}')`, 'danger']]);
+  return rowMenu([['pencil', 'ขอแก้ไข', `mineEditDeposit('${id}')`], ['x-circle', 'ยกเลิก', `mineAskCancel('deposit','${id}')`, 'danger']]);
 }
 
 // เมนู ⋯ ท้ายแถว (คุณออม 29/10): กดแล้วเลือก ดู / แชร์ / แก้ไข / ยกเลิก — ตารางไม่รก
@@ -301,7 +301,7 @@ async function mineSumStockRender() {
           <td data-label="จัดการ">${rowMenu([
             ['eye', 'ดูรายการและรูป', `mineView('${r.request_id}','${r.kind}')`],
             !r.cancelled && ['send', 'แชร์เข้ากลุ่มอีกครั้ง', `mineShare('${r.request_id}')`],
-            r.editable && ['pencil', 'แก้ไข', `mineEdit('${r.request_id}')`],
+            r.editable && ['pencil', 'ขอแก้ไข', `mineEdit('${r.request_id}')`],
             r.editable && ['x-circle', 'ยกเลิก', `mineAskCancel('stock','${r.request_id}')`, 'danger']])}</td></tr>`;
       }).join('')}</tbody></table></div></div>`
     : '<div class="empty-state"><i data-lucide="inbox"></i><h4>ยังไม่มีรายการคลังสินค้าในช่วงนี้</h4><p>แสดงย้อนหลังได้สูงสุด 31 วัน</p></div>'}`;

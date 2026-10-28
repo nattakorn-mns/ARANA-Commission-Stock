@@ -67,7 +67,7 @@ function sumBillMenu(x, seen) {
   const pending = es.request_status === 'รออนุมัติ';
   const canEdit = first && es.has_own_lines && !pending;
   const menu = typeof rowMenu === 'function'
-    ? rowMenu([['eye', 'ดูรายละเอียด', `histViewBill('${x.id}')`], canEdit && ['pencil', 'แก้ไขค่ามือ/ค่าคอม', `histDoEditBill('${x.id}')`]])
+    ? rowMenu([['eye', 'ดูรายละเอียด', `histViewBill('${x.id}')`], canEdit && ['pencil', 'ขอแก้ไขค่ามือ/ค่าคอม', `histDoEditBill('${x.id}')`]])
     : `<button class="btn btn-ghost btn-icon btn-sm" onclick="histViewBill('${x.id}')"><i data-lucide="eye"></i></button>`;
   return (first && pending ? '<span class="badge badge-pending" title="แก้ไขแล้ว รอคุณออมอนุมัติ" style="margin-right:4px;">รออนุมัติแก้ไข</span>' : '') + menu;
 }

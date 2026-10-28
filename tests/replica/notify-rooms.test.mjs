@@ -129,6 +129,7 @@ await check('browser renderer (notifyFill) = database renderer (tpl_fill); share
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(REPO + '/js/notify-templates.js', 'utf8') + '\n;this.NOTIFY_TPL_META = NOTIFY_TPL_META; this.notifyFill = notifyFill; this.notifyTemplate = notifyTemplate;', ctx);
   await db.exec(fs.readFileSync(SQL_1012 + '27_ยืนยันยอดสรุปรายวัน-สรุปสิ้นวัน-ตีกลับ.sql', 'utf8'));
+  await db.exec(fs.readFileSync(SQL_1012 + '28_สรุปสิ้นวันเฉพาะคนที่ยังไม่ยืนยันยอด.sql', 'utf8'));
   const defaults = (await q1(`select public.admin_notify_template_defaults('acct') r`)).r;
   for (const m of ctx.NOTIFY_TPL_META) {
     const tpl = m.group === 'bot' ? defaults[m.kind] : ctx.notifyTemplate(m.kind);
